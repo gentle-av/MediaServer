@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Медиа проводник /mnt/video</title>
+    <!-- Font Awesome для иконок -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
@@ -11,6 +12,8 @@
             margin: 0;
             padding: 0;
         }
+
+        /* Gruvbox Dark Theme */
         :root {
             --bg0: #282828;
             --bg1: #3c3836;
@@ -42,12 +45,16 @@
             margin: 0;
             padding: 0;
         }
+
+        /* Основной контейнер */
         .main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
             position: relative;
         }
+
+        /* Кнопка меню */
         .menu-button {
             position: fixed;
             top: 20px;
@@ -67,12 +74,15 @@
             justify-content: center;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
+
         .menu-button:hover {
             background: var(--bg2);
             color: var(--yellow);
             border-color: var(--yellow);
             transform: scale(1.05);
         }
+
+        /* Левая панель (скрыта по умолчанию) */
         .left-panel {
             width: 280px;
             background: var(--bg1);
@@ -88,9 +98,11 @@
             transform: translateX(-100%);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
         }
+
         .left-panel.visible {
             transform: translateX(0);
         }
+
         .panel-header {
             padding: 16px;
             background: var(--bg2);
@@ -99,6 +111,7 @@
             justify-content: space-between;
             align-items: center;
         }
+
         .panel-header h3 {
             color: var(--yellow);
             font-size: 1.1rem;
@@ -106,6 +119,7 @@
             align-items: center;
             gap: 8px;
         }
+
         .btn-close-panel {
             background: none;
             border: none;
@@ -119,10 +133,12 @@
             justify-content: center;
             border-radius: 4px;
         }
+
         .btn-close-panel:hover {
             background: var(--bg3);
             color: var(--red);
         }
+
         .tree-container {
             flex: 1;
             overflow-y: auto;
@@ -130,20 +146,25 @@
             scrollbar-width: thin;
             scrollbar-color: var(--yellow) var(--bg2);
         }
+
         .tree-container::-webkit-scrollbar {
             width: 6px;
         }
+
         .tree-container::-webkit-scrollbar-track {
             background: var(--bg2);
         }
+
         .tree-container::-webkit-scrollbar-thumb {
             background: var(--yellow);
             border-radius: 3px;
         }
+
         .tree-item {
             margin-bottom: 4px;
             user-select: none;
         }
+
         .tree-item-content {
             display: flex;
             align-items: center;
@@ -155,6 +176,7 @@
             font-size: 0.95rem;
             transition: all 0.2s;
         }
+
         .tree-item-content:hover {
             background: var(--bg2);
             color: var(--yellow);
@@ -385,6 +407,7 @@
     </style>
 </head>
 <body>
+    <!-- Кнопка меню -->
     <button class="menu-button" id="menuBtn" onclick="toggleLeftPanel()">
         <i class="fas fa-bars"></i>
     </button>
@@ -405,6 +428,8 @@
                 <div class="loading-tree" style="padding: 20px; text-align: center; color: var(--fg3);">Загрузка...</div>
             </div>
         </div>
+
+        <!-- Контейнер слайдера (основной контент) -->
         <div class="slider-container" id="sliderContainer">
             <div class="slider-wrapper" id="sliderWrapper">
                 <div class="slider-content" id="sliderContent">
@@ -416,19 +441,28 @@
             </div>
         </div>
     </div>
+
+    <!-- Счетчик скрытых файлов -->
     <div id="hiddenCount" class="hidden-count" style="display: none;">
         <i class="fas fa-eye-slash"></i>
         <span></span>
     </div>
+
+    <!-- Индикатор прокрутки -->
     <div class="scroll-indicator" id="scrollIndicator">
         <div class="scroll-indicator-bar" id="scrollIndicatorBar"></div>
     </div>
+
     <script>
         let currentPath = '/mnt/video';
         let hiddenFilesCount = 0;
+
+        // Проверка, начинается ли имя с точки
         function isHiddenFile(filename) {
             return filename.startsWith('.');
         }
+
+        // Обновление индикатора прокрутки
         function updateScrollIndicator() {
             const wrapper = document.getElementById('sliderWrapper');
             const scrollPercent = (wrapper.scrollTop / (wrapper.scrollHeight - wrapper.clientHeight)) * 100;
@@ -438,6 +472,8 @@
                 indicatorBar.style.height = scrollPercent + '%';
             }
         }
+
+        // Переключение левой панели
         function toggleLeftPanel() {
             const leftPanel = document.getElementById('leftPanel');
             leftPanel.classList.toggle('visible');
@@ -446,11 +482,14 @@
                 loadTreeData();
             }
         }
+
+        // Загрузка данных для дерева
         async function loadTreeData() {
             const treeContainer = document.getElementById('treeContainer');
             treeContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--fg3);">Загрузка дерева папок...</div>';
 
             try {
+                // Загружаем корневую директорию
                 const response = await fetch('/api/list', {
                     method: 'POST',
                     headers: {
@@ -458,7 +497,9 @@
                     },
                     body: JSON.stringify({ path: '/mnt/video' })
                 });
+
                 const data = await response.json();
+
                 if (data.success) {
                     buildTree(data.items, '/mnt/video');
                 } else {
@@ -468,14 +509,22 @@
                 treeContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--red);">Ошибка: ${error.message}</div>`;
             }
         }
+
+        // Построение дерева
         function buildTree(items, rootPath) {
             const treeContainer = document.getElementById('treeContainer');
+
+            // Фильтруем только папки, исключая скрытые
             const folders = items.filter(item => item.isDirectory && !isHiddenFile(item.name));
+
             if (folders.length === 0) {
                 treeContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--fg3);">Нет папок</div>';
                 return;
             }
+
             let html = '<div class="tree-root">';
+
+            // Корневая папка
             html += `
                 <div class="tree-item" data-path="/mnt/video">
                     <div class="tree-item-content ${currentPath === '/mnt/video' ? 'active' : ''}" onclick="navigateFromTree('/mnt/video')">
@@ -484,9 +533,12 @@
                     </div>
                     <div class="tree-children">
             `;
+
+            // Добавляем папки первого уровня
             folders.forEach(folder => {
                 const folderName = folder.name;
                 const folderPath = folder.path;
+
                 html += `
                     <div class="tree-item" data-path="${folderPath}">
                         <div class="tree-item-content ${currentPath === folderPath ? 'active' : ''}"
@@ -497,25 +549,36 @@
                     </div>
                 `;
             });
+
             html += '</div></div></div>';
             treeContainer.innerHTML = html;
         }
+
+        // Навигация из дерева
         function navigateFromTree(path) {
             loadDirectory(path);
+
+            // Обновляем активный элемент в дереве
             document.querySelectorAll('.tree-item-content').forEach(el => {
                 el.classList.remove('active');
             });
+
             const activeItem = document.querySelector(`.tree-item[data-path="${path}"] .tree-item-content`);
             if (activeItem) {
                 activeItem.classList.add('active');
             }
+
+            // На мобильных устройствах можно автоматически закрывать панель
             if (window.innerWidth <= 768) {
                 toggleLeftPanel();
             }
         }
+
+        // Загрузка содержимого директории через API
         async function loadDirectory(path) {
             const sliderContent = document.getElementById('sliderContent');
             sliderContent.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin" style="margin-right: 10px;"></i>Загрузка...</div>';
+
             try {
                 const response = await fetch('/api/list', {
                     method: 'POST',
@@ -524,16 +587,23 @@
                     },
                     body: JSON.stringify({ path: path })
                 });
+
                 const data = await response.json();
+
                 if (data.success) {
+                    // Фильтруем скрытые файлы и папки
                     const visibleItems = data.items.filter(item => !isHiddenFile(item.name));
                     const totalHidden = data.items.length - visibleItems.length;
+
                     displayItems(visibleItems, totalHidden);
                     currentPath = path;
+
+                    // Обновляем активный элемент в дереве, если панель видима
                     if (document.getElementById('leftPanel').classList.contains('visible')) {
                         document.querySelectorAll('.tree-item-content').forEach(el => {
                             el.classList.remove('active');
                         });
+
                         const activeItem = document.querySelector(`.tree-item[data-path="${path}"] .tree-item-content`);
                         if (activeItem) {
                             activeItem.classList.add('active');
@@ -546,9 +616,13 @@
                 sliderContent.innerHTML = `<div class="error"><i class="fas fa-exclamation-circle" style="margin-right: 10px;"></i>Ошибка загрузки: ${error.message}</div>`;
             }
         }
+
+        // Отображение элементов
         function displayItems(items, hiddenCount = 0) {
             const sliderContent = document.getElementById('sliderContent');
             sliderContent.innerHTML = '';
+
+            // Показываем счетчик скрытых файлов
             const hiddenCountElement = document.getElementById('hiddenCount');
             if (hiddenCount > 0) {
                 hiddenCountElement.style.display = 'flex';
@@ -556,15 +630,19 @@
             } else {
                 hiddenCountElement.style.display = 'none';
             }
+
             if (items.length === 0) {
                 sliderContent.innerHTML = '<div class="empty-message"><i class="fas fa-folder-open" style="margin-right: 10px;"></i>📁 Папка пуста</div>';
                 return;
             }
+
             items.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'item-card';
+
                 let icon = 'fa-file';
                 let iconClass = 'file-icon';
+
                 if (item.isDirectory) {
                     icon = 'fa-folder';
                     iconClass = 'folder-icon';
@@ -572,7 +650,10 @@
                     icon = 'fa-file-video';
                     iconClass = 'video-icon';
                 }
+
+                // Полное имя без сокращений
                 const fullName = item.name;
+
                 card.innerHTML = `
                     <i class="fas ${icon} ${iconClass}"></i>
                     <div class="item-info">
@@ -581,61 +662,127 @@
                         <div class="item-path" title="${item.path}">${item.path}</div>
                     </div>
                 `;
+
                 if (item.isDirectory) {
                     card.onclick = () => navigateToFolder(item.path);
                 } else {
                     card.onclick = () => playVideo(item.path);
                 }
+
                 sliderContent.appendChild(card);
             });
+
+            // Сбрасываем прокрутку в начало
             document.getElementById('sliderWrapper').scrollTop = 0;
             updateScrollIndicator();
         }
+
+        // Склонение слова "элемент"
         function getHiddenWord(count) {
             if (count % 10 === 1 && count % 100 !== 11) return 'элемент';
             if (count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20)) return 'элемента';
             return 'элементов';
         }
+
+        // Функция навигации по папкам
         function navigateToFolder(path) {
             loadDirectory(path);
         }
+
+        // Функция для открытия файлов через Mediateka
         async function playVideo(path) {
             try {
-                const response = await fetch('/api/open', {
+                const response = await fetch('/api/open-with-mediateka', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ path: path })
                 });
+
                 const data = await response.json();
+
                 if (data.success) {
-                    console.log('Video opened:', data.message);
+                    console.log('File opened with Mediateka:', data.message);
+                    // Показываем уведомление об успешном открытии
+                    showNotification('Файл открывается в Mediateka', 'success');
                 } else {
-                    alert('Ошибка: ' + data.error);
+                    showNotification('Ошибка: ' + data.error, 'error');
                 }
             } catch (error) {
-                alert('Ошибка при открытии видео: ' + error.message);
+                showNotification('Ошибка при открытии файла: ' + error.message, 'error');
             }
         }
+
+        // Функция для показа уведомлений
+        function showNotification(message, type = 'info') {
+            // Создаем элемент уведомления
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 24px;
+                background: ${type === 'success' ? 'var(--green)' : type === 'error' ? 'var(--red)' : 'var(--yellow)'};
+                color: var(--bg0);
+                border-radius: 8px;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            notification.textContent = message;
+
+            // Добавляем анимацию
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(notification);
+
+            // Удаляем уведомление через 3 секунды
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        // Drag-to-scroll функциональность
         const sliderWrapper = document.getElementById('sliderWrapper');
         let isDown = false;
         let startY;
         let scrollTop;
+
         sliderWrapper.addEventListener('mousedown', (e) => {
             isDown = true;
             sliderWrapper.classList.add('active');
             startY = e.pageY - sliderWrapper.offsetTop;
             scrollTop = sliderWrapper.scrollTop;
         });
+
         sliderWrapper.addEventListener('mouseleave', () => {
             isDown = false;
             sliderWrapper.classList.remove('active');
         });
+
         sliderWrapper.addEventListener('mouseup', () => {
             isDown = false;
             sliderWrapper.classList.remove('active');
         });
+
         sliderWrapper.addEventListener('mousemove', (e) => {
             if (!isDown) return;
             e.preventDefault();
@@ -644,10 +791,15 @@
             sliderWrapper.scrollTop = scrollTop - walk;
             updateScrollIndicator();
         });
+
+        // Обновление индикатора при скролле
         sliderWrapper.addEventListener('scroll', updateScrollIndicator);
+
+        // Закрытие панели при клике вне её
         document.addEventListener('click', (e) => {
             const leftPanel = document.getElementById('leftPanel');
             const menuBtn = document.getElementById('menuBtn');
+
             if (leftPanel.classList.contains('visible') &&
                 !leftPanel.contains(e.target) &&
                 e.target !== menuBtn &&
@@ -655,6 +807,8 @@
                 toggleLeftPanel();
             }
         });
+
+        // Загружаем начальную директорию при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             loadDirectory('/mnt/video');
         });

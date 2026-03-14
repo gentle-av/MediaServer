@@ -1,7 +1,13 @@
 #include "VideoController.h"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <ctime>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 void VideoController::getIndex(
@@ -53,7 +59,6 @@ void VideoController::listFiles(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   Json::Value response;
-  response["path"] = "/mnt/video";
 
   try {
     auto json = req->getJsonObject();
@@ -63,6 +68,7 @@ void VideoController::listFiles(
       path = (*json)["path"].asString();
     }
 
+    // Проверка безопасности - путь должен начинаться с /mnt/video
     if (path.find("/mnt/video") != 0) {
       path = "/mnt/video";
     }
@@ -85,6 +91,7 @@ void VideoController::listFiles(
       items.push_back(item);
     }
 
+    // Сортируем: сначала папки, потом файлы, по алфавиту
     std::sort(items.begin(), items.end(),
               [](const Json::Value &a, const Json::Value &b) {
                 bool aIsDir = a["isDirectory"].asBool();
@@ -147,11 +154,39 @@ void VideoController::openVideo(
     return;
   }
 
-  std::string command = "xdg-open \"" + path + "\" 2>/dev/null &";
-  system(command.c_str());
+  // Создаем временный скрипт для запуска
+  std::string scriptPath =
+      "/tmp/run_mediateka_" + std::to_string(time(nullptr)) + ".sh";
 
-  response["success"] = true;
-  response["message"] = "Opening video: " + path;
+  // Формируем содержимое скрипта (точно как в тестовом)
+  std::string scriptContent = "#!/bin/bash\n"
+                              "export XDG_RUNTIME_DIR=/run/user/1000\n"
+                              "export WAYLAND_DISPLAY=wayland-0\n"
+                              "export DISPLAY=:0\n"
+                              "sudo -u avr /usr/local/bin/Mediateka \"" +
+                              path +
+                              "\" &\n"
+                              "exit 0\n";
+
+  // Записываем скрипт в файл
+  std::ofstream scriptFile(scriptPath);
+  if (scriptFile.is_open()) {
+    scriptFile << scriptContent;
+    scriptFile.close();
+
+    // Делаем скрипт исполняемым
+    chmod(scriptPath.c_str(), 0755);
+
+    // Запускаем скрипт в фоне
+    std::string command = scriptPath + " > /dev/null 2>&1 &";
+    system(command.c_str());
+
+    response["success"] = true;
+    response["message"] = "Opening video with Mediateka: " + path;
+  } else {
+    response["success"] = false;
+    response["error"] = "Failed to create launch script";
+  }
 
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
