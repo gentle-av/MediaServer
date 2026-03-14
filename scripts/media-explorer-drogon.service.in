@@ -1,0 +1,26 @@
+[Unit]
+Description=Media Explorer Drogon Web Interface
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=avr
+Group=avr
+WorkingDirectory=/usr/local/bin/
+ExecStart=/usr/local/bin/media_explorer_drogon
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=media-explorer-drogon
+
+# Безопасность (адаптировано для пользователя)
+NoNewPrivileges=no
+PrivateTmp=yes
+ProtectSystem=no
+ProtectHome=no
+ReadWritePaths=/home/avr/code/projects/cpp/build/MediaServer /var/log/media-explorer-drogon
+
+[Install]
+WantedBy=multi-user.target

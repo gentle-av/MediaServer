@@ -1,0 +1,12 @@
+#!/bin/bash
+BINARY="/usr/bin/media_explorer_drogon"
+CONFIG="/etc/media-explorer-drogon/config.json"
+LOG_DIR="/var/log/media-explorer-drogon"
+if [ ! -f "$BINARY" ]; then
+    BINARY="/usr/local/bin/media_explorer_drogon"
+fi
+if [ ! -d "$LOG_DIR" ]; then
+    mkdir -p "$LOG_DIR"
+fi
+cd /usr/share/media-explorer-drogon
+exec $BINARY
