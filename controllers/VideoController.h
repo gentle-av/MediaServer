@@ -16,6 +16,8 @@ public:
   ADD_METHOD_TO(VideoController::serveStatic, "/static/{filename}", Get);
   ADD_METHOD_TO(VideoController::listFiles, "/api/list", Post);
   ADD_METHOD_TO(VideoController::openVideo, "/api/open", Post);
+  ADD_METHOD_TO(VideoController::getStatus, "/api/status", Post);
+  ADD_METHOD_TO(VideoController::setFullscreen, "/api/fullscreen", Post);
   METHOD_LIST_END
 
   void getIndex(const HttpRequestPtr &req,
@@ -30,6 +32,10 @@ public:
 
   void openVideo(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
+  void getStatus(const HttpRequestPtr &req,
+                 std::function<void(const HttpResponsePtr &)> &&callback);
+  void setFullscreen(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   std::string getMimeType(const std::string &extension);

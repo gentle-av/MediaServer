@@ -1,0 +1,14 @@
+[
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DHAS_YAML_CPP -I/home/avr/code/projects/cpp/MediaServer/include -isystem /usr/include/jsoncpp -std=gnu++17 -o CMakeFiles/media_explorer_drogon.dir/main.cpp.o -c /home/avr/code/projects/cpp/MediaServer/main.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/main.cpp",
+  "output": "CMakeFiles/media_explorer_drogon.dir/main.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DHAS_YAML_CPP -I/home/avr/code/projects/cpp/MediaServer/include -isystem /usr/include/jsoncpp -std=gnu++17 -o CMakeFiles/media_explorer_drogon.dir/controllers/VideoController.cc.o -c /home/avr/code/projects/cpp/MediaServer/controllers/VideoController.cc",
+  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/VideoController.cc",
+  "output": "CMakeFiles/media_explorer_drogon.dir/controllers/VideoController.cc.o"
+}
+]

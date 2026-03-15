@@ -1,7 +1,5 @@
 #include "VideoController.h"
 #include <algorithm>
-#include <cerrno>
-#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -10,16 +8,21 @@
 #include <unistd.h>
 #include <vector>
 
+void addCorsHeaders(const HttpResponsePtr &resp) {
+  resp->addHeader("Access-Control-Allow-Origin", "*");
+  resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  resp->addHeader("Access-Control-Allow-Headers",
+                  "Content-Type, X-Requested-With");
+  resp->addHeader("Access-Control-Allow-Credentials", "true");
+}
+
 void VideoController::getIndex(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  // Путь к index.html
-  std::string indexPath = "/usr/local/web/media-explorer/index.html";
-
-  // Проверяем существование файла
+  std::string indexPath =
+      "/home/avr/code/projects/cpp/build/MediaServer/views/index.html";
   std::ifstream file(indexPath);
   if (file.good()) {
-    // Читаем содержимое файла
     std::string content((std::istreambuf_iterator<char>(file)),
                         std::istreambuf_iterator<char>());
 
@@ -29,10 +32,11 @@ void VideoController::getIndex(
     resp->setBody(content);
     callback(resp);
   } else {
-    // Если файл не найден, возвращаем ошибку
     auto resp = HttpResponse::newHttpResponse();
     resp->setStatusCode(k404NotFound);
-    resp->setBody("index.html not found");
+    resp->setBody(
+        "index.html not found at"
+        "/home/avr/code/projects/cpp/build/MediaServer/views/index.html");
     callback(resp);
   }
 }
@@ -41,14 +45,15 @@ void VideoController::serveStatic(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &filename) {
-  fs::path filePath = "/usr/local/web/media-explorer/" + filename;
-
+  fs::path filePath =
+      "/home/avr/code/projects/cpp/build/MediaServer/views/" + filename;
+  std::cout << "[serveStatic] Serving: " << filePath << std::endl;
   if (fs::exists(filePath) && fs::is_regular_file(filePath)) {
     auto resp = HttpResponse::newFileResponse(filePath.string());
     callback(resp);
   } else {
     Json::Value json;
-    json["error"] = "File not found";
+    json["error"] = "File not found: " + filePath.string();
     auto resp = HttpResponse::newHttpJsonResponse(json);
     resp->setStatusCode(k404NotFound);
     callback(resp);
@@ -122,10 +127,13 @@ void VideoController::listFiles(
 void VideoController::openVideo(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  Json::Value response;
+
+  std::cout << "========== openVideo called ==========" << std::endl;
 
   auto json = req->getJsonObject();
   if (!json || !json->isMember("path")) {
+    std::cout << "ERROR: No path provided" << std::endl;
+    Json::Value response;
     response["success"] = false;
     response["error"] = "No path provided";
     auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -135,8 +143,11 @@ void VideoController::openVideo(
   }
 
   std::string path = (*json)["path"].asString();
+  std::cout << "Path: " << path << std::endl;
 
   if (path.find("/mnt/video") != 0) {
+    std::cout << "ERROR: Access denied" << std::endl;
+    Json::Value response;
     response["success"] = false;
     response["error"] = "Access denied";
     auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -146,6 +157,8 @@ void VideoController::openVideo(
   }
 
   if (!fs::exists(path)) {
+    std::cout << "ERROR: File not found" << std::endl;
+    Json::Value response;
     response["success"] = false;
     response["error"] = "File not found";
     auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -154,42 +167,50 @@ void VideoController::openVideo(
     return;
   }
 
-  // Создаем временный скрипт для запуска
+  // Создаем скрипт для запуска
   std::string scriptPath =
       "/tmp/run_mediateka_" + std::to_string(time(nullptr)) + ".sh";
+  std::cout << "Creating script: " << scriptPath << std::endl;
 
-  // Формируем содержимое скрипта (точно как в тестовом)
   std::string scriptContent = "#!/bin/bash\n"
-                              "export XDG_RUNTIME_DIR=/run/user/1000\n"
-                              "export WAYLAND_DISPLAY=wayland-0\n"
                               "export DISPLAY=:0\n"
-                              "sudo -u avr /usr/local/bin/Mediateka \"" +
+                              "export XAUTHORITY=/home/avr/.Xauthority\n"
+                              "nohup /usr/local/bin/Mediateka \"" +
                               path +
-                              "\" &\n"
+                              "\" > /tmp/mediateka.log 2>&1 &\n"
                               "exit 0\n";
 
-  // Записываем скрипт в файл
+  std::cout << "Script content:\n" << scriptContent << std::endl;
+
   std::ofstream scriptFile(scriptPath);
   if (scriptFile.is_open()) {
     scriptFile << scriptContent;
     scriptFile.close();
 
-    // Делаем скрипт исполняемым
     chmod(scriptPath.c_str(), 0755);
+    std::cout << "Script created and made executable" << std::endl;
 
-    // Запускаем скрипт в фоне
-    std::string command = scriptPath + " > /dev/null 2>&1 &";
-    system(command.c_str());
+    std::string command = "bash " + scriptPath;
+    std::cout << "Running command: " << command << std::endl;
 
+    int result = system(command.c_str());
+    std::cout << "system() returned: " << result << std::endl;
+
+    Json::Value response;
     response["success"] = true;
     response["message"] = "Opening video with Mediateka: " + path;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
   } else {
+    std::cout << "ERROR: Failed to create script" << std::endl;
+    Json::Value response;
     response["success"] = false;
     response["error"] = "Failed to create launch script";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
   }
 
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
+  std::cout << "========== openVideo finished ==========" << std::endl;
 }
 
 std::string VideoController::getMimeType(const std::string &extension) {
@@ -252,4 +273,46 @@ std::string VideoController::formatFileSize(uintmax_t size) {
   char buffer[64];
   snprintf(buffer, sizeof(buffer), "%.1f %s", fileSize, units[unitIndex]);
   return std::string(buffer);
+}
+
+void VideoController::getStatus(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  if (req->method() == Options) {
+    auto resp = HttpResponse::newHttpResponse();
+    resp->setStatusCode(k200OK);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  Json::Value response;
+  response["success"] = true;
+  response["available"] = true;
+  response["isFullScreen"] = false;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  addCorsHeaders(resp);
+  callback(resp);
+}
+
+void VideoController::setFullscreen(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  if (req->method() == Options) {
+    auto resp = HttpResponse::newHttpResponse();
+    resp->setStatusCode(k200OK);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  Json::Value response;
+  auto json = req->getJsonObject();
+  bool fullscreen = true;
+  if (json && json->isMember("fullscreen")) {
+    fullscreen = (*json)["fullscreen"].asBool();
+  }
+  response["success"] = true;
+  response["fullscreen"] = fullscreen;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  addCorsHeaders(resp);
+  callback(resp);
 }
