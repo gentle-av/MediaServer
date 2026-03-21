@@ -12,9 +12,12 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 find_package(Drogon REQUIRED)
 
+add_library(MusicController SHARED ./controllers/MusicController.cpp)
+target_link_libraries(MusicController PRIVATE Drogon::Drogon)
+
 add_executable(media_explorer_drogon
     main.cpp
-    controllers/VideoController.cc
+    controllers/VideoController.cpp
 )
 
 target_link_libraries(media_explorer_drogon PRIVATE
