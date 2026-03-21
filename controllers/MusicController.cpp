@@ -1,4 +1,5 @@
 #include "MusicController.h"
+#include "services/AlbumArtExtractor.h"
 #include <algorithm>
 #include <ctime>
 #include <fstream>
@@ -28,12 +29,12 @@ void MusicController::listFiles(
   Json::Value response;
   try {
     auto json = req->getJsonObject();
-    std::string path = "/mnt/music";
+    std::string path = "/mnt/media/music";
     if (json && json->isMember("path")) {
       path = (*json)["path"].asString();
     }
-    if (path.find("/mnt/music") != 0) {
-      path = "/mnt/music";
+    if (path.find("/mnt/media/music") != 0) {
+      path = "/mnt/media/music";
     }
     std::vector<Json::Value> items;
     for (const auto &entry : fs::directory_iterator(path)) {
@@ -96,7 +97,7 @@ void MusicController::openAudio(
     return;
   }
   std::string path = (*json)["path"].asString();
-  if (path.find("/mnt/music") != 0) {
+  if (path.find("/mnt/media/music") != 0) {
     Json::Value response;
     response["success"] = false;
     response["error"] = "Access denied";
@@ -519,9 +520,9 @@ void MusicController::stopCurrentPlayback() {
     system(cmd.c_str());
     state.playerPid.clear();
   }
-  std::string cmd = "pkill -f /usr/bin/vlc.*/mnt/music 2>/dev/null; "
-                    "pkill -f /usr/bin/mpv.*/mnt/music 2>/dev/null; "
-                    "pkill -f audacious.*/mnt/music 2>/dev/null";
+  std::string cmd = "pkill -f /usr/bin/vlc.*/mnt/media/music 2>/dev/null; "
+                    "pkill -f /usr/bin/mpv.*/mnt/media/music 2>/dev/null; "
+                    "pkill -f audacious.*/mnt/media/music 2>/dev/null";
   system(cmd.c_str());
 }
 
@@ -564,4 +565,78 @@ std::string MusicController::getPlayerCommand(const std::string &path) {
   } else {
     return "/usr/bin/vlc";
   }
+}
+
+void MusicController::getAlbumArt(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  if (req->method() == Options) {
+    auto resp = HttpResponse::newHttpResponse();
+    resp->setStatusCode(k200OK);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  auto params = req->getParameters();
+  if (params.find("path") == params.end()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No path provided";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  std::string path = params["path"];
+  if (path.find("/mnt/media/music") != 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Access denied";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k403Forbidden);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  if (!fs::exists(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "File not found";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k404NotFound);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  if (!AlbumArtExtractor::isSupportedFormat(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Format not supported";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  auto albumArt = AlbumArtExtractor::extractAlbumArt(path);
+  if (!albumArt || albumArt->data.empty()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No album art found";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k404NotFound);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  auto resp = HttpResponse::newHttpResponse();
+  resp->setStatusCode(k200OK);
+  resp->setContentTypeCode(CT_APPLICATION_OCTET_STREAM);
+  resp->addHeader("Content-Type", albumArt->mimeType);
+  resp->addHeader("Content-Length", std::to_string(albumArt->data.size()));
+  resp->addHeader("Cache-Control", "public, max-age=86400");
+  addCorsHeaders(resp);
+  resp->setBody(std::string(albumArt->data.data(), albumArt->data.size()));
+  callback(resp);
 }

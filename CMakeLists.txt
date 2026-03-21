@@ -7,21 +7,23 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(GNUInstallDirs)
 include_directories(include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 find_package(Drogon REQUIRED)
-
-add_library(MusicController SHARED ./controllers/MusicController.cpp)
-target_link_libraries(MusicController PRIVATE Drogon::Drogon)
+find_package(TagLib REQUIRED)
 
 add_executable(media_explorer_drogon
     main.cpp
     controllers/VideoController.cpp
+    controllers/MusicController.cpp   # Добавьте эту строку
+    services/AlbumArtExtractor.cpp
 )
 
 target_link_libraries(media_explorer_drogon PRIVATE
     Drogon::Drogon
+    TagLib::TagLib
 )
 
 install(TARGETS media_explorer_drogon

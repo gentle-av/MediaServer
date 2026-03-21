@@ -31,6 +31,8 @@ public:
                 Options);
   ADD_METHOD_TO(MusicController::removeFromPlaylist, "/api/music/remove", Post,
                 Options);
+  ADD_METHOD_TO(MusicController::getAlbumArt, "/api/music/albumart", Get,
+                Options);
   METHOD_LIST_END
 
   void listFiles(const HttpRequestPtr &req,
@@ -60,6 +62,8 @@ public:
   void
   removeFromPlaylist(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
+  void getAlbumArt(const HttpRequestPtr &req,
+                   std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   std::string getMimeType(const std::string &extension);

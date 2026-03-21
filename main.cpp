@@ -19,7 +19,6 @@ int main(int argc, char *argv[]) {
   signal(SIGTERM, signalHandler);
 
   try {
-    // drogon::app().registerController(std::make_shared<VideoController>());
 
     std::vector<fs::path> searchPaths;
     searchPaths.push_back("/usr/local/web/media-explorer/index.html");
