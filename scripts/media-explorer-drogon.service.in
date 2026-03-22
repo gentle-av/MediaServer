@@ -7,7 +7,7 @@ Wants=network.target
 Type=simple
 User=avr
 Group=avr
-WorkingDirectory=/usr/local/bin/
+WorkingDirectory=/home/avr
 ExecStart=/usr/local/bin/media_explorer_drogon
 Restart=on-failure
 RestartSec=5
@@ -15,12 +15,12 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=media-explorer-drogon
 
-# Безопасность (адаптировано для пользователя)
+# Разрешаем запись в домашнюю директорию
 NoNewPrivileges=no
 PrivateTmp=yes
 ProtectSystem=no
-ProtectHome=no
-ReadWritePaths=/home/avr/code/projects/cpp/build/MediaServer /var/log/media-explorer-drogon
+ProtectHome=read-only
+ReadWritePaths=/home/avr/.local/share/media-explorer-drogon /home/avr/code/projects/cpp/build/MediaServer /var/log/media-explorer-drogon
 
 [Install]
 WantedBy=multi-user.target

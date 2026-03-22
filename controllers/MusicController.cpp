@@ -1,3 +1,4 @@
+// MusicController.cpp
 #include "MusicController.h"
 #include "services/AlbumArtExtractor.h"
 #include "services/MusicMetadataExtractor.h"
@@ -7,6 +8,35 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+MusicController::MusicController() : isScanning_(false) {
+  const char *home = getenv("HOME");
+  std::string dbDir;
+  if (home) {
+    dbDir = std::string(home) + "/.local/share/media-explorer-drogon";
+  } else {
+    dbDir = "/tmp/media-explorer-drogon";
+  }
+  std::string dbPath = dbDir + "/music.db";
+  mkdir(dbDir.c_str(), 0755);
+  db_ = std::make_unique<MusicDatabase>(dbPath);
+  if (!db_->initialize()) {
+    LOG_ERROR << "Failed to initialize database at " << dbPath;
+  } else {
+    LOG_INFO << "Database initialized successfully at " << dbPath;
+  }
+  std::thread([this]() {
+    LOG_INFO << "Starting music library scan...";
+    db_->scanDirectory("/mnt/media/music", [](const std::string &file) {
+      LOG_INFO << "Indexed: " << file;
+    });
+    LOG_INFO << "Music library scan completed";
+    auto artists = db_->getArtists();
+    LOG_INFO << "Found " << artists.size() << " artists in database";
+    auto albums = db_->getAlbums();
+    LOG_INFO << "Found " << albums.size() << " albums in database";
+  }).detach();
+}
 
 void MusicController::addCorsHeaders(const HttpResponsePtr &resp) {
   resp->addHeader("Access-Control-Allow-Origin", "*");
@@ -279,28 +309,8 @@ void MusicController::getAlbumArt(
     callback(resp);
     return;
   }
-  if (!fs::exists(path)) {
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "File not found";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(k404NotFound);
-    addCorsHeaders(resp);
-    callback(resp);
-    return;
-  }
-  if (!AlbumArtExtractor::isSupportedFormat(path)) {
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "Format not supported";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(k400BadRequest);
-    addCorsHeaders(resp);
-    callback(resp);
-    return;
-  }
-  auto albumArt = AlbumArtExtractor::extractAlbumArt(path);
-  if (!albumArt || albumArt->data.empty()) {
+  auto albumArt = db_->getAlbumArt(path);
+  if (albumArt.data.empty()) {
     Json::Value response;
     response["success"] = false;
     response["error"] = "No album art found";
@@ -313,11 +323,11 @@ void MusicController::getAlbumArt(
   auto resp = HttpResponse::newHttpResponse();
   resp->setStatusCode(k200OK);
   resp->setContentTypeCode(CT_APPLICATION_OCTET_STREAM);
-  resp->addHeader("Content-Type", albumArt->mimeType);
-  resp->addHeader("Content-Length", std::to_string(albumArt->data.size()));
+  resp->addHeader("Content-Type", albumArt.mimeType);
+  resp->addHeader("Content-Length", std::to_string(albumArt.data.size()));
   resp->addHeader("Cache-Control", "public, max-age=86400");
   addCorsHeaders(resp);
-  resp->setBody(std::string(albumArt->data.data(), albumArt->data.size()));
+  resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }
 
@@ -334,50 +344,13 @@ void MusicController::getAlbums(
   Json::Value response;
   try {
     auto json = req->getJsonObject();
-    std::string rootPath = "/mnt/media/music";
     std::string artistFilter = "";
-    if (json) {
-      if (json->isMember("path")) {
-        rootPath = (*json)["path"].asString();
-      }
-      if (json->isMember("artist")) {
-        artistFilter = (*json)["artist"].asString();
-      }
+    if (json && json->isMember("artist")) {
+      artistFilter = (*json)["artist"].asString();
     }
-    if (rootPath.find("/mnt/media/music") != 0) {
-      rootPath = "/mnt/media/music";
-    }
-    if (!fs::exists(rootPath) || !fs::is_directory(rootPath)) {
-      response["success"] = false;
-      response["error"] = "Root directory not found";
-      auto resp = HttpResponse::newHttpJsonResponse(response);
-      resp->setStatusCode(k404NotFound);
-      addCorsHeaders(resp);
-      callback(resp);
-      return;
-    }
-    std::vector<std::tuple<std::string, std::string, std::string>> allAlbums =
-        MusicMetadataExtractor::getAllAlbums(rootPath);
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        filteredAlbums;
-    if (!artistFilter.empty()) {
-      std::string artistFilterLower = artistFilter;
-      std::transform(artistFilterLower.begin(), artistFilterLower.end(),
-                     artistFilterLower.begin(), ::tolower);
-      for (const auto &album : allAlbums) {
-        std::string artist = std::get<0>(album);
-        std::string artistLower = artist;
-        std::transform(artistLower.begin(), artistLower.end(),
-                       artistLower.begin(), ::tolower);
-        if (artistLower.find(artistFilterLower) != std::string::npos) {
-          filteredAlbums.push_back(album);
-        }
-      }
-    } else {
-      filteredAlbums = allAlbums;
-    }
+    auto albums = db_->getAlbums(artistFilter);
     Json::Value albumsArray(Json::arrayValue);
-    for (const auto &album : filteredAlbums) {
+    for (const auto &album : albums) {
       Json::Value albumObj;
       albumObj["artist"] = std::get<0>(album);
       albumObj["album"] = std::get<1>(album);
@@ -386,8 +359,7 @@ void MusicController::getAlbums(
     }
     response["success"] = true;
     response["albums"] = albumsArray;
-    response["total"] = (int)filteredAlbums.size();
-    response["rootPath"] = rootPath;
+    response["total"] = (int)albums.size();
     if (!artistFilter.empty()) {
       response["artistFilter"] = artistFilter;
     }
@@ -412,16 +384,7 @@ void MusicController::getArtists(
   }
   Json::Value response;
   try {
-    auto json = req->getJsonObject();
-    std::string rootPath = "/mnt/media/music";
-    if (json && json->isMember("path")) {
-      rootPath = (*json)["path"].asString();
-    }
-    if (rootPath.find("/mnt/media/music") != 0) {
-      rootPath = "/mnt/media/music";
-    }
-    std::vector<std::string> artists =
-        MusicMetadataExtractor::getArtists(rootPath);
+    auto artists = db_->getArtists();
     Json::Value artistsArray(Json::arrayValue);
     for (const auto &artist : artists) {
       artistsArray.append(artist);
@@ -433,6 +396,38 @@ void MusicController::getArtists(
     response["success"] = false;
     response["error"] = e.what();
   }
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  addCorsHeaders(resp);
+  callback(resp);
+}
+
+void MusicController::rescanLibrary(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  if (req->method() == Options) {
+    auto resp = HttpResponse::newHttpResponse();
+    resp->setStatusCode(k200OK);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  Json::Value response;
+  std::lock_guard<std::mutex> lock(scanMutex_);
+  if (isScanning_) {
+    response["success"] = false;
+    response["error"] = "Scan already in progress";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    addCorsHeaders(resp);
+    callback(resp);
+    return;
+  }
+  isScanning_ = true;
+  std::thread([this]() {
+    db_->forceRescan("/mnt/media/music");
+    isScanning_ = false;
+  }).detach();
+  response["success"] = true;
+  response["message"] = "Library rescan started";
   auto resp = HttpResponse::newHttpJsonResponse(response);
   addCorsHeaders(resp);
   callback(resp);
