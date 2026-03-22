@@ -13,57 +13,27 @@ using namespace drogon;
 class MusicController : public drogon::HttpController<MusicController> {
 public:
   METHOD_LIST_BEGIN
+  ADD_METHOD_TO(MusicController::getAlbums, "/api/music/albums", Post, Options);
   ADD_METHOD_TO(MusicController::listFiles, "/api/music/list", Post, Options);
   ADD_METHOD_TO(MusicController::openAudio, "/api/music/open", Post, Options);
 
-  ADD_METHOD_TO(MusicController::play, "/api/music/play", Post, Options);
-  ADD_METHOD_TO(MusicController::pause, "/api/music/pause", Post, Options);
-  ADD_METHOD_TO(MusicController::next, "/api/music/next", Post, Options);
-  ADD_METHOD_TO(MusicController::previous, "/api/music/previous", Post,
-                Options);
-  ADD_METHOD_TO(MusicController::stop, "/api/music/stop", Post, Options);
-  ADD_METHOD_TO(MusicController::clear, "/api/music/clear", Post, Options);
-
-  ADD_METHOD_TO(MusicController::getStatus, "/api/music/status", Post, Options);
-  ADD_METHOD_TO(MusicController::getPlaylist, "/api/music/playlist", Post,
-                Options);
-  ADD_METHOD_TO(MusicController::addToPlaylist, "/api/music/add", Post,
-                Options);
-  ADD_METHOD_TO(MusicController::removeFromPlaylist, "/api/music/remove", Post,
-                Options);
   ADD_METHOD_TO(MusicController::getAlbumArt, "/api/music/albumart", Get,
+                Options);
+  ADD_METHOD_TO(MusicController::getArtists, "/api/music/artists", Post,
                 Options);
   METHOD_LIST_END
 
+  void getAlbums(const HttpRequestPtr &req,
+                 std::function<void(const HttpResponsePtr &)> &&callback);
   void listFiles(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
   void openAudio(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
 
-  void play(const HttpRequestPtr &req,
-            std::function<void(const HttpResponsePtr &)> &&callback);
-  void pause(const HttpRequestPtr &req,
-             std::function<void(const HttpResponsePtr &)> &&callback);
-  void next(const HttpRequestPtr &req,
-            std::function<void(const HttpResponsePtr &)> &&callback);
-  void previous(const HttpRequestPtr &req,
-                std::function<void(const HttpResponsePtr &)> &&callback);
-  void stop(const HttpRequestPtr &req,
-            std::function<void(const HttpResponsePtr &)> &&callback);
-  void clear(const HttpRequestPtr &req,
-             std::function<void(const HttpResponsePtr &)> &&callback);
-
-  void getStatus(const HttpRequestPtr &req,
-                 std::function<void(const HttpResponsePtr &)> &&callback);
-  void getPlaylist(const HttpRequestPtr &req,
-                   std::function<void(const HttpResponsePtr &)> &&callback);
-  void addToPlaylist(const HttpRequestPtr &req,
-                     std::function<void(const HttpResponsePtr &)> &&callback);
-  void
-  removeFromPlaylist(const HttpRequestPtr &req,
-                     std::function<void(const HttpResponsePtr &)> &&callback);
   void getAlbumArt(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
+  void getArtists(const HttpRequestPtr &req,
+                  std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   std::string getMimeType(const std::string &extension);

@@ -17,8 +17,9 @@ find_package(TagLib REQUIRED)
 add_executable(media_explorer_drogon
     main.cpp
     controllers/VideoController.cpp
-    controllers/MusicController.cpp   # Добавьте эту строку
+    controllers/MusicController.cpp
     services/AlbumArtExtractor.cpp
+    services/MusicMetadataExtractor.cpp
 )
 
 target_link_libraries(media_explorer_drogon PRIVATE
