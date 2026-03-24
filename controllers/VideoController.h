@@ -1,10 +1,11 @@
 #pragma once
-
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
 #include <string>
 #include <vector>
+
+class Profiler;
 
 namespace fs = std::filesystem;
 using namespace drogon;
@@ -20,16 +21,14 @@ public:
   ADD_METHOD_TO(VideoController::setFullscreen, "/api/fullscreen", Post);
   METHOD_LIST_END
 
+  void setProfiler(Profiler *profiler) { profiler_ = profiler; }
   void getIndex(const HttpRequestPtr &req,
                 std::function<void(const HttpResponsePtr &)> &&callback);
-
   void serveStatic(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback,
                    const std::string &filename);
-
   void listFiles(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
-
   void openVideo(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
   void getStatus(const HttpRequestPtr &req,
@@ -38,6 +37,7 @@ public:
                      std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
+  Profiler *profiler_ = nullptr;
   std::string getMimeType(const std::string &extension);
   Json::Value getFileInfo(const fs::path &path);
   bool isVideoFile(const std::string &filename);
