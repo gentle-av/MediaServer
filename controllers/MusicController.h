@@ -27,6 +27,8 @@ public:
   METHOD_LIST_END
 
   MusicController();
+  ~MusicController();
+
   void getAlbums(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
   void listFiles(const HttpRequestPtr &req,
@@ -51,6 +53,12 @@ private:
   void launchPlayerWithFile(const std::string &path);
   std::string getPlayerCommand(const std::string &path);
 
+  void syncMusicLibrary();
+  void validateAndCleanDatabase();
+  void scanNewFiles();
+  void removeMissingFiles();
+  bool isValidMusicPath(const std::string &path);
+
   struct MusicState {
     std::string currentFile;
     std::vector<std::string> playlist;
@@ -66,4 +74,6 @@ private:
   std::unique_ptr<MusicDatabase> db_;
   std::mutex scanMutex_;
   bool isScanning_;
+  bool isInitialSync_;
+  std::string musicRootPath_;
 };

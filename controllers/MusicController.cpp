@@ -1,15 +1,16 @@
-// MusicController.cpp
 #include "MusicController.h"
 #include "services/AlbumArtExtractor.h"
 #include "services/MusicMetadataExtractor.h"
 #include <algorithm>
 #include <ctime>
 #include <fstream>
+#include <set>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-MusicController::MusicController() : isScanning_(false) {
+MusicController::MusicController() : isScanning_(false), isInitialSync_(false) {
+  musicRootPath_ = "/mnt/media/music";
   const char *home = getenv("HOME");
   std::string dbDir;
   if (home) {
@@ -26,16 +27,128 @@ MusicController::MusicController() : isScanning_(false) {
     LOG_INFO << "Database initialized successfully at " << dbPath;
   }
   std::thread([this]() {
-    LOG_INFO << "Starting music library scan...";
-    db_->scanDirectory("/mnt/media/music", [](const std::string &file) {
-      LOG_INFO << "Indexed: " << file;
-    });
-    LOG_INFO << "Music library scan completed";
+    LOG_INFO << "Starting initial music library synchronization...";
+    syncMusicLibrary();
+    LOG_INFO << "Initial music library synchronization completed";
     auto artists = db_->getArtists();
     LOG_INFO << "Found " << artists.size() << " artists in database";
     auto albums = db_->getAlbums();
     LOG_INFO << "Found " << albums.size() << " albums in database";
   }).detach();
+}
+
+MusicController::~MusicController() { stopCurrentPlayback(); }
+
+void MusicController::syncMusicLibrary() {
+  std::lock_guard<std::mutex> lock(scanMutex_);
+  isScanning_ = true;
+  isInitialSync_ = true;
+  try {
+    if (!fs::exists(musicRootPath_)) {
+      LOG_ERROR << "Music root directory does not exist: " << musicRootPath_;
+      isScanning_ = false;
+      isInitialSync_ = false;
+      return;
+    }
+    if (!fs::is_directory(musicRootPath_)) {
+      LOG_ERROR << "Music root path is not a directory: " << musicRootPath_;
+      isScanning_ = false;
+      isInitialSync_ = false;
+      return;
+    }
+    LOG_INFO << "Starting library synchronization for: " << musicRootPath_;
+    removeMissingFiles();
+    scanNewFiles();
+    LOG_INFO << "Library synchronization completed successfully";
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error during library synchronization: " << e.what();
+  }
+  isScanning_ = false;
+  isInitialSync_ = false;
+}
+
+void MusicController::removeMissingFiles() {
+  LOG_INFO << "Checking for missing files in database...";
+  auto allFiles = db_->getAllFiles();
+  std::vector<std::string> missingFiles;
+  for (const auto &filePath : allFiles) {
+    if (!fs::exists(filePath) || !isValidMusicPath(filePath)) {
+      missingFiles.push_back(filePath);
+    }
+  }
+  if (!missingFiles.empty()) {
+    LOG_INFO << "Found " << missingFiles.size() << " missing files to remove";
+    for (const auto &filePath : missingFiles) {
+      LOG_INFO << "Removing missing file: " << filePath;
+      db_->removeFile(filePath);
+    }
+  } else {
+    LOG_INFO << "No missing files found";
+  }
+}
+
+void MusicController::scanNewFiles() {
+  LOG_INFO << "Scanning for new files...";
+  std::set<std::string> existingFiles;
+  auto dbFiles = db_->getAllFiles();
+  existingFiles.insert(dbFiles.begin(), dbFiles.end());
+  int newFilesCount = 0;
+  int totalFilesScanned = 0;
+  std::function<void(const fs::path &)> traverseAndAdd =
+      [&](const fs::path &currentPath) {
+        try {
+          for (const auto &entry : fs::directory_iterator(currentPath)) {
+            if (entry.is_directory()) {
+              traverseAndAdd(entry.path());
+            } else if (entry.is_regular_file()) {
+              std::string ext = entry.path().extension().string();
+              std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+              if (isAudioFile(ext)) {
+                totalFilesScanned++;
+                std::string filePath = entry.path().string();
+                if (existingFiles.find(filePath) == existingFiles.end()) {
+                  LOG_INFO << "Found new file: " << filePath;
+                  auto metadata = MusicMetadataExtractor::extract(filePath);
+                  if (db_->addFile(filePath, metadata)) {
+                    newFilesCount++;
+                    LOG_INFO << "Added new file to database: " << filePath;
+                  } else {
+                    LOG_ERROR << "Failed to add file to database: " << filePath;
+                  }
+                  auto albumArt = AlbumArtExtractor::extract(filePath);
+                  if (!albumArt.data.empty()) {
+                    db_->saveAlbumArt(filePath, albumArt);
+                    LOG_INFO << "Saved album art for: " << filePath;
+                  }
+                }
+              }
+            }
+          }
+        } catch (const std::exception &e) {
+          LOG_ERROR << "Error scanning directory " << currentPath << ": "
+                    << e.what();
+        }
+      };
+  try {
+    traverseAndAdd(musicRootPath_);
+    LOG_INFO << "Scan completed. Total files scanned: " << totalFilesScanned;
+    LOG_INFO << "New files added: " << newFilesCount;
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error during file scanning: " << e.what();
+  }
+}
+
+bool MusicController::isValidMusicPath(const std::string &path) {
+  if (path.find(musicRootPath_) != 0) {
+    return false;
+  }
+  if (path.find("..") != std::string::npos) {
+    return false;
+  }
+  fs::path fsPath(path);
+  std::string ext = fsPath.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  return isAudioFile(ext);
 }
 
 void MusicController::addCorsHeaders(const HttpResponsePtr &resp) {
@@ -59,36 +172,63 @@ void MusicController::listFiles(
   Json::Value response;
   try {
     auto json = req->getJsonObject();
-    std::string path = "/mnt/media/music";
+    std::string path = musicRootPath_;
     if (json && json->isMember("path")) {
       path = (*json)["path"].asString();
     }
-    if (path.find("/mnt/media/music") != 0) {
-      path = "/mnt/media/music";
+    if (!isValidMusicPath(path) && path != musicRootPath_) {
+      response["success"] = false;
+      response["error"] = "Access denied";
+      auto resp = HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(k403Forbidden);
+      addCorsHeaders(resp);
+      callback(resp);
+      return;
+    }
+    if (!fs::exists(path) || !fs::is_directory(path)) {
+      response["success"] = false;
+      response["error"] = "Directory not found";
+      auto resp = HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(k404NotFound);
+      addCorsHeaders(resp);
+      callback(resp);
+      return;
     }
     std::vector<Json::Value> items;
-    std::function<void(const fs::path &)> traverseDirectory =
-        [&](const fs::path &currentPath) {
-          for (const auto &entry : fs::directory_iterator(currentPath)) {
-            if (entry.is_directory()) {
-              traverseDirectory(entry.path());
-            } else if (entry.is_regular_file()) {
-              std::string ext = entry.path().extension().string();
-              std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-              if (isAudioFile(ext)) {
-                Json::Value item;
-                item["name"] = entry.path().filename().string();
-                item["path"] = entry.path().string();
-                item["size"] = formatFileSize(entry.file_size());
-                item["extension"] = ext;
-                items.push_back(item);
-              }
-            }
+    for (const auto &entry : fs::directory_iterator(path)) {
+      if (entry.is_directory()) {
+        Json::Value item;
+        item["name"] = entry.path().filename().string();
+        item["path"] = entry.path().string();
+        item["type"] = "directory";
+        item["size"] = "";
+        items.push_back(item);
+      } else if (entry.is_regular_file()) {
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (isAudioFile(ext)) {
+          Json::Value item;
+          item["name"] = entry.path().filename().string();
+          item["path"] = entry.path().string();
+          item["size"] = formatFileSize(entry.file_size());
+          item["extension"] = ext;
+          item["type"] = "file";
+          auto metadata = db_->getMetadata(entry.path().string());
+          if (!metadata.artist.empty()) {
+            item["artist"] = metadata.artist;
           }
-        };
-    traverseDirectory(path);
+          if (!metadata.album.empty()) {
+            item["album"] = metadata.album;
+          }
+          items.push_back(item);
+        }
+      }
+    }
     std::sort(items.begin(), items.end(),
               [](const Json::Value &a, const Json::Value &b) {
+                if (a["type"].asString() != b["type"].asString()) {
+                  return a["type"].asString() == "directory";
+                }
                 return a["name"].asString() < b["name"].asString();
               });
     Json::Value itemsArray(Json::arrayValue);
@@ -98,6 +238,7 @@ void MusicController::listFiles(
     response["items"] = itemsArray;
     response["total"] = (int)items.size();
     response["success"] = true;
+    response["currentPath"] = path;
   } catch (const std::exception &e) {
     response["success"] = false;
     response["error"] = e.what();
@@ -129,7 +270,7 @@ void MusicController::openAudio(
     return;
   }
   std::string path = (*json)["path"].asString();
-  if (path.find("/mnt/media/music") != 0) {
+  if (!isValidMusicPath(path)) {
     Json::Value response;
     response["success"] = false;
     response["error"] = "Access denied";
@@ -299,7 +440,7 @@ void MusicController::getAlbumArt(
     return;
   }
   std::string path = params["path"];
-  if (path.find("/mnt/media/music") != 0) {
+  if (!isValidMusicPath(path)) {
     Json::Value response;
     response["success"] = false;
     response["error"] = "Access denied";
@@ -423,7 +564,7 @@ void MusicController::rescanLibrary(
   }
   isScanning_ = true;
   std::thread([this]() {
-    db_->forceRescan("/mnt/media/music");
+    syncMusicLibrary();
     isScanning_ = false;
   }).detach();
   response["success"] = true;
