@@ -15,6 +15,13 @@ struct MusicMetadata {
   int year = 0;
   std::string genre;
   std::string filePath;
+
+  MusicMetadata() = default;
+  MusicMetadata(const MusicMetadata &) = default;
+  MusicMetadata(MusicMetadata &&) = default;
+  MusicMetadata &operator=(const MusicMetadata &) = default;
+  MusicMetadata &operator=(MusicMetadata &&) = default;
+  ~MusicMetadata() = default;
 };
 
 struct AlbumArtData {
