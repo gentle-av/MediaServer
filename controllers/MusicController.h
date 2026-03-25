@@ -16,6 +16,8 @@ public:
   ADD_METHOD_TO(MusicController::getAlbums, "/api/music/albums", drogon::Get);
   ADD_METHOD_TO(MusicController::getAlbumArt, "/api/music/albumart/{path}",
                 drogon::Get);
+  ADD_METHOD_TO(MusicController::getAlbumArtByAlbum,
+                "/api/music/albumart/album/{album}", drogon::Get);
   ADD_METHOD_TO(MusicController::scan, "/api/music/scan", drogon::Post);
   ADD_METHOD_TO(MusicController::removeMissing, "/api/music/remove-missing",
                 drogon::Post);
@@ -43,6 +45,10 @@ public:
   getAlbumArt(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback,
               const std::string &path);
+  void getAlbumArtByAlbum(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback,
+      const std::string &album);
   void scan(const drogon::HttpRequestPtr &req,
             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void removeMissing(

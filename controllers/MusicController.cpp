@@ -1,9 +1,11 @@
 #include "controllers/MusicController.h"
+#include "services/AlbumArtExtractor.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
 #include <json/json.h>
 #include <taglib/attachedpictureframe.h>
 #include <taglib/fileref.h>
+#include <taglib/flacfile.h>
 #include <taglib/id3v2tag.h>
 #include <taglib/mpegfile.h>
 #include <unordered_set>
@@ -18,7 +20,7 @@ MusicController::MusicController() {
   fs::create_directories(fs::path(dbPath).parent_path());
   db_ = std::make_unique<MusicDatabase>(dbPath);
   db_->init();
-  musicDir_ = "/mnt/music";
+  musicDir_ = "/mnt/media/music";
   if (!fs::exists(musicDir_))
     musicDir_ = "./music";
   scanNewFiles();
@@ -123,7 +125,23 @@ void MusicController::getAlbumArt(
     return;
   }
   auto resp = drogon::HttpResponse::newHttpResponse();
-  resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+
+  // Устанавливаем правильный MIME тип на основе данных
+  std::string mimeType = albumArt.mimeType;
+  if (mimeType.empty()) {
+    mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
+  }
+
+  if (mimeType == "image/jpeg") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+  } else if (mimeType == "image/png") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_PNG);
+  } else if (mimeType == "image/gif") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_GIF);
+  } else {
+    resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
+  }
+
   resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }
@@ -237,25 +255,34 @@ bool MusicController::extractMetadata(const std::string &filePath,
 bool MusicController::extractAlbumArt(const std::string &filePath,
                                       std::vector<char> &albumArt) {
   try {
-    if (filePath.find(".mp3") != std::string::npos) {
-      TagLib::MPEG::File mp3File(filePath.c_str());
-      TagLib::ID3v2::Tag *tag = mp3File.ID3v2Tag();
-      if (tag) {
-        TagLib::ID3v2::FrameList frames = tag->frameList("APIC");
-        if (!frames.isEmpty()) {
-          TagLib::ID3v2::AttachedPictureFrame *frame =
-              static_cast<TagLib::ID3v2::AttachedPictureFrame *>(
-                  frames.front());
-          if (frame && frame->picture().size() > 0) {
-            albumArt.assign(frame->picture().data(),
-                            frame->picture().data() + frame->picture().size());
-            return true;
-          }
-        }
+    std::string ext = filePath.substr(filePath.find_last_of("."));
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if (ext != ".flac")
+      return false;
+    TagLib::FLAC::File flacFile(filePath.c_str());
+    if (!flacFile.isOpen())
+      return false;
+    auto pictures = flacFile.pictureList();
+    if (pictures.isEmpty())
+      return false;
+    TagLib::FLAC::Picture *bestPicture = nullptr;
+    for (auto it = pictures.begin(); it != pictures.end(); ++it) {
+      TagLib::FLAC::Picture *picture = *it;
+      if (picture->type() == TagLib::FLAC::Picture::FrontCover) {
+        bestPicture = picture;
+        break;
       }
+      if (!bestPicture)
+        bestPicture = picture;
     }
+    if (!bestPicture)
+      return false;
+    TagLib::ByteVector data = bestPicture->data();
+    albumArt.assign(data.data(), data.data() + data.size());
+    return true;
   } catch (const std::exception &e) {
-    LOG_ERROR << "Error extracting album art: " << e.what();
+    LOG_ERROR << "Error extracting album art from " << filePath << ": "
+              << e.what();
   }
   return false;
 }
@@ -324,5 +351,47 @@ void MusicController::getTracksByAlbum(
   }
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::getAlbumArtByAlbum(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback,
+    const std::string &album) {
+  std::string decodedAlbum = drogon::utils::urlDecode(album);
+  std::string artistFilter = req->getParameter("artist");
+  LOG_INFO << "Looking for album art: " << decodedAlbum
+           << " artist: " << artistFilter;
+  std::string filePath = db_->getFilePathByAlbum(decodedAlbum, artistFilter);
+  if (filePath.empty()) {
+    LOG_INFO << "No file path found for album: " << decodedAlbum;
+    auto resp = drogon::HttpResponse::newNotFoundResponse();
+    callback(resp);
+    return;
+  }
+  LOG_INFO << "Found file path: " << filePath;
+  auto albumArt = db_->getAlbumArt(filePath);
+  if (albumArt.data.empty()) {
+    LOG_INFO << "No album art data for: " << filePath;
+    auto resp = drogon::HttpResponse::newNotFoundResponse();
+    callback(resp);
+    return;
+  }
+  LOG_INFO << "Album art size: " << albumArt.data.size();
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  std::string mimeType = albumArt.mimeType;
+  if (mimeType.empty()) {
+    mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
+  }
+  if (mimeType == "image/jpeg") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+  } else if (mimeType == "image/png") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_PNG);
+  } else if (mimeType == "image/gif") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_GIF);
+  } else {
+    resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
+  }
+  resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }

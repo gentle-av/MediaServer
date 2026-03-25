@@ -47,6 +47,8 @@ public:
   void scanDirectory(const std::string &path,
                      std::function<void(const std::string &)> callback);
   void forceRescan(const std::string &rootPath);
+  std::string getFilePathByAlbum(const std::string &albumName,
+                                 const std::string &artistName = "");
 
 private:
   class Impl;
