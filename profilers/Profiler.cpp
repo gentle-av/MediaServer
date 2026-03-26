@@ -50,7 +50,7 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
 void Profiler::loadConfiguration() {
   fs::path configPath = findConfigFile();
   if (!configPath.empty()) {
-    std::cout << "Loading config from: " << configPath << std::endl;
+    std::cout << "Loading config from: \"" << configPath << "\"" << std::endl;
     std::ifstream file(configPath);
     if (file.is_open()) {
       try {
@@ -58,8 +58,10 @@ void Profiler::loadConfiguration() {
         if (fullConfig.contains("profiles") &&
             fullConfig["profiles"].contains(config_.name)) {
           drogonConfig_ = fullConfig["profiles"][config_.name];
+          std::cout << "Loaded profile: " << config_.name << std::endl;
         } else {
           drogonConfig_ = fullConfig;
+          std::cout << "Using root config (no profile section)" << std::endl;
         }
       } catch (const std::exception &e) {
         std::cerr << "Error parsing config: " << e.what() << std::endl;
@@ -103,6 +105,10 @@ void Profiler::loadConfiguration() {
       config_.address = listener.value("address", config_.address);
       config_.port = listener.value("port", config_.port);
     }
+  }
+  if (config_.documentRoot.empty()) {
+    config_.documentRoot =
+        config_.isTest ? "./views" : "/home/avr/code/html/product/views";
   }
 }
 

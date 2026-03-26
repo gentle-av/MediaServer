@@ -1,5 +1,6 @@
 #include "AlbumArtExtractor.h"
 #include <algorithm>
+#include <iostream>
 
 std::unique_ptr<AlbumArtExtractor::AlbumArt>
 AlbumArtExtractor::extractAlbumArt(const std::string &filePath) {
@@ -21,9 +22,12 @@ std::unique_ptr<AlbumArtExtractor::AlbumArt>
 AlbumArtExtractor::extractFromFlac(const std::string &filePath) {
   TagLib::FLAC::File file(filePath.c_str());
   if (!file.isOpen()) {
+    std::cerr << "Cannot open FLAC file: " << filePath << std::endl;
     return nullptr;
   }
   auto pictures = file.pictureList();
+  std::cerr << "Found " << pictures.size() << " pictures in " << filePath
+            << std::endl;
   if (pictures.isEmpty()) {
     return nullptr;
   }

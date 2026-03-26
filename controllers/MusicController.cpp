@@ -1,11 +1,11 @@
 #include "controllers/MusicController.h"
+#include "services/AlbumArtExtractor.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
 #include <json/json.h>
 #include <taglib/attachedpictureframe.h>
 #include <taglib/fileref.h>
 #include <taglib/flacfile.h>
-#include <taglib/flacpicture.h>
 #include <taglib/id3v2tag.h>
 #include <taglib/mpegfile.h>
 #include <unordered_set>
@@ -92,7 +92,8 @@ void MusicController::getAlbums(
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value response;
   try {
-    auto albums = db_->getAlbums();
+    std::string artistFilter = req->getParameter("artist");
+    auto albums = db_->getAlbums(artistFilter);
     Json::Value albumsJson(Json::arrayValue);
     for (const auto &[album, artist, year] : albums) {
       Json::Value albumObj;
@@ -124,7 +125,19 @@ void MusicController::getAlbumArt(
     return;
   }
   auto resp = drogon::HttpResponse::newHttpResponse();
-  resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+  std::string mimeType = albumArt.mimeType;
+  if (mimeType.empty()) {
+    mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
+  }
+  if (mimeType == "image/jpeg") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+  } else if (mimeType == "image/png") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_PNG);
+  } else if (mimeType == "image/gif") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_GIF);
+  } else {
+    resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
+  }
   resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }
@@ -237,54 +250,32 @@ bool MusicController::extractMetadata(const std::string &filePath,
 
 bool MusicController::extractAlbumArt(const std::string &filePath,
                                       std::vector<char> &albumArt) {
-  LOG_INFO << "Extracting album art from: " << filePath;
   try {
     std::string ext = filePath.substr(filePath.find_last_of("."));
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-    if (ext == ".mp3") {
-      TagLib::MPEG::File mp3File(filePath.c_str());
-      TagLib::ID3v2::Tag *tag = mp3File.ID3v2Tag();
-      if (tag) {
-        TagLib::ID3v2::FrameList frames = tag->frameList("APIC");
-        LOG_INFO << "Found " << frames.size() << " APIC frames";
-        if (!frames.isEmpty()) {
-          TagLib::ID3v2::AttachedPictureFrame *frame =
-              static_cast<TagLib::ID3v2::AttachedPictureFrame *>(
-                  frames.front());
-          if (frame && frame->picture().size() > 0) {
-            albumArt.assign(frame->picture().data(),
-                            frame->picture().data() + frame->picture().size());
-            LOG_INFO << "Extracted MP3 album art, size: " << albumArt.size();
-            return true;
-          }
-        }
+    if (ext != ".flac")
+      return false;
+    TagLib::FLAC::File flacFile(filePath.c_str());
+    if (!flacFile.isOpen())
+      return false;
+    auto pictures = flacFile.pictureList();
+    if (pictures.isEmpty())
+      return false;
+    TagLib::FLAC::Picture *bestPicture = nullptr;
+    for (auto it = pictures.begin(); it != pictures.end(); ++it) {
+      TagLib::FLAC::Picture *picture = *it;
+      if (picture->type() == TagLib::FLAC::Picture::FrontCover) {
+        bestPicture = picture;
+        break;
       }
-    } else if (ext == ".flac") {
-      TagLib::FLAC::File flacFile(filePath.c_str());
-      if (flacFile.isOpen()) {
-        auto pictures = flacFile.pictureList();
-        LOG_INFO << "Found " << pictures.size() << " FLAC pictures";
-        if (!pictures.isEmpty()) {
-          TagLib::FLAC::Picture *bestPicture = nullptr;
-          for (auto it = pictures.begin(); it != pictures.end(); ++it) {
-            TagLib::FLAC::Picture *picture = *it;
-            if (picture->type() == TagLib::FLAC::Picture::FrontCover) {
-              bestPicture = picture;
-              break;
-            }
-            if (!bestPicture)
-              bestPicture = picture;
-          }
-          if (bestPicture) {
-            TagLib::ByteVector data = bestPicture->data();
-            albumArt.assign(data.data(), data.data() + data.size());
-            LOG_INFO << "Extracted FLAC album art, size: " << albumArt.size();
-            return true;
-          }
-        }
-      }
+      if (!bestPicture)
+        bestPicture = picture;
     }
+    if (!bestPicture)
+      return false;
+    TagLib::ByteVector data = bestPicture->data();
+    albumArt.assign(data.data(), data.data() + data.size());
+    return true;
   } catch (const std::exception &e) {
     LOG_ERROR << "Error extracting album art from " << filePath << ": "
               << e.what();
@@ -332,66 +323,82 @@ void MusicController::getTracksByAlbum(
   Json::Value response;
   try {
     std::string decodedAlbum = drogon::utils::urlDecode(album);
-    fs::path albumPath;
-    for (const auto &artistDir : fs::directory_iterator(musicDir_)) {
-      if (artistDir.is_directory()) {
-        for (const auto &albumDir : fs::directory_iterator(artistDir.path())) {
-          std::string albumName = albumDir.path().filename().string();
-          std::regex yearPattern(R"(^\d{4}\s*-\s*(.+)$)");
-          std::smatch match;
-          if (std::regex_match(albumName, match, yearPattern)) {
-            albumName = match[2].str();
-          }
-          if (albumName == decodedAlbum) {
-            albumPath = albumDir.path();
-            break;
-          }
-        }
-      }
-      if (!albumPath.empty())
-        break;
-    }
+    std::string artistFilter = req->getParameter("artist");
+    auto tracks = db_->getTracksByAlbum(decodedAlbum, artistFilter);
     Json::Value tracksJson(Json::arrayValue);
-    if (!albumPath.empty()) {
-      std::vector<fs::path> audioFiles;
-      for (const auto &entry : fs::directory_iterator(albumPath)) {
-        if (entry.is_regular_file()) {
-          std::string ext = entry.path().extension().string();
-          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-          if (ext == ".flac" || ext == ".mp3" || ext == ".m4a") {
-            audioFiles.push_back(entry.path());
-          }
-        }
-      }
-      std::sort(audioFiles.begin(), audioFiles.end());
-      int trackNum = 1;
-      for (const auto &trackPath : audioFiles) {
-        Json::Value trackObj;
-        trackObj["path"] = trackPath.string();
-        std::string title = trackPath.stem().string();
-        std::regex trackPattern(R"(^\d+\.?\s*(.+)$)");
-        std::smatch match;
-        if (std::regex_match(title, match, trackPattern)) {
-          title = match[1].str();
-        }
-        trackObj["title"] = title;
-        trackObj["artist"] = albumPath.parent_path().filename().string();
-        trackObj["album"] = decodedAlbum;
-        trackObj["duration"] = 0;
-        trackObj["track"] = trackNum++;
-        trackObj["year"] = "";
-        trackObj["genre"] = "";
-        tracksJson.append(trackObj);
-      }
+    for (const auto &track : tracks) {
+      Json::Value trackObj;
+      trackObj["path"] = track.filePath;
+      trackObj["title"] = track.title.empty() ? "Unknown" : track.title;
+      trackObj["artist"] = track.artist;
+      trackObj["album"] = track.album;
+      trackObj["duration"] = track.duration;
+      trackObj["track"] = track.track;
+      trackObj["year"] = track.year;
+      trackObj["genre"] = track.genre;
+      tracksJson.append(trackObj);
     }
     response["status"] = "success";
     response["tracks"] = tracksJson;
-    response["count"] = static_cast<int>(tracksJson.size());
+    response["count"] = static_cast<int>(tracks.size());
   } catch (const std::exception &e) {
     response["status"] = "error";
     response["message"] = e.what();
   }
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+// MusicController.cpp - исправленный getAlbumArtByAlbum
+void MusicController::getAlbumArtByAlbum(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback,
+    const std::string &album) {
+  std::string decodedAlbum = drogon::utils::urlDecode(album);
+  std::string artistFilter = req->getParameter("artist");
+  LOG_INFO << "Looking for album art: " << decodedAlbum
+           << " artist: " << artistFilter;
+  std::string filePath = db_->getFilePathByAlbum(decodedAlbum, artistFilter);
+  if (filePath.empty()) {
+    LOG_INFO << "No file path found for album: " << decodedAlbum;
+    auto resp = drogon::HttpResponse::newNotFoundResponse();
+    callback(resp);
+    return;
+  }
+  LOG_INFO << "Found file path: " << filePath;
+  auto albumArt = db_->getAlbumArt(filePath);
+  if (albumArt.data.empty()) {
+    LOG_INFO << "No album art data for: " << filePath;
+    auto resp = drogon::HttpResponse::newNotFoundResponse();
+    callback(resp);
+    return;
+  }
+  LOG_INFO << "Album art size: " << albumArt.data.size();
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  std::string mimeType = albumArt.mimeType;
+  if (mimeType.empty()) {
+    if (albumArt.data.size() >= 8) {
+      if (albumArt.data[0] == 0xFF && albumArt.data[1] == 0xD8) {
+        mimeType = "image/jpeg";
+      } else if (albumArt.data[0] == 0x89 && albumArt.data[1] == 0x50 &&
+                 albumArt.data[2] == 0x4E && albumArt.data[3] == 0x47) {
+        mimeType = "image/png";
+      } else if (albumArt.data[0] == 0x47 && albumArt.data[1] == 0x49 &&
+                 albumArt.data[2] == 0x46) {
+        mimeType = "image/gif";
+      }
+    }
+  }
+  if (mimeType == "image/jpeg") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+  } else if (mimeType == "image/png") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_PNG);
+  } else if (mimeType == "image/gif") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_GIF);
+  } else {
+    resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
+  }
+  resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }
