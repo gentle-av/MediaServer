@@ -125,13 +125,10 @@ void MusicController::getAlbumArt(
     return;
   }
   auto resp = drogon::HttpResponse::newHttpResponse();
-
-  // Устанавливаем правильный MIME тип на основе данных
   std::string mimeType = albumArt.mimeType;
   if (mimeType.empty()) {
     mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
   }
-
   if (mimeType == "image/jpeg") {
     resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
   } else if (mimeType == "image/png") {
@@ -141,7 +138,6 @@ void MusicController::getAlbumArt(
   } else {
     resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
   }
-
   resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }
@@ -333,7 +329,7 @@ void MusicController::getTracksByAlbum(
     for (const auto &track : tracks) {
       Json::Value trackObj;
       trackObj["path"] = track.filePath;
-      trackObj["title"] = track.title;
+      trackObj["title"] = track.title.empty() ? "Unknown" : track.title;
       trackObj["artist"] = track.artist;
       trackObj["album"] = track.album;
       trackObj["duration"] = track.duration;
@@ -354,6 +350,7 @@ void MusicController::getTracksByAlbum(
   callback(resp);
 }
 
+// MusicController.cpp - исправленный getAlbumArtByAlbum
 void MusicController::getAlbumArtByAlbum(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -381,7 +378,17 @@ void MusicController::getAlbumArtByAlbum(
   auto resp = drogon::HttpResponse::newHttpResponse();
   std::string mimeType = albumArt.mimeType;
   if (mimeType.empty()) {
-    mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
+    if (albumArt.data.size() >= 8) {
+      if (albumArt.data[0] == 0xFF && albumArt.data[1] == 0xD8) {
+        mimeType = "image/jpeg";
+      } else if (albumArt.data[0] == 0x89 && albumArt.data[1] == 0x50 &&
+                 albumArt.data[2] == 0x4E && albumArt.data[3] == 0x47) {
+        mimeType = "image/png";
+      } else if (albumArt.data[0] == 0x47 && albumArt.data[1] == 0x49 &&
+                 albumArt.data[2] == 0x46) {
+        mimeType = "image/gif";
+      }
+    }
   }
   if (mimeType == "image/jpeg") {
     resp->setContentTypeCode(drogon::CT_IMAGE_JPG);

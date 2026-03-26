@@ -224,8 +224,8 @@ std::vector<std::string> MusicDatabase::getArtists() {
 std::vector<std::tuple<std::string, std::string, std::string>>
 MusicDatabase::getAlbums(const std::string &artistFilter) {
   std::vector<std::tuple<std::string, std::string, std::string>> albums;
-  std::string sql = "SELECT DISTINCT album, artist, MAX(year) FROM music_files "
-                    "WHERE album != ''";
+  std::string sql = "SELECT album, artist, MAX(year) FROM music_files WHERE "
+                    "album != '' AND album IS NOT NULL AND album != 'Unknown'";
   if (!artistFilter.empty())
     sql += " AND artist = ?";
   sql += " GROUP BY album, artist ORDER BY artist, album";
@@ -251,30 +251,45 @@ std::vector<MusicMetadata>
 MusicDatabase::getTracksByAlbum(const std::string &albumName,
                                 const std::string &artistName) {
   std::vector<MusicMetadata> tracks;
-  const char *sql = "SELECT file_path, title, artist, album, duration, track, "
+  std::string sql = "SELECT file_path, title, artist, album, duration, track, "
                     "year, genre FROM music_files WHERE album = ?";
-  sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_STATIC);
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-      MusicMetadata meta;
-      meta.filePath =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)) ?: "";
-      meta.title =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)) ?: "";
-      meta.artist =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)) ?: "";
-      meta.album =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)) ?: "";
-      meta.duration = sqlite3_column_int(stmt, 4);
-      meta.track = sqlite3_column_int(stmt, 5);
-      meta.year = sqlite3_column_int(stmt, 6);
-      meta.genre =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7)) ?: "";
-      tracks.push_back(meta);
-    }
-    sqlite3_finalize(stmt);
+  if (!artistName.empty() && artistName != "Unknown") {
+    sql += " AND artist = ?";
   }
+  sql += " ORDER BY track";
+  sqlite3_stmt *stmt = nullptr;
+  if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) !=
+      SQLITE_OK) {
+    return tracks;
+  }
+  sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_TRANSIENT);
+  if (!artistName.empty() && artistName != "Unknown") {
+    sqlite3_bind_text(stmt, 2, artistName.c_str(), -1, SQLITE_TRANSIENT);
+  }
+  tracks.reserve(100);
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    tracks.emplace_back();
+    MusicMetadata &meta = tracks.back();
+    const char *path = (const char *)sqlite3_column_text(stmt, 0);
+    const char *title = (const char *)sqlite3_column_text(stmt, 1);
+    const char *artist = (const char *)sqlite3_column_text(stmt, 2);
+    const char *album = (const char *)sqlite3_column_text(stmt, 3);
+    const char *genre = (const char *)sqlite3_column_text(stmt, 7);
+    if (path)
+      meta.filePath.assign(path);
+    if (title)
+      meta.title.assign(title);
+    if (artist)
+      meta.artist.assign(artist);
+    if (album)
+      meta.album.assign(album);
+    if (genre)
+      meta.genre.assign(genre);
+    meta.duration = sqlite3_column_int(stmt, 4);
+    meta.track = sqlite3_column_int(stmt, 5);
+    meta.year = sqlite3_column_int(stmt, 6);
+  }
+  sqlite3_finalize(stmt);
   return tracks;
 }
 
@@ -295,23 +310,29 @@ MusicDatabase::getTracksByArtist(const std::string &artistName) {
       "FROM music_files WHERE artist = ? ORDER BY album, track";
   sqlite3_stmt *stmt;
   if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_text(stmt, 1, artistName.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, artistName.c_str(), -1, SQLITE_TRANSIENT);
+    tracks.reserve(100);
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-      MusicMetadata meta;
-      meta.filePath =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)) ?: "";
-      meta.title =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)) ?: "";
-      meta.artist =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)) ?: "";
-      meta.album =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)) ?: "";
+      tracks.emplace_back();
+      MusicMetadata &meta = tracks.back();
+      const char *path = (const char *)sqlite3_column_text(stmt, 0);
+      const char *title = (const char *)sqlite3_column_text(stmt, 1);
+      const char *artist = (const char *)sqlite3_column_text(stmt, 2);
+      const char *album = (const char *)sqlite3_column_text(stmt, 3);
+      const char *genre = (const char *)sqlite3_column_text(stmt, 7);
+      if (path)
+        meta.filePath.assign(path);
+      if (title)
+        meta.title.assign(title);
+      if (artist)
+        meta.artist.assign(artist);
+      if (album)
+        meta.album.assign(album);
+      if (genre)
+        meta.genre.assign(genre);
       meta.duration = sqlite3_column_int(stmt, 4);
       meta.track = sqlite3_column_int(stmt, 5);
       meta.year = sqlite3_column_int(stmt, 6);
-      meta.genre =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7)) ?: "";
-      tracks.push_back(meta);
     }
     sqlite3_finalize(stmt);
   }
@@ -320,20 +341,27 @@ MusicDatabase::getTracksByArtist(const std::string &artistName) {
 
 std::string MusicDatabase::getFilePathByAlbum(const std::string &albumName,
                                               const std::string &artistName) {
-  const char *sql = "SELECT file_path FROM music_files WHERE album = ?";
-  sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_STATIC);
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-      const char *path =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
-      if (path) {
-        std::string result = path;
-        sqlite3_finalize(stmt);
-        return result;
-      }
-    }
-    sqlite3_finalize(stmt);
+  std::string sql = "SELECT file_path FROM music_files WHERE album = ?";
+  if (!artistName.empty() && artistName != "Unknown") {
+    sql += " AND artist = ?";
   }
-  return "";
+  sql += " LIMIT 1";
+  sqlite3_stmt *stmt = nullptr;
+  if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) !=
+      SQLITE_OK) {
+    return "";
+  }
+  sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_TRANSIENT);
+  if (!artistName.empty() && artistName != "Unknown") {
+    sqlite3_bind_text(stmt, 2, artistName.c_str(), -1, SQLITE_TRANSIENT);
+  }
+  std::string result;
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *path =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    if (path)
+      result = path;
+  }
+  sqlite3_finalize(stmt);
+  return result;
 }
