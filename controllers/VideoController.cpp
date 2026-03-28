@@ -296,3 +296,55 @@ void VideoController::setFullscreen(
   addCorsHeaders(resp);
   callback(resp);
 }
+
+void VideoController::moveToTrash(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No path provided";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string path = (*json)["path"].asString();
+  if (path.find("/mnt/video") != 0 && path.find("/mnt/media/music") != 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Access denied";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k403Forbidden);
+    callback(resp);
+    return;
+  }
+  if (!fs::exists(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "File not found";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k404NotFound);
+    callback(resp);
+    return;
+  }
+  std::string trashCmd = "gio trash \"" + path +
+                         "\" 2>/dev/null || trash-put \"" + path +
+                         "\" 2>/dev/null";
+  int result = system(trashCmd.c_str());
+  if (result == 0) {
+    Json::Value response;
+    response["success"] = true;
+    response["message"] = "File moved to trash";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+  } else {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Failed to move file to trash";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k500InternalServerError);
+    callback(resp);
+  }
+}
