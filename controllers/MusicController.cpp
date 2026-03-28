@@ -350,7 +350,6 @@ void MusicController::getTracksByAlbum(
   callback(resp);
 }
 
-// MusicController.cpp - исправленный getAlbumArtByAlbum
 void MusicController::getAlbumArtByAlbum(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -400,5 +399,66 @@ void MusicController::getAlbumArtByAlbum(
     resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
   }
   resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
+  callback(resp);
+}
+
+void MusicController::openMusium(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  try {
+    auto json = req->getJsonObject();
+    if (!json || !json->isMember("tracks") || !(*json)["tracks"].isArray()) {
+      response["status"] = "error";
+      response["message"] = "Missing tracks array parameter";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k400BadRequest);
+      callback(resp);
+      return;
+    }
+    std::vector<std::string> tracks;
+    for (const auto &track : (*json)["tracks"]) {
+      if (track.isString()) {
+        tracks.push_back(track.asString());
+      }
+    }
+    if (tracks.empty()) {
+      response["status"] = "error";
+      response["message"] = "No tracks provided";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k400BadRequest);
+      callback(resp);
+      return;
+    }
+    LOG_INFO << "Opening Musium with " << tracks.size() << " tracks";
+    std::string musiumPath = "/usr/local/bin/Musium";
+    if (!std::filesystem::exists(musiumPath)) {
+      musiumPath = "./Musium";
+    }
+    if (!std::filesystem::exists(musiumPath)) {
+      musiumPath = "/opt/musium/Musium";
+    }
+    std::string cmd = musiumPath;
+    for (const auto &track : tracks) {
+      cmd += " \"" + track + "\"";
+    }
+    cmd += " --port 8084 --daemon < /dev/null > /tmp/musium.log 2>&1 & disown";
+    LOG_INFO << "Executing: " << cmd;
+    int result = std::system(cmd.c_str());
+    if (result == 0) {
+      response["status"] = "success";
+      response["message"] = "Musium launched";
+      response["tracks_count"] = static_cast<int>(tracks.size());
+    } else {
+      response["status"] = "error";
+      response["message"] = "Failed to launch Musium";
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error launching Musium: " << e.what();
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
   callback(resp);
 }

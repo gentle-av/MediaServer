@@ -21,6 +21,7 @@ public:
   ADD_METHOD_TO(MusicController::scan, "/api/music/scan", drogon::Post);
   ADD_METHOD_TO(MusicController::removeMissing, "/api/music/remove-missing",
                 drogon::Post);
+  ADD_METHOD_TO(MusicController::openMusium, "/api/music/open", drogon::Post);
   METHOD_LIST_END
 
   MusicController();
@@ -54,6 +55,9 @@ public:
   void removeMissing(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void
+  openMusium(const drogon::HttpRequestPtr &req,
+             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
