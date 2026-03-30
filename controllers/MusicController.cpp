@@ -218,6 +218,8 @@ void MusicController::removeMissingFiles() {
   }
 }
 
+#include <regex>
+
 bool MusicController::extractMetadata(const std::string &filePath,
                                       MusicMetadata &metadata) {
   if (!fs::exists(filePath))
@@ -229,11 +231,10 @@ bool MusicController::extractMetadata(const std::string &filePath,
       metadata.title = tag->title().to8Bit(true);
       metadata.artist = tag->artist().to8Bit(true);
       metadata.album = tag->album().to8Bit(true);
-      if (f.audioProperties()) {
+      if (f.audioProperties())
         metadata.duration = f.audioProperties()->lengthInSeconds();
-      } else {
+      else
         metadata.duration = 0;
-      }
       metadata.track = tag->track();
       metadata.year = tag->year();
       metadata.genre = tag->genre().to8Bit(true);
@@ -242,7 +243,13 @@ bool MusicController::extractMetadata(const std::string &filePath,
   } catch (const std::exception &e) {
     LOG_ERROR << "Error extracting metadata: " << e.what();
   }
-  metadata.title = fs::path(filePath).stem().string();
+  std::string filename = fs::path(filePath).stem().string();
+  static const std::regex trackPrefix(R"(^\s*\d{1,2}[\.\-\s]+\s*)");
+  filename = std::regex_replace(filename, trackPrefix, "");
+  if (filename.find_last_of('.') != std::string::npos) {
+    filename = filename.substr(0, filename.find_last_of('.'));
+  }
+  metadata.title = filename;
   metadata.artist = "Unknown";
   metadata.album = "Unknown";
   return true;
@@ -455,6 +462,195 @@ void MusicController::openMusium(
     }
   } catch (const std::exception &e) {
     LOG_ERROR << "Error launching Musium: " << e.what();
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::getFileMetadata(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  std::string filePath = req->getParameter("path");
+  if (filePath.empty()) {
+    response["status"] = "error";
+    response["message"] = "Parameter 'path' is required";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  try {
+    MusicMetadata dbMetadata;
+    bool dbExists = db_->getMetadata(decodedPath, dbMetadata);
+    MusicMetadata fileMetadata;
+    bool fileRead = extractMetadata(decodedPath, fileMetadata);
+    response["status"] = "success";
+    Json::Value result;
+    result["path"] = decodedPath;
+    result["file_exists"] = fs::exists(decodedPath);
+    Json::Value dbData;
+    dbData["exists"] = dbExists;
+    if (dbExists) {
+      dbData["title"] = dbMetadata.title;
+      dbData["artist"] = dbMetadata.artist;
+      dbData["album"] = dbMetadata.album;
+      dbData["track"] = dbMetadata.track;
+      dbData["year"] = dbMetadata.year;
+      dbData["genre"] = dbMetadata.genre;
+      dbData["duration"] = dbMetadata.duration;
+    }
+    result["database"] = dbData;
+    Json::Value fileData;
+    fileData["readable"] = fileRead;
+    if (fileRead) {
+      fileData["title"] = fileMetadata.title;
+      fileData["artist"] = fileMetadata.artist;
+      fileData["album"] = fileMetadata.album;
+      fileData["track"] = fileMetadata.track;
+      fileData["year"] = fileMetadata.year;
+      fileData["genre"] = fileMetadata.genre;
+      fileData["duration"] = fileMetadata.duration;
+    }
+    result["file"] = fileData;
+    Json::Value comparison;
+    comparison["title_matches"] = (dbMetadata.title == fileMetadata.title);
+    comparison["artist_matches"] = (dbMetadata.artist == fileMetadata.artist);
+    comparison["album_matches"] = (dbMetadata.album == fileMetadata.album);
+    comparison["track_matches"] = (dbMetadata.track == fileMetadata.track);
+    result["comparison"] = comparison;
+    Json::Value recommendations(Json::arrayValue);
+    if (!fileMetadata.title.empty() && dbMetadata.title != fileMetadata.title) {
+      recommendations.append(
+          "Title in file differs from database - consider refreshing metadata");
+    }
+    if (fileMetadata.title.empty()) {
+      recommendations.append(
+          "File has no title tag - using filename as fallback");
+      recommendations.append("Consider tagging files with proper metadata "
+                             "using MusicBrainz Picard or similar");
+    }
+    if (!fileRead) {
+      recommendations.append(
+          "Cannot read metadata from file - check file format and permissions");
+    }
+    result["recommendations"] = recommendations;
+    response["data"] = result;
+  } catch (const std::exception &e) {
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::refreshFileMetadata(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path")) {
+    response["status"] = "error";
+    response["message"] = "Parameter 'path' is required in JSON body";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string filePath = (*json)["path"].asString();
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  try {
+    if (!fs::exists(decodedPath)) {
+      response["status"] = "error";
+      response["message"] = "File does not exist";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k404NotFound);
+      callback(resp);
+      return;
+    }
+    MusicMetadata metadata;
+    if (extractMetadata(decodedPath, metadata)) {
+      if (db_->addFile(decodedPath, metadata)) {
+        LOG_INFO << "Refreshed metadata for: " << decodedPath;
+        std::vector<char> albumArt;
+        if (extractAlbumArt(decodedPath, albumArt)) {
+          db_->saveAlbumArt(decodedPath, albumArt);
+        }
+        response["status"] = "success";
+        response["message"] = "Metadata refreshed";
+        Json::Value dataObj;
+        dataObj["path"] = decodedPath;
+        dataObj["title"] = metadata.title;
+        dataObj["artist"] = metadata.artist;
+        dataObj["album"] = metadata.album;
+        dataObj["track"] = metadata.track;
+        response["data"] = dataObj;
+      } else {
+        response["status"] = "error";
+        response["message"] = "Failed to save metadata to database";
+      }
+    } else {
+      response["status"] = "error";
+      response["message"] = "Failed to extract metadata from file";
+    }
+  } catch (const std::exception &e) {
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::getDatabaseStats(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  try {
+    auto allFiles = db_->getAllFiles();
+    int totalFiles = allFiles.size();
+    int filesWithTags = 0;
+    int filesWithoutTitle = 0;
+    int filesWithArtist = 0;
+    int filesWithAlbum = 0;
+    std::unordered_set<std::string> uniqueArtists;
+    std::unordered_set<std::string> uniqueAlbums;
+    for (const auto &filePath : allFiles) {
+      MusicMetadata metadata;
+      if (db_->getMetadata(filePath, metadata)) {
+        if (!metadata.title.empty() && metadata.title != "Unknown") {
+          filesWithTags++;
+        } else {
+          filesWithoutTitle++;
+        }
+        if (!metadata.artist.empty() && metadata.artist != "Unknown") {
+          filesWithArtist++;
+          uniqueArtists.insert(metadata.artist);
+        }
+        if (!metadata.album.empty() && metadata.album != "Unknown") {
+          filesWithAlbum++;
+          uniqueAlbums.insert(metadata.album);
+        }
+      }
+    }
+    response["status"] = "success";
+    Json::Value dataObj;
+    dataObj["total_files"] = totalFiles;
+    dataObj["files_with_tags"] = filesWithTags;
+    dataObj["files_without_title"] = filesWithoutTitle;
+    dataObj["files_with_artist"] = filesWithArtist;
+    dataObj["files_with_album"] = filesWithAlbum;
+    dataObj["unique_artists"] = static_cast<int>(uniqueArtists.size());
+    dataObj["unique_albums"] = static_cast<int>(uniqueAlbums.size());
+    dataObj["tag_coverage_percent"] =
+        totalFiles > 0 ? (filesWithTags * 100 / totalFiles) : 0;
+    response["data"] = dataObj;
+  } catch (const std::exception &e) {
     response["status"] = "error";
     response["message"] = e.what();
   }

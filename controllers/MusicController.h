@@ -1,8 +1,6 @@
 #pragma once
-
 #include "database/MusicDatabase.h"
 #include <drogon/drogon.h>
-#include <memory>
 
 class MusicController : public drogon::HttpController<MusicController> {
 public:
@@ -22,9 +20,16 @@ public:
   ADD_METHOD_TO(MusicController::removeMissing, "/api/music/remove-missing",
                 drogon::Post);
   ADD_METHOD_TO(MusicController::openMusium, "/api/music/open", drogon::Post);
+  ADD_METHOD_TO(MusicController::getFileMetadata, "/api/music/file-metadata",
+                drogon::Get);
+  ADD_METHOD_TO(MusicController::refreshFileMetadata,
+                "/api/music/refresh-metadata", drogon::Post);
+  ADD_METHOD_TO(MusicController::getDatabaseStats, "/api/music/stats",
+                drogon::Get);
   METHOD_LIST_END
 
   MusicController();
+
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -58,6 +63,15 @@ public:
   void
   openMusium(const drogon::HttpRequestPtr &req,
              std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void getFileMetadata(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void refreshFileMetadata(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void getDatabaseStats(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
