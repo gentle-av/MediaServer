@@ -2,6 +2,7 @@
 #include "services/AlbumArtExtractor.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
+#include <iostream>
 #include <json/json.h>
 #include <taglib/attachedpictureframe.h>
 #include <taglib/fileref.h>
@@ -182,6 +183,7 @@ void MusicController::scanNewFiles() {
   std::vector<fs::path> musicFiles;
   if (fs::exists(musicDir_)) {
     for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
+      std::cout << entry.path() << '\n';
       if (entry.is_regular_file()) {
         auto ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -651,6 +653,56 @@ void MusicController::getDatabaseStats(
         totalFiles > 0 ? (filesWithTags * 100 / totalFiles) : 0;
     response["data"] = dataObj;
   } catch (const std::exception &e) {
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::forceRescan(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  try {
+    LOG_INFO << "Force rescan started";
+    auto allFiles = db_->getAllFiles();
+    int updatedCount = 0;
+    int errorCount = 0;
+    for (const auto &filePath : allFiles) {
+      if (fs::exists(filePath)) {
+        MusicMetadata metadata;
+        if (extractMetadata(filePath, metadata)) {
+          if (db_->addFile(filePath, metadata)) {
+            updatedCount++;
+            LOG_INFO << "Updated metadata for: " << filePath;
+
+            std::vector<char> albumArt;
+            if (extractAlbumArt(filePath, albumArt)) {
+              db_->saveAlbumArt(filePath, albumArt);
+            }
+          } else {
+            errorCount++;
+            LOG_ERROR << "Failed to update: " << filePath;
+          }
+        } else {
+          errorCount++;
+          LOG_ERROR << "Failed to extract metadata: " << filePath;
+        }
+      }
+    }
+    scanNewFiles();
+    removeMissingFiles();
+    response["status"] = "success";
+    response["message"] = "Force rescan completed";
+    response["updated_files"] = updatedCount;
+    response["error_count"] = errorCount;
+    response["total_files"] = static_cast<int>(allFiles.size());
+    LOG_INFO << "Force rescan finished. Updated: " << updatedCount
+             << ", Errors: " << errorCount;
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Force rescan error: " << e.what();
     response["status"] = "error";
     response["message"] = e.what();
   }

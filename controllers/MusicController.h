@@ -26,6 +26,8 @@ public:
                 "/api/music/refresh-metadata", drogon::Post);
   ADD_METHOD_TO(MusicController::getDatabaseStats, "/api/music/stats",
                 drogon::Get);
+  ADD_METHOD_TO(MusicController::forceRescan, "/api/music/force-rescan",
+                drogon::Post);
   METHOD_LIST_END
 
   MusicController();
@@ -72,6 +74,9 @@ public:
   void getDatabaseStats(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void
+  forceRescan(const drogon::HttpRequestPtr &req,
+              std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
