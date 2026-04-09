@@ -1,5 +1,6 @@
 #pragma once
 #include "database/MusicDatabase.h"
+#include "tagger/TagEditor.h"
 #include <drogon/drogon.h>
 
 class MusicController : public drogon::HttpController<MusicController> {
@@ -27,6 +28,8 @@ public:
   ADD_METHOD_TO(MusicController::getDatabaseStats, "/api/music/stats",
                 drogon::Get);
   ADD_METHOD_TO(MusicController::forceRescan, "/api/music/force-rescan",
+                drogon::Post);
+  ADD_METHOD_TO(MusicController::updateFileTags, "/api/music/update-tags",
                 drogon::Post);
   METHOD_LIST_END
 
@@ -77,11 +80,18 @@ public:
   void
   forceRescan(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void updateFileTags(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
   std::string musicDir_;
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
+  bool extractMetadataWithTagEditor(const std::string &filePath,
+                                    MusicMetadata &metadata);
+  bool updateFileTagsInternal(const std::string &filePath,
+                              const MusicMetadata &metadata);
   bool extractAlbumArt(const std::string &filePath,
                        std::vector<char> &albumArt);
   void scanNewFiles();

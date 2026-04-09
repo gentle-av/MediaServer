@@ -183,7 +183,6 @@ void MusicController::scanNewFiles() {
   std::vector<fs::path> musicFiles;
   if (fs::exists(musicDir_)) {
     for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
-      std::cout << entry.path() << '\n';
       if (entry.is_regular_file()) {
         auto ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -703,6 +702,204 @@ void MusicController::forceRescan(
              << ", Errors: " << errorCount;
   } catch (const std::exception &e) {
     LOG_ERROR << "Force rescan error: " << e.what();
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+bool MusicController::extractMetadataWithTagEditor(const std::string &filePath,
+                                                   MusicMetadata &metadata) {
+  std::string ext = filePath.substr(filePath.find_last_of("."));
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  if (ext != ".flac") {
+    return false;
+  }
+  try {
+    TagEditor editor(filePath);
+    if (!editor.load()) {
+      LOG_WARN << "Failed to load file with TagEditor: " << filePath;
+      return false;
+    }
+    metadata.title = editor.getTitle();
+    metadata.artist = editor.getArtist();
+    metadata.album = editor.getAlbum();
+    metadata.genre = editor.getGenre();
+    metadata.track = editor.getTrackNumber();
+    std::string date = editor.getDate();
+    if (!date.empty() && date.length() >= 4) {
+      try {
+        metadata.year = std::stoi(date.substr(0, 4));
+      } catch (...) {
+        metadata.year = 0;
+      }
+    } else {
+      metadata.year = 0;
+    }
+    metadata.duration = 0;
+    return true;
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error extracting metadata with TagEditor from " << filePath
+              << ": " << e.what();
+    return false;
+  }
+}
+
+bool MusicController::updateFileTagsInternal(const std::string &filePath,
+                                             const MusicMetadata &metadata) {
+  std::cout << "[DEBUG] updateFileTagsInternal called for: " << filePath
+            << std::endl;
+  std::string ext = fs::path(filePath).extension().string();
+  std::cout << "[DEBUG] File extension: '" << ext << "'" << std::endl;
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  std::cout << "[DEBUG] Normalized extension: '" << ext << "'" << std::endl;
+  if (ext != ".flac") {
+    std::cout << "[DEBUG] Not a FLAC file, returning false" << std::endl;
+    return false;
+  }
+  try {
+    TagEditor editor(filePath);
+    if (!editor.load()) {
+      std::cout << "[DEBUG] Failed to load file with TagEditor" << std::endl;
+      return false;
+    }
+    std::cout << "[DEBUG] TagEditor loaded successfully" << std::endl;
+    if (!metadata.title.empty()) {
+      editor.setTitle(metadata.title);
+      std::cout << "[DEBUG] Set title to: " << metadata.title << std::endl;
+    }
+    if (!metadata.artist.empty()) {
+      editor.setArtist(metadata.artist);
+      std::cout << "[DEBUG] Set artist to: " << metadata.artist << std::endl;
+    }
+    if (!metadata.album.empty()) {
+      editor.setAlbum(metadata.album);
+      std::cout << "[DEBUG] Set album to: " << metadata.album << std::endl;
+    }
+    if (!metadata.genre.empty()) {
+      editor.setGenre(metadata.genre);
+    }
+    if (metadata.track > 0) {
+      editor.setTrackNumber(metadata.track);
+      std::cout << "[DEBUG] Set track to: " << metadata.track << std::endl;
+    }
+    if (metadata.year > 0) {
+      editor.setDate(std::to_string(metadata.year));
+      std::cout << "[DEBUG] Set year to: " << metadata.year << std::endl;
+    }
+    if (!editor.save()) {
+      std::cout << "[DEBUG] Failed to save tags" << std::endl;
+      return false;
+    }
+    std::cout << "[DEBUG] Tags saved successfully" << std::endl;
+    return true;
+  } catch (const std::exception &e) {
+    std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
+    return false;
+  }
+}
+
+void MusicController::updateFileTags(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  auto json = req->getJsonObject();
+  std::cout << "[DEBUG] updateFileTags called" << std::endl;
+  if (!json) {
+    std::cout << "[DEBUG] No JSON body" << std::endl;
+    response["status"] = "error";
+    response["message"] = "Invalid JSON body";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  if (!json->isMember("path")) {
+    std::cout << "[DEBUG] No path parameter" << std::endl;
+    response["status"] = "error";
+    response["message"] = "Parameter 'path' is required";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string filePath = (*json)["path"].asString();
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  std::cout << "[DEBUG] Path: " << decodedPath << std::endl;
+  try {
+    if (!fs::exists(decodedPath)) {
+      std::cout << "[DEBUG] File does not exist" << std::endl;
+      response["status"] = "error";
+      response["message"] = "File does not exist: " + decodedPath;
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k404NotFound);
+      callback(resp);
+      return;
+    }
+    MusicMetadata newMetadata;
+    if (json->isMember("title")) {
+      newMetadata.title = (*json)["title"].asString();
+      std::cout << "[DEBUG] Title from JSON: " << newMetadata.title
+                << std::endl;
+    }
+    if (json->isMember("artist")) {
+      newMetadata.artist = (*json)["artist"].asString();
+      std::cout << "[DEBUG] Artist from JSON: " << newMetadata.artist
+                << std::endl;
+    }
+    if (json->isMember("album")) {
+      newMetadata.album = (*json)["album"].asString();
+      std::cout << "[DEBUG] Album from JSON: " << newMetadata.album
+                << std::endl;
+    }
+    if (json->isMember("genre")) {
+      newMetadata.genre = (*json)["genre"].asString();
+    }
+    if (json->isMember("track")) {
+      newMetadata.track = (*json)["track"].asInt();
+      std::cout << "[DEBUG] Track from JSON: " << newMetadata.track
+                << std::endl;
+    }
+    if (json->isMember("year")) {
+      newMetadata.year = (*json)["year"].asInt();
+      std::cout << "[DEBUG] Year from JSON: " << newMetadata.year << std::endl;
+    }
+    bool tagsUpdated = updateFileTagsInternal(decodedPath, newMetadata);
+    if (!tagsUpdated) {
+      std::cout << "[DEBUG] updateFileTagsInternal returned false" << std::endl;
+      response["status"] = "error";
+      response["message"] =
+          "Failed to update tags in file. Only FLAC files are supported.";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k500InternalServerError);
+      callback(resp);
+      return;
+    }
+    MusicMetadata updatedMetadata;
+    if (extractMetadata(decodedPath, updatedMetadata)) {
+      db_->addFile(decodedPath, updatedMetadata);
+      if (json->isMember("album")) {
+        std::vector<char> albumArt;
+        if (extractAlbumArt(decodedPath, albumArt)) {
+          db_->saveAlbumArt(decodedPath, albumArt);
+        }
+      }
+    }
+    response["status"] = "success";
+    response["message"] = "Tags updated successfully";
+    Json::Value dataObj;
+    dataObj["path"] = decodedPath;
+    dataObj["title"] = newMetadata.title;
+    dataObj["artist"] = newMetadata.artist;
+    dataObj["album"] = newMetadata.album;
+    dataObj["track"] = newMetadata.track;
+    dataObj["year"] = newMetadata.year;
+    dataObj["genre"] = newMetadata.genre;
+    response["data"] = dataObj;
+  } catch (const std::exception &e) {
+    std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
     response["status"] = "error";
     response["message"] = e.what();
   }

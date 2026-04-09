@@ -20,6 +20,8 @@ find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 
+get_target_property(TAGLIB_INCLUDE_DIRS TagLib::TagLib INTERFACE_INCLUDE_DIRECTORIES)
+
 add_executable(media_explorer_drogon
     main.cpp
     controllers/VideoController.cpp
@@ -28,6 +30,7 @@ add_executable(media_explorer_drogon
     services/MusicMetadataExtractor.cpp
     database/MusicDatabase.cpp
     profilers/Profiler.cpp
+    tagger/TagEditor.cpp
 )
 
 target_link_libraries(media_explorer_drogon PRIVATE
@@ -38,6 +41,12 @@ target_link_libraries(media_explorer_drogon PRIVATE
 
 target_include_directories(media_explorer_drogon PRIVATE
     ${SQLITE3_INCLUDE_DIRS}
+    ${TAGLIB_INCLUDE_DIRS}
+)
+
+# Добавляем определение макроса для TagLib
+target_compile_definitions(media_explorer_drogon PRIVATE
+    TAGLIB_STATIC
 )
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
