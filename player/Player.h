@@ -1,14 +1,14 @@
 #pragma once
+
 #include <atomic>
 #include <mpv/client.h>
-#include <mutex>
 #include <thread>
 #include <vector>
 
-class Musium {
+class Player {
 public:
-  Musium();
-  ~Musium();
+  Player();
+  ~Player();
 
   bool start();
   void stop();

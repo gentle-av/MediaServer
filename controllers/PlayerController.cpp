@@ -1,15 +1,18 @@
-#include "Controller.h"
+// PlayerController.cpp
+#include "PlayerController.h"
 #include <filesystem>
 #include <iostream>
 #include <thread>
 
-std::shared_ptr<Musium> Controller::musium_ = nullptr;
+std::shared_ptr<Player> PlayerController::player_ = nullptr;
 
-Controller::Controller() {}
+PlayerController::PlayerController() {}
 
-void Controller::setPlayer(std::shared_ptr<Musium> player) { musium_ = player; }
+void PlayerController::setPlayer(std::shared_ptr<Player> player) {
+  player_ = player;
+}
 
-Json::Value Controller::parseBody(const drogon::HttpRequestPtr &req) {
+Json::Value PlayerController::parseBody(const drogon::HttpRequestPtr &req) {
   auto body = req->getBody();
   Json::Value result;
   if (body.empty())
@@ -23,8 +26,9 @@ Json::Value Controller::parseBody(const drogon::HttpRequestPtr &req) {
   return result;
 }
 
-Json::Value Controller::jsonResponse(bool success, const std::string &message,
-                                     const Json::Value &data) {
+Json::Value PlayerController::jsonResponse(bool success,
+                                           const std::string &message,
+                                           const Json::Value &data) {
   Json::Value resp;
   resp["success"] = success;
   if (!message.empty())
@@ -34,46 +38,46 @@ Json::Value Controller::jsonResponse(bool success, const std::string &message,
   return resp;
 }
 
-void Controller::handlePlay(
+void PlayerController::handlePlay(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   std::cout << "[DEBUG] handlePlay called" << std::endl;
   std::thread([]() {
-    if (musium_)
-      musium_->play();
+    if (player_)
+      player_->play();
   }).detach();
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback started"));
   callback(resp);
 }
 
-void Controller::handlePause(
+void PlayerController::handlePause(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   std::cout << "[DEBUG] handlePause called" << std::endl;
   std::thread([]() {
-    if (musium_)
-      musium_->pause();
+    if (player_)
+      player_->pause();
   }).detach();
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback paused"));
   callback(resp);
 }
 
-void Controller::handleStop(
+void PlayerController::handleStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   std::cout << "[DEBUG] handleStop called" << std::endl;
   std::thread([]() {
-    if (musium_)
-      musium_->stop();
+    if (player_)
+      player_->stop();
   }).detach();
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback stopped"));
   callback(resp);
 }
 
-void Controller::handleSetTrack(
+void PlayerController::handleSetTrack(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   std::cout << "[DEBUG] handleSetTrack called" << std::endl;
@@ -95,9 +99,9 @@ void Controller::handleSetTrack(
     }
     std::cout << "[DEBUG] Setting track: " << track << std::endl;
     std::thread([track]() {
-      if (musium_) {
-        musium_->setPlaylist({track});
-        musium_->play();
+      if (player_) {
+        player_->setPlaylist({track});
+        player_->play();
       }
     }).detach();
     auto resp = drogon::HttpResponse::newHttpJsonResponse(

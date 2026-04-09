@@ -1,17 +1,17 @@
-#include "Musium.h"
+#include "Player.h"
 #include <filesystem>
 #include <iostream>
 
-Musium::Musium() : mpv_(nullptr), running_(false), currentIndex_(-1) {
+Player::Player() : mpv_(nullptr), running_(false), currentIndex_(-1) {
   initMpv();
 }
 
-Musium::~Musium() {
+Player::~Player() {
   stop();
   destroyMpv();
 }
 
-void Musium::initMpv() {
+void Player::initMpv() {
   mpv_ = mpv_create();
   if (!mpv_) {
     std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
@@ -28,10 +28,10 @@ void Musium::initMpv() {
     return;
   }
   running_ = true;
-  eventThread_ = std::thread(&Musium::eventLoop, this);
+  eventThread_ = std::thread(&Player::eventLoop, this);
 }
 
-void Musium::destroyMpv() {
+void Player::destroyMpv() {
   running_ = false;
   if (eventThread_.joinable()) {
     eventThread_.join();
@@ -42,7 +42,7 @@ void Musium::destroyMpv() {
   }
 }
 
-void Musium::eventLoop() {
+void Player::eventLoop() {
   while (running_) {
     mpv_event *event = mpv_wait_event(mpv_, 0.1);
     if (!event)
@@ -55,7 +55,7 @@ void Musium::eventLoop() {
   }
 }
 
-void Musium::loadTrack(int index) {
+void Player::loadTrack(int index) {
   if (index < 0 || index >= (int)playlist_.size()) {
     return;
   }
@@ -70,7 +70,7 @@ void Musium::loadTrack(int index) {
   std::cout << "[DEBUG] Loading: " << playlist_[currentIndex_] << std::endl;
 }
 
-void Musium::loadNextTrack() {
+void Player::loadNextTrack() {
   int nextIndex = currentIndex_ + 1;
   if (nextIndex < (int)playlist_.size() && nextIndex >= 0) {
     loadTrack(nextIndex);
@@ -79,9 +79,9 @@ void Musium::loadNextTrack() {
   }
 }
 
-bool Musium::start() { return mpv_ != nullptr; }
+bool Player::start() { return mpv_ != nullptr; }
 
-void Musium::stop() {
+void Player::stop() {
   if (mpv_) {
     const char *args[] = {"stop", NULL};
     mpv_command_async(mpv_, 0, args);
@@ -89,21 +89,21 @@ void Musium::stop() {
   currentIndex_ = -1;
 }
 
-void Musium::play() {
+void Player::play() {
   if (!mpv_)
     return;
   int pause = 0;
   mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
 }
 
-void Musium::pause() {
+void Player::pause() {
   if (!mpv_)
     return;
   int pause = 1;
   mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
 }
 
-void Musium::setPlaylist(const std::vector<std::string> &tracks) {
+void Player::setPlaylist(const std::vector<std::string> &tracks) {
   playlist_ = tracks;
   currentIndex_ = -1;
   if (!playlist_.empty()) {
@@ -111,4 +111,4 @@ void Musium::setPlaylist(const std::vector<std::string> &tracks) {
   }
 }
 
-std::vector<std::string> Musium::getPlaylist() { return playlist_; }
+std::vector<std::string> Player::getPlaylist() { return playlist_; }

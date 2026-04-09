@@ -1,20 +1,20 @@
 #pragma once
 
-#include "Musium.h"
+#include "player/Player.h"
 #include <drogon/HttpController.h>
 #include <json/json.h>
 
-class Controller : public drogon::HttpController<Controller> {
+class PlayerController : public drogon::HttpController<PlayerController> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(Controller::handlePlay, "/api/play", drogon::Post);
-  ADD_METHOD_TO(Controller::handlePause, "/api/pause", drogon::Post);
-  ADD_METHOD_TO(Controller::handleStop, "/api/stop", drogon::Post);
-  ADD_METHOD_TO(Controller::handleSetTrack, "/api/track", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handlePlay, "/api/play", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handlePause, "/api/pause", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleStop, "/api/stop", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleSetTrack, "/api/track", drogon::Post);
   METHOD_LIST_END
 
-  Controller();
-  static void setPlayer(std::shared_ptr<Musium> player);
+  PlayerController();
+  static void setPlayer(std::shared_ptr<Player> player);
 
   void
   handlePlay(const drogon::HttpRequestPtr &req,
@@ -30,7 +30,7 @@ public:
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
-  static std::shared_ptr<Musium> musium_;
+  static std::shared_ptr<Player> player_;
   Json::Value parseBody(const drogon::HttpRequestPtr &req);
   Json::Value jsonResponse(bool success, const std::string &message = "",
                            const Json::Value &data = Json::Value());
