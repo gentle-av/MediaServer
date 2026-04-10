@@ -49,7 +49,10 @@ void Player::eventLoop() {
     if (!event)
       continue;
     if (event->event_id == MPV_EVENT_END_FILE) {
+      std::cout << "[DEBUG] MPV_EVENT_END_FILE received, manualStop_="
+                << manualStop_ << std::endl;
       if (!manualStop_) {
+        std::cout << "[DEBUG] Calling loadNextTrack()" << std::endl;
         loadNextTrack();
       }
       manualStop_ = false;
@@ -60,7 +63,12 @@ void Player::eventLoop() {
 }
 
 void Player::loadTrack(int index) {
+  std::cout << "[DEBUG] loadTrack called with index=" << index
+            << ", currentIndex_ before=" << currentIndex_
+            << ", playlist_.size()=" << playlist_.size() << std::endl;
   if (index < 0 || index >= (int)playlist_.size()) {
+    std::cout << "[DEBUG] loadTrack: index out of range, returning"
+              << std::endl;
     return;
   }
   if (!std::filesystem::exists(playlist_[index])) {
@@ -77,9 +85,15 @@ void Player::loadTrack(int index) {
 
 void Player::loadNextTrack() {
   int nextIndex = currentIndex_ + 1;
+  std::cout << "[DEBUG] loadNextTrack: currentIndex_=" << currentIndex_
+            << ", nextIndex=" << nextIndex
+            << ", playlist_.size()=" << playlist_.size() << std::endl;
   if (nextIndex < (int)playlist_.size() && nextIndex >= 0) {
     loadTrack(nextIndex);
   } else {
+    std::cout
+        << "[DEBUG] loadNextTrack: no next track, setting currentIndex_=-1"
+        << std::endl;
     currentIndex_ = -1;
   }
 }

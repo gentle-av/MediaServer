@@ -16,6 +16,7 @@ public:
   void pause();
   void setPlaylist(const std::vector<std::string> &tracks);
   std::vector<std::string> getPlaylist();
+  mpv_handle *getMpvHandle() const { return mpv_; }
 
 private:
   mpv_handle *mpv_;

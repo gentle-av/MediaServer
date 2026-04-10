@@ -23,7 +23,7 @@ void PlayerService::playTrack(int index) {
   trackStartTime_ = std::chrono::steady_clock::now();
   trackStartTimeValid_ = true;
   if (internalPlayer_) {
-    internalPlayer_->setPlaylist({currentTrack_});
+    internalPlayer_->setPlaylist(playlist_);
     internalPlayer_->play();
   }
   isPlaying_ = true;
@@ -38,7 +38,11 @@ double PlayerService::getElapsedTime() const {
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                        now - trackStartTime_)
                        .count();
-    return currentTime_ + (elapsed / 1000.0);
+    double result = currentTime_ + (elapsed / 1000.0);
+    if (duration_ > 0 && result > duration_) {
+      return duration_;
+    }
+    return result;
   } else {
     return currentTime_;
   }
@@ -139,7 +143,14 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
     playlist_.clear();
     for (const auto &track : data["tracks"]) {
       if (track.isString()) {
-        playlist_.push_back(track.asString());
+        std::string path = track.asString();
+        if (std::filesystem::exists(path)) {
+          playlist_.push_back(path);
+          std::cout << "[DEBUG] Added: " << path << std::endl;
+        } else {
+          std::cout << "[ERROR] File not found, skipping: " << path
+                    << std::endl;
+        }
       }
     }
     if (!playlist_.empty()) {
@@ -170,11 +181,9 @@ Json::Value PlayerService::handleInternalPlayIndex(const Json::Value &data) {
 }
 
 Json::Value PlayerService::handleInternalGetCurrentTime() {
+  updatePlaybackState();
   Json::Value data;
-  double elapsed = getElapsedTime();
-  if (elapsed < 0)
-    elapsed = 0;
-  data["currentTime"] = elapsed;
+  data["currentTime"] = currentTime_;
   data["duration"] = duration_;
   return data;
 }
@@ -311,11 +320,6 @@ void PlayerService::ensureConnection() {
     std::cout << "[PlayerService] Player not available on port " << port_
               << std::endl;
   }
-}
-
-void PlayerService::updatePlaybackState() {
-  if (!internalPlayer_)
-    return;
 }
 
 Json::Value
@@ -517,4 +521,21 @@ PlayerService::handleInternalRemoveFromPlaylist(const Json::Value &data) {
     removeFromPlaylist(index);
   }
   return result;
+}
+
+void PlayerService::updatePlaybackState() {
+  if (!internalPlayer_)
+    return;
+  mpv_handle *mpv = internalPlayer_->getMpvHandle();
+  if (!mpv)
+    return;
+  double time = 0;
+  mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &time);
+  currentTime_ = time;
+  double duration = 0;
+  mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
+  duration_ = duration;
+  int pause = 1;
+  mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  isPlaying_ = (pause == 0);
 }
