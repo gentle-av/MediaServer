@@ -6,24 +6,11 @@
 #include <iostream>
 #include <map>
 
-Json::Value PlayerService::handleInternalPause() {
-  Json::Value result;
-  result["success"] = true;
-  if (internalPlayer_) {
-    internalPlayer_->pause();
-    isPlaying_ = false;
-  }
-  return result;
-}
-
-Json::Value PlayerService::handleInternalPlay() {
-  Json::Value result;
-  result["success"] = true;
-  if (internalPlayer_) {
-    internalPlayer_->play();
-    isPlaying_ = true;
-  }
-  return result;
+static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
+                            std::string *response) {
+  size_t totalSize = size * nmemb;
+  response->append((char *)contents, totalSize);
+  return totalSize;
 }
 
 void PlayerService::playTrack(int index) {
@@ -31,6 +18,10 @@ void PlayerService::playTrack(int index) {
     return;
   currentIndex_ = index;
   currentTrack_ = playlist_[currentIndex_];
+  currentTime_ = 0;
+  duration_ = 0;
+  trackStartTime_ = std::chrono::steady_clock::now();
+  trackStartTimeValid_ = true;
   if (internalPlayer_) {
     internalPlayer_->setPlaylist({currentTrack_});
     internalPlayer_->play();
@@ -38,10 +29,86 @@ void PlayerService::playTrack(int index) {
   isPlaying_ = true;
 }
 
+double PlayerService::getElapsedTime() const {
+  if (!trackStartTimeValid_) {
+    return currentTime_;
+  }
+  if (isPlaying_) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - trackStartTime_)
+                       .count();
+    return currentTime_ + (elapsed / 1000.0);
+  } else {
+    return currentTime_;
+  }
+}
+
+Json::Value PlayerService::handleInternalPlay() {
+  Json::Value result;
+  result["success"] = true;
+  if (internalPlayer_ && !playlist_.empty()) {
+    if (currentIndex_ < 0) {
+      currentIndex_ = 0;
+      currentTrack_ = playlist_[currentIndex_];
+      currentTime_ = 0;
+      trackStartTime_ = std::chrono::steady_clock::now();
+      trackStartTimeValid_ = true;
+      internalPlayer_->setPlaylist({currentTrack_});
+      internalPlayer_->play();
+    } else {
+      trackStartTime_ = std::chrono::steady_clock::now();
+      trackStartTimeValid_ = true;
+      internalPlayer_->play();
+    }
+    isPlaying_ = true;
+  }
+  return result;
+}
+
+Json::Value PlayerService::handleInternalPause() {
+  Json::Value result;
+  result["success"] = true;
+  if (internalPlayer_) {
+    if (isPlaying_ && trackStartTimeValid_) {
+      auto now = std::chrono::steady_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         now - trackStartTime_)
+                         .count();
+      currentTime_ += (elapsed / 1000.0);
+      trackStartTimeValid_ = false;
+    }
+    internalPlayer_->pause();
+    isPlaying_ = false;
+  }
+  return result;
+}
+
+Json::Value PlayerService::handleInternalStop() {
+  Json::Value result;
+  result["success"] = true;
+  if (internalPlayer_) {
+    internalPlayer_->stop();
+    isPlaying_ = false;
+    currentTime_ = 0;
+    currentIndex_ = -1;
+    trackStartTimeValid_ = false;
+  }
+  return result;
+}
+
 Json::Value PlayerService::handleInternalNext() {
   Json::Value result;
   result["success"] = true;
   if (currentIndex_ + 1 < (int)playlist_.size()) {
+    if (isPlaying_ && trackStartTimeValid_) {
+      auto now = std::chrono::steady_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         now - trackStartTime_)
+                         .count();
+      currentTime_ += (elapsed / 1000.0);
+      trackStartTimeValid_ = false;
+    }
     playTrack(currentIndex_ + 1);
   }
   return result;
@@ -51,6 +118,14 @@ Json::Value PlayerService::handleInternalPrevious() {
   Json::Value result;
   result["success"] = true;
   if (currentIndex_ - 1 >= 0) {
+    if (isPlaying_ && trackStartTimeValid_) {
+      auto now = std::chrono::steady_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         now - trackStartTime_)
+                         .count();
+      currentTime_ += (elapsed / 1000.0);
+      trackStartTimeValid_ = false;
+    }
     playTrack(currentIndex_ - 1);
   }
   return result;
@@ -80,10 +155,78 @@ Json::Value PlayerService::handleInternalPlayIndex(const Json::Value &data) {
   if (data.isMember("index") && data["index"].isInt()) {
     int index = data["index"].asInt();
     if (index >= 0 && index < (int)playlist_.size()) {
+      if (isPlaying_ && trackStartTimeValid_) {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                           now - trackStartTime_)
+                           .count();
+        currentTime_ += (elapsed / 1000.0);
+        trackStartTimeValid_ = false;
+      }
       playTrack(index);
     }
   }
   return result;
+}
+
+Json::Value PlayerService::handleInternalGetCurrentTime() {
+  Json::Value data;
+  double elapsed = getElapsedTime();
+  if (elapsed < 0)
+    elapsed = 0;
+  data["currentTime"] = elapsed;
+  data["duration"] = duration_;
+  return data;
+}
+
+void PlayerService::removeFromPlaylist(int index) {
+  if (index < 0 || index >= (int)playlist_.size())
+    return;
+  playlist_.erase(playlist_.begin() + index);
+  if (currentIndex_ == index) {
+    if (playlist_.empty()) {
+      currentIndex_ = -1;
+      currentTrack_ = "";
+      isPlaying_ = false;
+      currentTime_ = 0;
+      trackStartTimeValid_ = false;
+      if (internalPlayer_) {
+        internalPlayer_->stop();
+      }
+    } else if (currentIndex_ >= (int)playlist_.size()) {
+      currentIndex_ = (int)playlist_.size() - 1;
+      currentTrack_ = playlist_[currentIndex_];
+      currentTime_ = 0;
+      trackStartTime_ = std::chrono::steady_clock::now();
+      trackStartTimeValid_ = true;
+      if (internalPlayer_) {
+        internalPlayer_->setPlaylist({currentTrack_});
+      }
+    } else {
+      currentTrack_ = playlist_[currentIndex_];
+      currentTime_ = 0;
+      trackStartTime_ = std::chrono::steady_clock::now();
+      trackStartTimeValid_ = true;
+      if (internalPlayer_) {
+        internalPlayer_->setPlaylist({currentTrack_});
+      }
+    }
+  } else if (currentIndex_ > index) {
+    currentIndex_--;
+  }
+}
+
+PlayerService::PlayerService(int port)
+    : port_(port), available_(false), useInternalPlayer_(false),
+      isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
+      internalPlayer_(nullptr), trackStartTimeValid_(false) {
+  baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
+  ensureConnection();
+}
+
+void PlayerService::resetTrackStartTime() {
+  trackStartTime_ = std::chrono::steady_clock::now();
+  trackStartTimeValid_ = true;
 }
 
 Json::Value PlayerService::handleInternalGetPlaylist() {
@@ -100,6 +243,7 @@ Json::Value PlayerService::handleInternalClear() {
   currentTrack_ = "";
   isPlaying_ = false;
   currentTime_ = 0;
+  trackStartTimeValid_ = false;
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
@@ -115,18 +259,10 @@ Json::Value PlayerService::handleInternalGetPlaybackState() {
   return data;
 }
 
-static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
-                            std::string *response) {
-  size_t totalSize = size * nmemb;
-  response->append((char *)contents, totalSize);
-  return totalSize;
-}
-
-PlayerService::PlayerService(int port)
-    : port_(port), available_(false), useInternalPlayer_(false),
-      isPlaying_(false), currentTime_(0.0), internalPlayer_(nullptr) {
-  baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
-  ensureConnection();
+Json::Value PlayerService::handleInternalGetCurrentTrack() {
+  Json::Value data;
+  data["track"] = currentTrack_;
+  return data;
 }
 
 PlayerService::~PlayerService() {}
@@ -155,7 +291,6 @@ void PlayerService::ensureConnection() {
     available_ = true;
     return;
   }
-
   CURL *curl = curl_easy_init();
   if (!curl) {
     available_ = false;
@@ -183,17 +318,6 @@ void PlayerService::updatePlaybackState() {
     return;
 }
 
-Json::Value PlayerService::handleInternalStop() {
-  Json::Value result;
-  result["success"] = true;
-  if (internalPlayer_) {
-    internalPlayer_->stop();
-    isPlaying_ = false;
-    currentTime_ = 0;
-  }
-  return result;
-}
-
 Json::Value
 PlayerService::handleInternalAddToPlaylist(const Json::Value &data) {
   Json::Value result;
@@ -207,23 +331,6 @@ PlayerService::handleInternalAddAfterCurrent(const Json::Value &data) {
   result["success"] = true;
   return result;
 }
-Json::Value PlayerService::handleInternalGetCurrentTrack() {
-  Json::Value result;
-  result["success"] = true;
-  Json::Value data;
-  data["track"] = currentTrack_;
-  result["data"] = data;
-  return result;
-}
-
-Json::Value PlayerService::handleInternalGetCurrentTime() {
-  Json::Value result;
-  result["success"] = true;
-  Json::Value data;
-  data["currentTime"] = currentTime_;
-  result["data"] = data;
-  return result;
-}
 
 Json::Value PlayerService::sendRequest(const std::string &endpoint,
                                        const std::string &method,
@@ -231,7 +338,6 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
   if (useInternalPlayer_ && internalPlayer_) {
     using VoidHandlerFunc = std::function<Json::Value()>;
     using DataHandlerFunc = std::function<Json::Value(const Json::Value &)>;
-
     static const std::map<std::string, VoidHandlerFunc> voidHandlers = {
         {"/api/play", [this]() { return handleInternalPlay(); }},
         {"/api/pause", [this]() { return handleInternalPause(); }},
@@ -246,7 +352,6 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
          [this]() { return handleInternalGetCurrentTrack(); }},
         {"/api/currentTime",
          [this]() { return handleInternalGetCurrentTime(); }}};
-
     static const std::map<std::string, DataHandlerFunc> dataHandlers = {
         {"/api/replacePlaylist",
          [this](const Json::Value &d) {
@@ -284,21 +389,18 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
     result["error"] = "Player not available";
     return result;
   }
-
   CURL *curl = curl_easy_init();
   if (!curl) {
     Json::Value result;
     result["success"] = false;
     return result;
   }
-
   std::string url = baseUrl_ + endpoint;
   std::string response;
   curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
   if (method == "POST") {
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     if (!data.isNull()) {
@@ -310,10 +412,8 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
       curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
   }
-
   CURLcode res = curl_easy_perform(curl);
   Json::Value result;
-
   if (res == CURLE_OK) {
     Json::CharReaderBuilder reader;
     std::string errors;
@@ -332,7 +432,6 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
     result["error"] = curl_easy_strerror(res);
     available_ = false;
   }
-
   curl_easy_cleanup(curl);
   return result;
 }
@@ -407,35 +506,6 @@ Json::Value PlayerService::getCurrentTrack() {
 
 Json::Value PlayerService::getCurrentTime() {
   return sendRequest("/api/currentTime", "GET");
-}
-
-void PlayerService::removeFromPlaylist(int index) {
-  if (index < 0 || index >= (int)playlist_.size())
-    return;
-  playlist_.erase(playlist_.begin() + index);
-  if (currentIndex_ == index) {
-    if (playlist_.empty()) {
-      currentIndex_ = -1;
-      currentTrack_ = "";
-      if (internalPlayer_) {
-        internalPlayer_->stop();
-      }
-      isPlaying_ = false;
-    } else if (currentIndex_ >= (int)playlist_.size()) {
-      currentIndex_ = (int)playlist_.size() - 1;
-      currentTrack_ = playlist_[currentIndex_];
-      if (internalPlayer_) {
-        internalPlayer_->setPlaylist({currentTrack_});
-      }
-    } else {
-      currentTrack_ = playlist_[currentIndex_];
-      if (internalPlayer_) {
-        internalPlayer_->setPlaylist({currentTrack_});
-      }
-    }
-  } else if (currentIndex_ > index) {
-    currentIndex_--;
-  }
 }
 
 Json::Value

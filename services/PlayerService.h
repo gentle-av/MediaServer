@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <json/json.h>
 #include <memory>
 #include <string>
@@ -39,6 +40,7 @@ public:
   void removeFromPlaylist(int index);
 
 private:
+  double duration_;
   int port_;
   bool available_;
   bool useInternalPlayer_;
@@ -49,6 +51,9 @@ private:
   std::string baseUrl_;
   std::shared_ptr<Player> internalPlayer_;
   std::vector<std::string> playlist_;
+
+  std::chrono::steady_clock::time_point trackStartTime_;
+  bool trackStartTimeValid_;
 
   Json::Value sendRequest(const std::string &endpoint,
                           const std::string &method = "POST",
@@ -72,4 +77,6 @@ private:
 
   void updatePlaybackState();
   void playTrack(int index);
+  void resetTrackStartTime();
+  double getElapsedTime() const;
 };
