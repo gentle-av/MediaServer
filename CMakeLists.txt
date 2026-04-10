@@ -19,6 +19,7 @@ find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
+pkg_check_modules(LIBCURL REQUIRED libcurl)
 
 get_target_property(TAGLIB_INCLUDE_DIRS TagLib::TagLib INTERFACE_INCLUDE_DIRECTORIES)
 
@@ -29,6 +30,7 @@ add_executable(media_explorer_drogon
     controllers/PlayerController.cpp
     services/AlbumArtExtractor.cpp
     services/MusicMetadataExtractor.cpp
+    services/PlayerService.cpp
     database/MusicDatabase.cpp
     profilers/Profiler.cpp
     tagger/TagEditor.cpp
@@ -40,12 +42,14 @@ target_link_libraries(media_explorer_drogon PRIVATE
     TagLib::TagLib
     ${SQLITE3_LIBRARIES}
     ${MPV_LIBRARIES}
+    ${LIBCURL_LIBRARIES}
 )
 
 target_include_directories(media_explorer_drogon PRIVATE
     ${SQLITE3_INCLUDE_DIRS}
     ${TAGLIB_INCLUDE_DIRS}
     ${MPV_INCLUDE_DIRS}
+    ${LIBCURL_INCLUDE_DIRS}
 )
 
 target_compile_definitions(media_explorer_drogon PRIVATE

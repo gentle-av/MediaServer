@@ -1,4 +1,3 @@
-// MusicMetadataExtractor.cpp
 #include "MusicMetadataExtractor.h"
 #include <algorithm>
 #include <iostream>

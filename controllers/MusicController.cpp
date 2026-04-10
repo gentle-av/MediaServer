@@ -1,3 +1,4 @@
+// MusicController.cpp
 #include "controllers/MusicController.h"
 #include "services/AlbumArtExtractor.h"
 #include <drogon/utils/Utilities.h>
@@ -13,6 +14,8 @@
 
 namespace fs = std::filesystem;
 
+std::shared_ptr<PlayerService> MusicController::playerService_ = nullptr;
+
 MusicController::MusicController() {
   const char *home = getenv("HOME");
   std::string dbPath =
@@ -26,6 +29,10 @@ MusicController::MusicController() {
     musicDir_ = "./music";
   scanNewFiles();
   removeMissingFiles();
+}
+
+void MusicController::setPlayerService(std::shared_ptr<PlayerService> service) {
+  playerService_ = service;
 }
 
 void MusicController::listFiles(
@@ -439,27 +446,15 @@ void MusicController::openMusium(
       return;
     }
     LOG_INFO << "Opening Musium with " << tracks.size() << " tracks";
-    std::string musiumPath = "/usr/local/bin/Musium";
-    if (!std::filesystem::exists(musiumPath)) {
-      musiumPath = "./Musium";
-    }
-    if (!std::filesystem::exists(musiumPath)) {
-      musiumPath = "/opt/musium/Musium";
-    }
-    std::string cmd = musiumPath;
-    for (const auto &track : tracks) {
-      cmd += " \"" + track + "\"";
-    }
-    cmd += " --port 8084 --daemon < /dev/null > /tmp/musium.log 2>&1 & disown";
-    LOG_INFO << "Executing: " << cmd;
-    int result = std::system(cmd.c_str());
-    if (result == 0) {
+    if (playerService_) {
+      playerService_->setPlaylist(tracks);
+      playerService_->play();
       response["status"] = "success";
-      response["message"] = "Musium launched";
+      response["message"] = "Musium launched via PlayerService";
       response["tracks_count"] = static_cast<int>(tracks.size());
     } else {
       response["status"] = "error";
-      response["message"] = "Failed to launch Musium";
+      response["message"] = "PlayerService not available";
     }
   } catch (const std::exception &e) {
     LOG_ERROR << "Error launching Musium: " << e.what();

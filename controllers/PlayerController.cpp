@@ -1,15 +1,12 @@
-// PlayerController.cpp
 #include "PlayerController.h"
-#include <filesystem>
-#include <iostream>
-#include <thread>
 
-std::shared_ptr<Player> PlayerController::player_ = nullptr;
+std::shared_ptr<PlayerService> PlayerController::playerService_ = nullptr;
 
 PlayerController::PlayerController() {}
 
-void PlayerController::setPlayer(std::shared_ptr<Player> player) {
-  player_ = player;
+void PlayerController::setPlayerService(
+    std::shared_ptr<PlayerService> service) {
+  playerService_ = service;
 }
 
 Json::Value PlayerController::parseBody(const drogon::HttpRequestPtr &req) {
@@ -41,11 +38,13 @@ Json::Value PlayerController::jsonResponse(bool success,
 void PlayerController::handlePlay(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::cout << "[DEBUG] handlePlay called" << std::endl;
-  std::thread([]() {
-    if (player_)
-      player_->play();
-  }).detach();
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  playerService_->play();
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback started"));
   callback(resp);
@@ -54,11 +53,13 @@ void PlayerController::handlePlay(
 void PlayerController::handlePause(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::cout << "[DEBUG] handlePause called" << std::endl;
-  std::thread([]() {
-    if (player_)
-      player_->pause();
-  }).detach();
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  playerService_->pause();
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback paused"));
   callback(resp);
@@ -67,20 +68,57 @@ void PlayerController::handlePause(
 void PlayerController::handleStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::cout << "[DEBUG] handleStop called" << std::endl;
-  std::thread([]() {
-    if (player_)
-      player_->stop();
-  }).detach();
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  playerService_->stop();
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback stopped"));
+  callback(resp);
+}
+
+void PlayerController::handleNext(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  playerService_->next();
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(
+      jsonResponse(true, "Next track"));
+  callback(resp);
+}
+
+void PlayerController::handlePrevious(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  playerService_->previous();
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(
+      jsonResponse(true, "Previous track"));
   callback(resp);
 }
 
 void PlayerController::handleSetTrack(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::cout << "[DEBUG] handleSetTrack called" << std::endl;
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
   try {
     Json::Value json = parseBody(req);
     if (!json.isMember("track") || !json["track"].isString()) {
@@ -90,20 +128,7 @@ void PlayerController::handleSetTrack(
       return;
     }
     std::string track = json["track"].asString();
-    if (!std::filesystem::exists(track)) {
-      std::cerr << "[ERROR] File not found: " << track << std::endl;
-      auto resp = drogon::HttpResponse::newHttpJsonResponse(
-          jsonResponse(false, "File not found: " + track));
-      callback(resp);
-      return;
-    }
-    std::cout << "[DEBUG] Setting track: " << track << std::endl;
-    std::thread([track]() {
-      if (player_) {
-        player_->setPlaylist({track});
-        player_->play();
-      }
-    }).detach();
+    playerService_->replacePlaylistWithTrack(track);
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "Track set and playing"));
     callback(resp);
@@ -112,4 +137,197 @@ void PlayerController::handleSetTrack(
         jsonResponse(false, e.what()));
     callback(resp);
   }
+}
+
+void PlayerController::handleSetPlaylist(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("tracks") || !json["tracks"].isArray()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing tracks array parameter"));
+      callback(resp);
+      return;
+    }
+    std::vector<std::string> tracks;
+    for (const auto &track : json["tracks"]) {
+      if (track.isString()) {
+        tracks.push_back(track.asString());
+      }
+    }
+    playerService_->replacePlaylist(tracks);
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Playlist set"));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void PlayerController::handleAddToPlaylist(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("track") || !json["track"].isString()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing track parameter"));
+      callback(resp);
+      return;
+    }
+    playerService_->addToPlaylist(json["track"].asString());
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Track added to playlist"));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void PlayerController::handleAddAfterCurrent(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("track") || !json["track"].isString()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing track parameter"));
+      callback(resp);
+      return;
+    }
+    playerService_->addAfterCurrent(json["track"].asString());
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Track added after current"));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void PlayerController::handlePlayIndex(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("index") || !json["index"].isInt()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing index parameter"));
+      callback(resp);
+      return;
+    }
+    playerService_->playIndex(json["index"].asInt());
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Playing track at index"));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void PlayerController::handleClear(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  playerService_->clear();
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(
+      jsonResponse(true, "Playlist cleared"));
+  callback(resp);
+}
+
+void PlayerController::handleGetPlaylist(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  Json::Value playlist = playerService_->getPlaylist();
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(
+      jsonResponse(true, "", playlist));
+  callback(resp);
+}
+
+void PlayerController::handleGetPlaybackState(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  Json::Value state = playerService_->getPlaybackState();
+  auto resp =
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", state));
+  callback(resp);
+}
+
+void PlayerController::handleGetCurrentTrack(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  Json::Value track = playerService_->getCurrentTrack();
+  auto resp =
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", track));
+  callback(resp);
+}
+
+void PlayerController::handleGetCurrentTime(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  Json::Value time = playerService_->getCurrentTime();
+  auto resp =
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", time));
+  callback(resp);
 }

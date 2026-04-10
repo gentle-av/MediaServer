@@ -11,6 +11,7 @@ namespace fs = std::filesystem;
 struct ProfileConfig {
   std::string name;
   int port;
+  int playerPort;
   std::string address;
   std::string documentRoot;
   std::string indexPath;
@@ -31,6 +32,7 @@ public:
   nlohmann::json getDrogonConfig() const { return drogonConfig_; }
   std::string getIndexPath() const { return config_.indexPath; }
   std::string getDocumentRoot() const { return config_.documentRoot; }
+  int getPlayerPort() const { return config_.playerPort; }
   void applyToDrogon(drogon::HttpAppFramework &app) const;
   void printStartupInfo() const;
 

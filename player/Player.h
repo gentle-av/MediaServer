@@ -21,6 +21,7 @@ private:
   mpv_handle *mpv_;
   std::thread eventThread_;
   std::atomic<bool> running_;
+  std::atomic<bool> manualStop_;
   std::vector<std::string> playlist_;
   int currentIndex_;
 

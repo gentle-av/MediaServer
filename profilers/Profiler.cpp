@@ -15,6 +15,7 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
   config_.name = "test";
   config_.isTest = true;
   config_.port = 8083;
+  config_.playerPort = 9093;
   config_.address = "127.0.0.1";
 
   for (int i = 1; i < argc; ++i) {
@@ -25,11 +26,15 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
     } else if (arg == "--test" || arg == "-t") {
       config_.name = "test";
       config_.isTest = true;
+      config_.playerPort = 9093;
     } else if (arg == "--production" || arg == "--prod") {
       config_.name = "production";
       config_.isTest = false;
+      config_.playerPort = 8083;
     } else if (arg == "--port" && i + 1 < argc) {
       config_.port = std::stoi(argv[++i]);
+    } else if (arg == "--player-port" && i + 1 < argc) {
+      config_.playerPort = std::stoi(argv[++i]);
     } else if (arg == "--address" && i + 1 < argc) {
       config_.address = argv[++i];
     } else if (arg == "--help" || arg == "-h") {
@@ -37,9 +42,11 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
           << "Usage: " << argv[0] << " [OPTIONS]\n"
           << "Options:\n"
           << "  -p, --profile PROFILE  Use profile (test/production)\n"
-          << "  -t, --test            Test mode (port 8083, localhost)\n"
-          << "  --production, --prod  Production mode (port 8080, 0.0.0.0)\n"
-          << "  --port PORT           Override port\n"
+          << "  -t, --test            Test mode (port 8083, player 9093)\n"
+          << "  --production, --prod  Production mode (port 8080, player "
+             "8083)\n"
+          << "  --port PORT           Override web port\n"
+          << "  --player-port PORT    Override player port\n"
           << "  --address ADDR        Override address\n"
           << "  --help, -h            Show help\n";
       exit(0);
@@ -58,9 +65,15 @@ void Profiler::loadConfiguration() {
         if (fullConfig.contains("profiles") &&
             fullConfig["profiles"].contains(config_.name)) {
           drogonConfig_ = fullConfig["profiles"][config_.name];
+          if (drogonConfig_.contains("player_port")) {
+            config_.playerPort = drogonConfig_["player_port"].get<int>();
+          }
           std::cout << "Loaded profile: " << config_.name << std::endl;
         } else {
           drogonConfig_ = fullConfig;
+          if (drogonConfig_.contains("player_port")) {
+            config_.playerPort = drogonConfig_["player_port"].get<int>();
+          }
           std::cout << "Using root config (no profile section)" << std::endl;
         }
       } catch (const std::exception &e) {
@@ -80,6 +93,7 @@ void Profiler::loadConfiguration() {
     drogonConfig_["listeners"].push_back({{"address", config_.address},
                                           {"port", config_.port},
                                           {"https", false}});
+    drogonConfig_["player_port"] = config_.playerPort;
   }
   if (drogonConfig_.contains("app")) {
     auto &app = drogonConfig_["app"];
@@ -320,7 +334,8 @@ void Profiler::printStartupInfo() const {
   if (config_.isTest)
     std::cout << " (TEST MODE)";
   std::cout << std::endl;
-  std::cout << "Port: " << config_.port << std::endl;
+  std::cout << "Web Port: " << config_.port << std::endl;
+  std::cout << "Player Port: " << config_.playerPort << std::endl;
   std::cout << "Address: " << config_.address << std::endl;
   std::cout << "Document Root: " << config_.documentRoot << std::endl;
   std::cout << "Index File: " << config_.indexPath << std::endl;

@@ -2,7 +2,8 @@
 #include <filesystem>
 #include <iostream>
 
-Player::Player() : mpv_(nullptr), running_(false), currentIndex_(-1) {
+Player::Player()
+    : mpv_(nullptr), running_(false), manualStop_(false), currentIndex_(-1) {
   initMpv();
 }
 
@@ -48,7 +49,10 @@ void Player::eventLoop() {
     if (!event)
       continue;
     if (event->event_id == MPV_EVENT_END_FILE) {
-      loadNextTrack();
+      if (!manualStop_) {
+        loadNextTrack();
+      }
+      manualStop_ = false;
     } else if (event->event_id == MPV_EVENT_SHUTDOWN) {
       break;
     }
@@ -65,6 +69,7 @@ void Player::loadTrack(int index) {
     return;
   }
   currentIndex_ = index;
+  manualStop_ = false;
   const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
   mpv_command_async(mpv_, 0, args);
   std::cout << "[DEBUG] Loading: " << playlist_[currentIndex_] << std::endl;
@@ -83,6 +88,7 @@ bool Player::start() { return mpv_ != nullptr; }
 
 void Player::stop() {
   if (mpv_) {
+    manualStop_ = true;
     const char *args[] = {"stop", NULL};
     mpv_command_async(mpv_, 0, args);
   }

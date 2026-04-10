@@ -1,5 +1,7 @@
+// MusicController.h
 #pragma once
 #include "database/MusicDatabase.h"
+#include "services/PlayerService.h"
 #include "tagger/TagEditor.h"
 #include <drogon/drogon.h>
 
@@ -34,6 +36,7 @@ public:
   METHOD_LIST_END
 
   MusicController();
+  static void setPlayerService(std::shared_ptr<PlayerService> service);
 
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
@@ -87,6 +90,7 @@ public:
 private:
   std::unique_ptr<MusicDatabase> db_;
   std::string musicDir_;
+  static std::shared_ptr<PlayerService> playerService_;
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
   bool extractMetadataWithTagEditor(const std::string &filePath,
                                     MusicMetadata &metadata);
