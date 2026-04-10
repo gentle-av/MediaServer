@@ -6,6 +6,26 @@
 #include <iostream>
 #include <map>
 
+Json::Value PlayerService::handleInternalPause() {
+  Json::Value result;
+  result["success"] = true;
+  if (internalPlayer_) {
+    internalPlayer_->pause();
+    isPlaying_ = false;
+  }
+  return result;
+}
+
+Json::Value PlayerService::handleInternalPlay() {
+  Json::Value result;
+  result["success"] = true;
+  if (internalPlayer_) {
+    internalPlayer_->play();
+    isPlaying_ = true;
+  }
+  return result;
+}
+
 void PlayerService::playTrack(int index) {
   if (index < 0 || index >= (int)playlist_.size())
     return;
@@ -163,16 +183,6 @@ void PlayerService::updatePlaybackState() {
     return;
 }
 
-Json::Value PlayerService::handleInternalPause() {
-  Json::Value result;
-  result["success"] = true;
-  if (internalPlayer_) {
-    internalPlayer_->pause();
-    isPlaying_ = false;
-  }
-  return result;
-}
-
 Json::Value PlayerService::handleInternalStop() {
   Json::Value result;
   result["success"] = true;
@@ -180,23 +190,6 @@ Json::Value PlayerService::handleInternalStop() {
     internalPlayer_->stop();
     isPlaying_ = false;
     currentTime_ = 0;
-  }
-  return result;
-}
-
-Json::Value PlayerService::handleInternalPlay() {
-  Json::Value result;
-  result["success"] = true;
-  if (internalPlayer_ && !playlist_.empty()) {
-    if (currentIndex_ < 0) {
-      currentIndex_ = 0;
-    }
-    if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size()) {
-      currentTrack_ = playlist_[currentIndex_];
-      internalPlayer_->setPlaylist({currentTrack_});
-      internalPlayer_->play();
-      isPlaying_ = true;
-    }
   }
   return result;
 }
@@ -266,6 +259,10 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
         {"/api/addAfterCurrent",
          [this](const Json::Value &d) {
            return handleInternalAddAfterCurrent(d);
+         }},
+        {"/api/removeFromPlaylist",
+         [this](const Json::Value &d) {
+           return handleInternalRemoveFromPlaylist(d);
          }},
         {"/api/playIndex",
          [this](const Json::Value &d) { return handleInternalPlayIndex(d); }}};
@@ -410,4 +407,44 @@ Json::Value PlayerService::getCurrentTrack() {
 
 Json::Value PlayerService::getCurrentTime() {
   return sendRequest("/api/currentTime", "GET");
+}
+
+void PlayerService::removeFromPlaylist(int index) {
+  if (index < 0 || index >= (int)playlist_.size())
+    return;
+  playlist_.erase(playlist_.begin() + index);
+  if (currentIndex_ == index) {
+    if (playlist_.empty()) {
+      currentIndex_ = -1;
+      currentTrack_ = "";
+      if (internalPlayer_) {
+        internalPlayer_->stop();
+      }
+      isPlaying_ = false;
+    } else if (currentIndex_ >= (int)playlist_.size()) {
+      currentIndex_ = (int)playlist_.size() - 1;
+      currentTrack_ = playlist_[currentIndex_];
+      if (internalPlayer_) {
+        internalPlayer_->setPlaylist({currentTrack_});
+      }
+    } else {
+      currentTrack_ = playlist_[currentIndex_];
+      if (internalPlayer_) {
+        internalPlayer_->setPlaylist({currentTrack_});
+      }
+    }
+  } else if (currentIndex_ > index) {
+    currentIndex_--;
+  }
+}
+
+Json::Value
+PlayerService::handleInternalRemoveFromPlaylist(const Json::Value &data) {
+  Json::Value result;
+  result["success"] = true;
+  if (data.isMember("index") && data["index"].isInt()) {
+    int index = data["index"].asInt();
+    removeFromPlaylist(index);
+  }
+  return result;
 }

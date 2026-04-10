@@ -331,3 +331,32 @@ void PlayerController::handleGetCurrentTime(
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", time));
   callback(resp);
 }
+
+void PlayerController::handleRemoveFromPlaylist(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("index") || !json["index"].isInt()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing index parameter"));
+      callback(resp);
+      return;
+    }
+    int index = json["index"].asInt();
+    playerService_->removeFromPlaylist(index);
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Track removed from playlist"));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}

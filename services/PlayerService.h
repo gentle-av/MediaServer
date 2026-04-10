@@ -36,6 +36,7 @@ public:
   void setInternalPlayer(std::shared_ptr<Player> player);
   bool useInternalPlayer() const;
   void setUseInternalPlayer(bool use);
+  void removeFromPlaylist(int index);
 
 private:
   int port_;
@@ -67,6 +68,7 @@ private:
   Json::Value handleInternalGetPlaybackState();
   Json::Value handleInternalGetCurrentTrack();
   Json::Value handleInternalGetCurrentTime();
+  Json::Value handleInternalRemoveFromPlaylist(const Json::Value &data);
 
   void updatePlaybackState();
   void playTrack(int index);

@@ -32,6 +32,8 @@ public:
                 drogon::Get);
   ADD_METHOD_TO(PlayerController::handleGetCurrentTime, "/api/currentTime",
                 drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleRemoveFromPlaylist,
+                "/api/removeFromPlaylist", drogon::Post);
   METHOD_LIST_END
 
   PlayerController();
@@ -80,6 +82,9 @@ public:
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void handleGetCurrentTime(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleRemoveFromPlaylist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
