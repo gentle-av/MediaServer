@@ -11,8 +11,25 @@ PlayerService::PlayerService(int port)
       isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
       internalPlayer_(nullptr), trackStartTimeValid_(false) {
   baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
-  internalPlayer_ = std::make_shared<Player>(true);
+  audioPlayer_ = std::make_shared<Player>(false);
+  videoPlayer_ = std::make_shared<Player>(true);
+  internalPlayer_ = audioPlayer_;
   ensureConnection();
+}
+
+void PlayerService::stopCurrentPlayer() {
+  std::cout << "[DEBUG] stopCurrentPlayer called" << std::endl;
+  if (audioPlayer_ && audioPlayer_->getMpvHandle()) {
+    std::cout << "[DEBUG] Stopping audioPlayer" << std::endl;
+    audioPlayer_->stop();
+  }
+  if (videoPlayer_ && videoPlayer_->getMpvHandle()) {
+    std::cout << "[DEBUG] Stopping videoPlayer" << std::endl;
+    videoPlayer_->stop();
+  }
+  isPlaying_ = false;
+  currentTime_ = 0;
+  trackStartTimeValid_ = false;
 }
 
 void PlayerService::playTrack(int index) {
@@ -52,12 +69,47 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
 
 PlayerService::~PlayerService() {}
 
-void PlayerService::setVideoEnabled(bool enabled) {
-  if (enabled) {
-    internalPlayer_ = videoPlayer_;
-  } else {
-    internalPlayer_ = audioPlayer_;
+void PlayerService::stopAll() {
+  std::cout << "[DEBUG] PlayerService::stopAll called" << std::endl;
+  if (audioPlayer_) {
+    std::cout << "[DEBUG] Stopping audioPlayer_" << std::endl;
+    audioPlayer_->stop();
   }
+  if (videoPlayer_) {
+    std::cout << "[DEBUG] Stopping videoPlayer_" << std::endl;
+    videoPlayer_->stop();
+  }
+}
+
+void PlayerService::setVideoEnabled(bool enabled) {
+  std::cout << "[DEBUG] PlayerService::setVideoEnabled: " << enabled
+            << std::endl;
+  stopCurrentPlayer();
+  if (enabled) {
+    if (audioPlayer_) {
+      audioPlayer_->stop();
+      audioPlayer_->setPlaylist({});
+    }
+    internalPlayer_ = videoPlayer_;
+    std::cout << "[DEBUG] Switched to videoPlayer_ (mpv_="
+              << videoPlayer_->getMpvHandle() << ")" << std::endl;
+  } else {
+    if (videoPlayer_) {
+      videoPlayer_->stop();
+      videoPlayer_->setPlaylist({});
+    }
+    internalPlayer_ = audioPlayer_;
+    std::cout << "[DEBUG] Switched to audioPlayer_ (mpv_="
+              << audioPlayer_->getMpvHandle() << ")" << std::endl;
+  }
+  playlist_.clear();
+  currentIndex_ = -1;
+  currentTrack_ = "";
+}
+
+void PlayerService::clear() {
+  std::cout << "[DEBUG] PlayerService::clear called" << std::endl;
+  sendRequest("/api/clear", "POST");
 }
 
 void PlayerService::ensurePlayerForCurrentTrack() {
@@ -195,6 +247,10 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
   std::cout << "[DEBUG] handleInternalReplacePlaylist called" << std::endl;
+  if (audioPlayer_)
+    audioPlayer_->stop();
+  if (videoPlayer_)
+    videoPlayer_->stop();
   if (data.isMember("tracks") && data["tracks"].isArray()) {
     playlist_.clear();
     for (const auto &track : data["tracks"]) {
@@ -559,7 +615,7 @@ void PlayerService::play() { sendRequest("/api/play", "POST"); }
 
 void PlayerService::pause() { sendRequest("/api/pause", "POST"); }
 
-void PlayerService::stop() { sendRequest("/api/stop", "POST"); }
+void PlayerService::stop() { sendRequest("/api/stop", "POST"); };
 
 void PlayerService::next() { sendRequest("/api/next", "POST"); }
 
@@ -570,8 +626,6 @@ void PlayerService::playIndex(int index) {
   data["index"] = index;
   sendRequest("/api/playIndex", "POST", data);
 }
-
-void PlayerService::clear() { sendRequest("/api/clear", "POST"); }
 
 Json::Value PlayerService::getPlaylist() {
   return sendRequest("/api/getPlaylist", "GET");

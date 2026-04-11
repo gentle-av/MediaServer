@@ -38,6 +38,7 @@ public:
   void setUseInternalPlayer(bool use);
   void removeFromPlaylist(int index);
   void setVideoEnabled(bool enabled);
+  void stopAll();
 
 private:
   double duration_;
@@ -82,4 +83,5 @@ private:
   void resetTrackStartTime();
   double getElapsedTime() const;
   void ensurePlayerForCurrentTrack();
+  void stopCurrentPlayer();
 };

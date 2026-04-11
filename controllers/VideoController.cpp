@@ -136,6 +136,7 @@ void VideoController::listFiles(
 void VideoController::openVideo(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+  std::cout << "[DEBUG] openVideo: ENTERED" << std::endl;
   auto json = req->getJsonObject();
   if (!json || !json->isMember("path")) {
     Json::Value response;
@@ -167,7 +168,15 @@ void VideoController::openVideo(
   }
   Json::Value response;
   if (playerService_) {
+    std::cout << "[DEBUG] openVideo: calling stopAll()" << std::endl;
+    playerService_->stopAll();
+    std::cout << "[DEBUG] openVideo: calling clear()" << std::endl;
+    playerService_->clear();
+    std::cout << "[DEBUG] openVideo: calling setVideoEnabled(true)"
+              << std::endl;
     playerService_->setVideoEnabled(true);
+    std::cout << "[DEBUG] openVideo: calling replacePlaylistWithTrack"
+              << std::endl;
     playerService_->replacePlaylistWithTrack(path);
     response["success"] = true;
     response["message"] = "Video playing with local player";

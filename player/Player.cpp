@@ -190,13 +190,14 @@ void Player::loadNextTrack() {
 bool Player::start() { return mpv_ != nullptr; }
 
 void Player::stop() {
+  std::cout << "[DEBUG] Player::stop called, mpv_=" << mpv_ << std::endl;
   if (mpv_) {
     manualStop_ = true;
     const char *args[] = {"stop", NULL};
     mpv_command_async(mpv_, 0, args);
+    std::cout << "[DEBUG] Player::stop: mpv stop command sent" << std::endl;
   }
   currentIndex_ = -1;
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 void Player::play() {
