@@ -97,6 +97,7 @@ Json::Value PlayerService::handleInternalStop() {
     currentTime_ = 0;
     currentIndex_ = -1;
     trackStartTimeValid_ = false;
+    duration_ = 0;
   }
   return result;
 }
@@ -181,7 +182,6 @@ Json::Value PlayerService::handleInternalPlayIndex(const Json::Value &data) {
 }
 
 Json::Value PlayerService::handleInternalGetCurrentTime() {
-  updatePlaybackState();
   Json::Value data;
   data["currentTime"] = currentTime_;
   data["duration"] = duration_;
@@ -536,6 +536,8 @@ void PlayerService::updatePlaybackState() {
   mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
   duration_ = duration;
   int pause = 1;
-  mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  int result = mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  std::cout << "[DEBUG] mpv_get_property pause result=" << result
+            << ", pause=" << pause << std::endl;
   isPlaying_ = (pause == 0);
 }
