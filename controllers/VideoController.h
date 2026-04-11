@@ -1,10 +1,13 @@
 #pragma once
+
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 class Profiler;
+class PlayerService;
 
 namespace fs = std::filesystem;
 using namespace drogon;
@@ -16,13 +19,11 @@ public:
   ADD_METHOD_TO(VideoController::serveStatic, "/static/{filename}", Get);
   ADD_METHOD_TO(VideoController::listFiles, "/api/list", Post);
   ADD_METHOD_TO(VideoController::openVideo, "/api/open", Post);
-  ADD_METHOD_TO(VideoController::getStatus, "/api/status", Post);
-  ADD_METHOD_TO(VideoController::setFullscreen, "/api/fullscreen", Post);
   ADD_METHOD_TO(VideoController::moveToTrash, "/api/trash", Post);
-  ADD_METHOD_TO(VideoController::launchMediateka, "/api/launchMediateka", Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
+  static void setPlayerService(std::shared_ptr<PlayerService> service);
   void getIndex(const HttpRequestPtr &req,
                 std::function<void(const HttpResponsePtr &)> &&callback);
   void serveStatic(const HttpRequestPtr &req,
@@ -32,17 +33,12 @@ public:
                  std::function<void(const HttpResponsePtr &)> &&callback);
   void openVideo(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
-  void getStatus(const HttpRequestPtr &req,
-                 std::function<void(const HttpResponsePtr &)> &&callback);
-  void setFullscreen(const HttpRequestPtr &req,
-                     std::function<void(const HttpResponsePtr &)> &&callback);
   void moveToTrash(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
-  void launchMediateka(const HttpRequestPtr &req,
-                       std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;
+  static std::shared_ptr<PlayerService> playerService_;
   std::string getMimeType(const std::string &extension);
   Json::Value getFileInfo(const fs::path &path);
   bool isVideoFile(const std::string &filename);

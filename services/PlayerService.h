@@ -1,5 +1,4 @@
 #pragma once
-
 #include <chrono>
 #include <json/json.h>
 #include <memory>
@@ -38,6 +37,7 @@ public:
   bool useInternalPlayer() const;
   void setUseInternalPlayer(bool use);
   void removeFromPlaylist(int index);
+  void setVideoEnabled(bool enabled);
 
 private:
   double duration_;
@@ -50,6 +50,8 @@ private:
   std::string currentTrack_;
   std::string baseUrl_;
   std::shared_ptr<Player> internalPlayer_;
+  std::shared_ptr<Player> audioPlayer_;
+  std::shared_ptr<Player> videoPlayer_;
   std::vector<std::string> playlist_;
 
   std::chrono::steady_clock::time_point trackStartTime_;
@@ -79,4 +81,5 @@ private:
   void playTrack(int index);
   void resetTrackStartTime();
   double getElapsedTime() const;
+  void ensurePlayerForCurrentTrack();
 };

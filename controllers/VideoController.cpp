@@ -1,20 +1,15 @@
 #include "VideoController.h"
 #include "profilers/Profiler.h"
+#include "services/PlayerService.h"
 #include <algorithm>
-#include <ctime>
 #include <fstream>
 #include <iostream>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <vector>
 
-void addCorsHeaders(const HttpResponsePtr &resp) {
-  resp->addHeader("Access-Control-Allow-Origin", "*");
-  resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  resp->addHeader("Access-Control-Allow-Headers",
-                  "Content-Type, X-Requested-With");
-  resp->addHeader("Access-Control-Allow-Credentials", "true");
+std::shared_ptr<PlayerService> VideoController::playerService_ = nullptr;
+
+void VideoController::setPlayerService(std::shared_ptr<PlayerService> service) {
+  playerService_ = service;
 }
 
 void VideoController::getIndex(
@@ -170,16 +165,15 @@ void VideoController::openVideo(
     callback(resp);
     return;
   }
-  std::string command = "nohup /usr/local/bin/Mediateka \"" + path +
-                        "\" > /tmp/mediateka.log 2>&1 &";
-  int result = system(command.c_str());
   Json::Value response;
-  if (result == 0) {
+  if (playerService_) {
+    playerService_->setVideoEnabled(true);
+    playerService_->replacePlaylistWithTrack(path);
     response["success"] = true;
-    response["message"] = "Video opened with Mediateka";
+    response["message"] = "Video playing with local player";
   } else {
     response["success"] = false;
-    response["error"] = "Failed to launch Mediateka";
+    response["error"] = "Player service not available";
   }
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
@@ -240,48 +234,6 @@ std::string VideoController::formatFileSize(uintmax_t size) {
   return std::string(buffer);
 }
 
-void VideoController::getStatus(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  if (req->method() == Options) {
-    auto resp = HttpResponse::newHttpResponse();
-    resp->setStatusCode(k200OK);
-    addCorsHeaders(resp);
-    callback(resp);
-    return;
-  }
-  Json::Value response;
-  response["success"] = true;
-  response["available"] = true;
-  response["isFullScreen"] = false;
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  addCorsHeaders(resp);
-  callback(resp);
-}
-
-void VideoController::setFullscreen(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  if (req->method() == Options) {
-    auto resp = HttpResponse::newHttpResponse();
-    resp->setStatusCode(k200OK);
-    addCorsHeaders(resp);
-    callback(resp);
-    return;
-  }
-  Json::Value response;
-  auto json = req->getJsonObject();
-  bool fullscreen = true;
-  if (json && json->isMember("fullscreen")) {
-    fullscreen = (*json)["fullscreen"].asBool();
-  }
-  response["success"] = true;
-  response["fullscreen"] = fullscreen;
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  addCorsHeaders(resp);
-  callback(resp);
-}
-
 void VideoController::moveToTrash(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -332,22 +284,4 @@ void VideoController::moveToTrash(
     resp->setStatusCode(k500InternalServerError);
     callback(resp);
   }
-}
-
-void VideoController::launchMediateka(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  Json::Value response;
-  std::string command =
-      "nohup /usr/local/bin/Mediateka > /tmp/mediateka.log 2>&1 &";
-  int result = system(command.c_str());
-  if (result == 0) {
-    response["success"] = true;
-    response["message"] = "Mediateka launched";
-  } else {
-    response["success"] = false;
-    response["error"] = "Failed to launch Mediateka";
-  }
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
 }

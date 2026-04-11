@@ -13,6 +13,43 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
   return totalSize;
 }
 
+PlayerService::PlayerService(int port)
+    : port_(port), available_(false), useInternalPlayer_(false),
+      isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
+      internalPlayer_(nullptr), trackStartTimeValid_(false) {
+  baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
+  audioPlayer_ = std::make_shared<Player>(false);
+  videoPlayer_ = std::make_shared<Player>(true);
+  internalPlayer_ = audioPlayer_;
+  ensureConnection();
+}
+
+PlayerService::~PlayerService() {}
+
+void PlayerService::setVideoEnabled(bool enabled) {
+  if (enabled) {
+    internalPlayer_ = videoPlayer_;
+  } else {
+    internalPlayer_ = audioPlayer_;
+  }
+}
+
+void PlayerService::ensurePlayerForCurrentTrack() {
+  if (currentIndex_ < 0 || currentIndex_ >= (int)playlist_.size())
+    return;
+  std::string ext =
+      std::filesystem::path(playlist_[currentIndex_]).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  bool isVideo =
+      (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
+       ext == ".wmv" || ext == ".flv" || ext == ".webm");
+  if (isVideo) {
+    internalPlayer_ = videoPlayer_;
+  } else {
+    internalPlayer_ = audioPlayer_;
+  }
+}
+
 void PlayerService::playTrack(int index) {
   if (index < 0 || index >= (int)playlist_.size())
     return;
@@ -22,8 +59,23 @@ void PlayerService::playTrack(int index) {
   duration_ = 0;
   trackStartTime_ = std::chrono::steady_clock::now();
   trackStartTimeValid_ = true;
+  ensurePlayerForCurrentTrack();
+  std::cout << "[DEBUG] playTrack: currentTrack_=" << currentTrack_
+            << std::endl;
   if (internalPlayer_) {
-    internalPlayer_->setPlaylist(playlist_);
+    std::string ext = std::filesystem::path(currentTrack_).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    bool isVideo =
+        (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
+         ext == ".wmv" || ext == ".flv" || ext == ".webm");
+    std::cout << "[DEBUG] playTrack: ext=" << ext << ", isVideo=" << isVideo
+              << std::endl;
+    if (isVideo) {
+      std::cout << "[DEBUG] playTrack: calling setFullscreen(true)"
+                << std::endl;
+      internalPlayer_->setFullscreen(true);
+    }
+    internalPlayer_->setPlaylist({currentTrack_});
     internalPlayer_->play();
   }
   isPlaying_ = true;
@@ -93,11 +145,18 @@ Json::Value PlayerService::handleInternalStop() {
   result["success"] = true;
   if (internalPlayer_) {
     internalPlayer_->stop();
+    if (internalPlayer_ == videoPlayer_) {
+      std::thread([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        videoPlayer_->forceQuit();
+      }).detach();
+    }
     isPlaying_ = false;
     currentTime_ = 0;
     currentIndex_ = -1;
     trackStartTimeValid_ = false;
     duration_ = 0;
+    std::cout << "[DEBUG] handleInternalStop called" << std::endl;
   }
   return result;
 }
@@ -140,6 +199,7 @@ Json::Value
 PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
+  std::cout << "[DEBUG] handleInternalReplacePlaylist called" << std::endl;
   if (data.isMember("tracks") && data["tracks"].isArray()) {
     playlist_.clear();
     for (const auto &track : data["tracks"]) {
@@ -147,7 +207,7 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
         std::string path = track.asString();
         if (std::filesystem::exists(path)) {
           playlist_.push_back(path);
-          std::cout << "[DEBUG] Added: " << path << std::endl;
+          std::cout << "[DEBUG] Added to playlist: " << path << std::endl;
         } else {
           std::cout << "[ERROR] File not found, skipping: " << path
                     << std::endl;
@@ -155,6 +215,23 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
       }
     }
     if (!playlist_.empty()) {
+      std::string ext =
+          std::filesystem::path(playlist_[0]).extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+      bool isVideo =
+          (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
+           ext == ".wmv" || ext == ".flv" || ext == ".webm");
+      if (isVideo) {
+        if (!videoPlayer_ || !videoPlayer_->start()) {
+          videoPlayer_ = std::make_shared<Player>(true);
+        }
+        internalPlayer_ = videoPlayer_;
+      } else {
+        if (!audioPlayer_ || !audioPlayer_->start()) {
+          audioPlayer_ = std::make_shared<Player>(false);
+        }
+        internalPlayer_ = audioPlayer_;
+      }
       playTrack(0);
     }
   }
@@ -225,14 +302,6 @@ void PlayerService::removeFromPlaylist(int index) {
   }
 }
 
-PlayerService::PlayerService(int port)
-    : port_(port), available_(false), useInternalPlayer_(false),
-      isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
-      internalPlayer_(nullptr), trackStartTimeValid_(false) {
-  baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
-  ensureConnection();
-}
-
 void PlayerService::resetTrackStartTime() {
   trackStartTime_ = std::chrono::steady_clock::now();
   trackStartTimeValid_ = true;
@@ -273,8 +342,6 @@ Json::Value PlayerService::handleInternalGetCurrentTrack() {
   data["track"] = currentTrack_;
   return data;
 }
-
-PlayerService::~PlayerService() {}
 
 bool PlayerService::isAvailable() const {
   return useInternalPlayer_ ? (internalPlayer_ != nullptr) : available_;
