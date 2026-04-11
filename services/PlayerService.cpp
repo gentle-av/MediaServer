@@ -507,7 +507,9 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
            return handleInternalRemoveFromPlaylist(d);
          }},
         {"/api/playIndex",
-         [this](const Json::Value &d) { return handleInternalPlayIndex(d); }}};
+         [this](const Json::Value &d) { return handleInternalPlayIndex(d); }},
+        {"/api/seek",
+         [this](const Json::Value &d) { return handleInternalSeek(d); }}};
     auto itVoid = voidHandlers.find(endpoint);
     if (itVoid != voidHandlers.end()) {
       return itVoid->second();
@@ -672,4 +674,18 @@ void PlayerService::updatePlaybackState() {
   std::cout << "[DEBUG] updatePlaybackState: currentTime=" << currentTime_
             << ", duration=" << duration_ << ", isPlaying=" << isPlaying_
             << std::endl;
+}
+
+Json::Value PlayerService::handleInternalSeek(const Json::Value &data) {
+  Json::Value result;
+  result["success"] = true;
+  if (data.isMember("position") && data["position"].isDouble() &&
+      internalPlayer_) {
+    double position = data["position"].asDouble();
+    internalPlayer_->seekTo(position);
+    currentTime_ = position;
+    trackStartTime_ = std::chrono::steady_clock::now();
+    trackStartTimeValid_ = true;
+  }
+  return result;
 }

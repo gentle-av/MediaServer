@@ -27,7 +27,8 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
       config_.name = "test";
       config_.isTest = true;
       config_.playerPort = 9093;
-    } else if (arg == "--production" || arg == "--prod") {
+    } else if (arg == "--production" || arg == "--prod" ||
+               arg == "production") {
       config_.name = "production";
       config_.isTest = false;
       config_.playerPort = 8083;
@@ -38,17 +39,15 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
     } else if (arg == "--address" && i + 1 < argc) {
       config_.address = argv[++i];
     } else if (arg == "--help" || arg == "-h") {
-      std::cout
-          << "Usage: " << argv[0] << " [OPTIONS]\n"
-          << "Options:\n"
-          << "  -p, --profile PROFILE  Use profile (test/production)\n"
-          << "  -t, --test            Test mode (port 8083, player 9093)\n"
-          << "  --production, --prod  Production mode (port 8080, player "
-             "8083)\n"
-          << "  --port PORT           Override web port\n"
-          << "  --player-port PORT    Override player port\n"
-          << "  --address ADDR        Override address\n"
-          << "  --help, -h            Show help\n";
+      std::cout << "Usage: " << argv[0] << " [OPTIONS]\n"
+                << "Options:\n"
+                << "  -p, --profile PROFILE  Use profile (test/production)\n"
+                << "  -t, --test            Test mode\n"
+                << "  --production, --prod  Production mode\n"
+                << "  --port PORT           Override web port\n"
+                << "  --player-port PORT    Override player port\n"
+                << "  --address ADDR        Override address\n"
+                << "  --help, -h            Show help\n";
       exit(0);
     }
   }

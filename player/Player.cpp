@@ -1,4 +1,3 @@
-// Player.cpp
 #include "Player.h"
 #include <chrono>
 #include <cstring>
@@ -14,12 +13,10 @@ Player::Player(bool enableVideo)
   initMpv(enableVideo);
 }
 
-Player::~Player() {
-  stop();
-  destroyMpv();
-}
+Player::~Player() { forceQuit(); }
 
 void Player::initMpv(bool enableVideo) {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   mpv_ = mpv_create();
   if (!mpv_) {
     std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
@@ -70,7 +67,7 @@ void Player::initMpv(bool enableVideo) {
 }
 
 void Player::destroyMpv() {
-  running_ = false;
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (mpv_) {
     int keepOpen = 0;
     mpv_set_option(mpv_, "keep-open", MPV_FORMAT_FLAG, &keepOpen);
@@ -79,20 +76,23 @@ void Player::destroyMpv() {
     mpv_terminate_destroy(mpv_);
     mpv_ = nullptr;
   }
-  if (eventThread_.joinable()) {
-    eventThread_.join();
-  }
 }
 
 void Player::forceQuit() {
   std::cout << "[DEBUG] forceQuit called" << std::endl;
   running_ = false;
-  if (mpv_) {
-    mpv_terminate_destroy(mpv_);
-    mpv_ = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(mpvMutex_);
+    if (mpv_) {
+      const char *args[] = {"quit", NULL};
+      mpv_command(mpv_, args);
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      mpv_terminate_destroy(mpv_);
+      mpv_ = nullptr;
+    }
   }
   if (eventThread_.joinable()) {
-    eventThread_.detach();
+    eventThread_.join();
   }
 }
 
@@ -165,8 +165,13 @@ void Player::loadTrack(int index) {
   }
   currentIndex_ = index;
   manualStop_ = false;
-  const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
-  mpv_command_async(mpv_, 0, args);
+  {
+    std::lock_guard<std::mutex> lock(mpvMutex_);
+    if (mpv_) {
+      const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
+      mpv_command_async(mpv_, 0, args);
+    }
+  }
   std::cout << "[DEBUG] Loading: " << playlist_[currentIndex_] << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   loading_ = false;
@@ -191,6 +196,7 @@ bool Player::start() { return mpv_ != nullptr; }
 
 void Player::stop() {
   std::cout << "[DEBUG] Player::stop called, mpv_=" << mpv_ << std::endl;
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (mpv_) {
     manualStop_ = true;
     const char *args[] = {"stop", NULL};
@@ -201,6 +207,7 @@ void Player::stop() {
 }
 
 void Player::play() {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_)
     return;
   int pause = 0;
@@ -208,6 +215,7 @@ void Player::play() {
 }
 
 void Player::pause() {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_)
     return;
   int pause = 1;
@@ -225,6 +233,7 @@ void Player::setPlaylist(const std::vector<std::string> &tracks) {
 std::vector<std::string> Player::getPlaylist() { return playlist_; }
 
 void Player::next() {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (mpv_ && !loading_) {
     const char *args[] = {"playlist-next", NULL};
     mpv_command_async(mpv_, 0, args);
@@ -232,6 +241,7 @@ void Player::next() {
 }
 
 void Player::previous() {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (mpv_ && !loading_) {
     const char *args[] = {"playlist-prev", NULL};
     mpv_command_async(mpv_, 0, args);
@@ -239,6 +249,7 @@ void Player::previous() {
 }
 
 void Player::setFullscreen(bool fullscreen) {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_) {
     std::cout << "[DEBUG] setFullscreen: mpv_ is null" << std::endl;
     return;
@@ -251,6 +262,7 @@ void Player::setFullscreen(bool fullscreen) {
 }
 
 void Player::seekForward(int seconds) {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_)
     return;
   const char *args[] = {"seek", std::to_string(seconds).c_str(), "relative",
@@ -259,6 +271,7 @@ void Player::seekForward(int seconds) {
 }
 
 void Player::seekBackward(int seconds) {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_)
     return;
   const char *args[] = {"seek", std::to_string(-seconds).c_str(), "relative",
@@ -267,6 +280,7 @@ void Player::seekBackward(int seconds) {
 }
 
 void Player::seekTo(double position) {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_)
     return;
   if (position < 0)
@@ -285,6 +299,7 @@ bool Player::isFullscreen() const {
 }
 
 void Player::setVideoEnabled(bool enabled) {
+  std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_)
     return;
   std::cout << "[DEBUG] setVideoEnabled: " << enabled << std::endl;

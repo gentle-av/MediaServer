@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <mpv/client.h>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -39,6 +40,7 @@ private:
   int currentIndex_;
   std::atomic<bool> fullscreen_;
   bool videoEnabled_;
+  std::mutex mpvMutex_;
 
   void initMpv(bool enableVideo);
   void destroyMpv();

@@ -1,4 +1,5 @@
 #include "PlayerController.h"
+#include "player/Player.h"
 
 std::shared_ptr<PlayerService> PlayerController::playerService_ = nullptr;
 
@@ -353,6 +354,44 @@ void PlayerController::handleRemoveFromPlaylist(
     playerService_->removeFromPlaylist(index);
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "Track removed from playlist"));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void PlayerController::handleSeek(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (!playerService_ || !playerService_->isAvailable()) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Player service not available"));
+    callback(resp);
+    return;
+  }
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("position") || !json["position"].isDouble()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing position parameter"));
+      callback(resp);
+      return;
+    }
+    double position = json["position"].asDouble();
+    if (playerService_->useInternalPlayer()) {
+      auto player = playerService_->getInternalPlayer();
+      if (player) {
+        player->seekTo(position);
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(
+            jsonResponse(true, "Seek completed"));
+        callback(resp);
+        return;
+      }
+    }
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Seek failed"));
     callback(resp);
   } catch (const std::exception &e) {
     auto resp = drogon::HttpResponse::newHttpJsonResponse(

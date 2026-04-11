@@ -34,6 +34,7 @@ public:
                 drogon::Get);
   ADD_METHOD_TO(PlayerController::handleRemoveFromPlaylist,
                 "/api/removeFromPlaylist", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleSeek, "/api/seek", drogon::Post);
   METHOD_LIST_END
 
   PlayerController();
@@ -87,6 +88,9 @@ public:
   void handleRemoveFromPlaylist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void
+  handleSeek(const drogon::HttpRequestPtr &req,
+             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   static std::shared_ptr<PlayerService> playerService_;

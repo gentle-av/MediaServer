@@ -1,5 +1,7 @@
 #pragma once
+
 #include <chrono>
+#include <functional>
 #include <json/json.h>
 #include <memory>
 #include <string>
@@ -31,6 +33,7 @@ public:
   Json::Value getPlaybackState();
   Json::Value getCurrentTrack();
   Json::Value getCurrentTime();
+  Json::Value handleInternalSeek(const Json::Value &data);
 
   std::shared_ptr<Player> getInternalPlayer();
   void setInternalPlayer(std::shared_ptr<Player> player);
