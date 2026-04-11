@@ -26,6 +26,7 @@ public:
   void seekBackward(int seconds);
   void seekTo(double position);
   bool isFullscreen() const;
+  void setVideoEnabled(bool enabled);
   void forceQuit();
 
 private:

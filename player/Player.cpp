@@ -1,105 +1,18 @@
+// Player.cpp
 #include "Player.h"
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <thread>
+
+Player::Player() : Player(false) {}
 
 Player::Player(bool enableVideo)
     : mpv_(nullptr), running_(false), manualStop_(false), loading_(false),
       currentIndex_(-1), fullscreen_(false), videoEnabled_(enableVideo) {
   initMpv(enableVideo);
 }
-
-void Player::loadTrack(int index) {
-  if (loading_) {
-    std::cout << "[DEBUG] loadTrack: already loading, skip" << std::endl;
-    return;
-  }
-  loading_ = true;
-  std::cout << "[DEBUG] loadTrack called with index=" << index
-            << ", currentIndex_ before=" << currentIndex_
-            << ", playlist_.size()=" << playlist_.size() << std::endl;
-  if (index < 0 || index >= (int)playlist_.size()) {
-    std::cout << "[DEBUG] loadTrack: index out of range, returning"
-              << std::endl;
-    loading_ = false;
-    return;
-  }
-  if (!std::filesystem::exists(playlist_[index])) {
-    std::cerr << "[ERROR] File not found: " << playlist_[index] << std::endl;
-    loading_ = false;
-    loadNextTrack();
-    return;
-  }
-  currentIndex_ = index;
-  manualStop_ = false;
-  const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
-  mpv_command_async(mpv_, 0, args);
-  std::cout << "[DEBUG] Loading: " << playlist_[currentIndex_] << std::endl;
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  loading_ = false;
-}
-
-void Player::eventLoop() {
-  while (running_) {
-    mpv_event *event = mpv_wait_event(mpv_, 0.5);
-    if (!event)
-      continue;
-    if (event->event_id == MPV_EVENT_END_FILE) {
-      std::cout << "[DEBUG] MPV_EVENT_END_FILE received" << std::endl;
-      if (!manualStop_) {
-        if (videoEnabled_ && playlist_.size() == 1) {
-          std::cout << "[DEBUG] Video finished, auto-quitting" << std::endl;
-          forceQuit();
-          break;
-        }
-        loadNextTrack();
-      }
-      manualStop_ = false;
-    } else if (event->event_id == MPV_EVENT_SHUTDOWN) {
-      break;
-    }
-  }
-}
-
-void Player::stop() {
-  if (mpv_) {
-    manualStop_ = true;
-    const char *args[] = {"stop", NULL};
-    mpv_command_async(mpv_, 0, args);
-  }
-  currentIndex_ = -1;
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-}
-
-void Player::play() {
-  if (!mpv_)
-    return;
-  int pause = 0;
-  mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
-}
-
-void Player::pause() {
-  if (!mpv_)
-    return;
-  int pause = 1;
-  mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
-}
-
-void Player::next() {
-  if (mpv_ && !loading_) {
-    const char *args[] = {"playlist-next", NULL};
-    mpv_command_async(mpv_, 0, args);
-  }
-}
-
-void Player::previous() {
-  if (mpv_ && !loading_) {
-    const char *args[] = {"playlist-prev", NULL};
-    mpv_command_async(mpv_, 0, args);
-  }
-}
-
-Player::Player() : Player(false) {}
 
 Player::~Player() {
   stop();
@@ -171,6 +84,94 @@ void Player::destroyMpv() {
   }
 }
 
+void Player::forceQuit() {
+  std::cout << "[DEBUG] forceQuit called" << std::endl;
+  running_ = false;
+  if (mpv_) {
+    mpv_terminate_destroy(mpv_);
+    mpv_ = nullptr;
+  }
+  if (eventThread_.joinable()) {
+    eventThread_.detach();
+  }
+}
+
+void Player::eventLoop() {
+  auto lastActivity = std::chrono::steady_clock::now();
+  while (running_) {
+    mpv_event *event = mpv_wait_event(mpv_, 0.5);
+    if (!event) {
+      auto now = std::chrono::steady_clock::now();
+      auto elapsed =
+          std::chrono::duration_cast<std::chrono::seconds>(now - lastActivity)
+              .count();
+      if (elapsed > 300 && videoEnabled_) {
+        std::cout << "[DEBUG] No activity for 5 minutes, shutting down"
+                  << std::endl;
+        break;
+      }
+      continue;
+    }
+    lastActivity = std::chrono::steady_clock::now();
+    if (event->event_id == MPV_EVENT_END_FILE) {
+      std::cout << "[DEBUG] MPV_EVENT_END_FILE received" << std::endl;
+      if (!manualStop_) {
+        if (videoEnabled_ && playlist_.size() == 1) {
+          std::cout << "[DEBUG] Video finished, auto-quitting" << std::endl;
+          forceQuit();
+          break;
+        }
+        loadNextTrack();
+      }
+      manualStop_ = false;
+    } else if (event->event_id == MPV_EVENT_SHUTDOWN) {
+      break;
+    } else if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
+      mpv_event_property *prop = (mpv_event_property *)event->data;
+      if (prop->name && strcmp(prop->name, "fullscreen") == 0 &&
+          prop->format == MPV_FORMAT_FLAG) {
+        int val;
+        mpv_get_property(mpv_, "fullscreen", MPV_FORMAT_FLAG, &val);
+        fullscreen_ = (val != 0);
+        std::cout << "[DEBUG] Fullscreen changed to: " << fullscreen_
+                  << std::endl;
+      }
+    }
+  }
+  std::cout << "[DEBUG] Exiting event loop, stopping playback" << std::endl;
+  stop();
+}
+
+void Player::loadTrack(int index) {
+  if (loading_) {
+    std::cout << "[DEBUG] loadTrack: already loading, skip" << std::endl;
+    return;
+  }
+  loading_ = true;
+  std::cout << "[DEBUG] loadTrack called with index=" << index
+            << ", currentIndex_ before=" << currentIndex_
+            << ", playlist_.size()=" << playlist_.size() << std::endl;
+  if (index < 0 || index >= (int)playlist_.size()) {
+    std::cout << "[DEBUG] loadTrack: index out of range, returning"
+              << std::endl;
+    loading_ = false;
+    return;
+  }
+  if (!std::filesystem::exists(playlist_[index])) {
+    std::cerr << "[ERROR] File not found: " << playlist_[index] << std::endl;
+    loading_ = false;
+    loadNextTrack();
+    return;
+  }
+  currentIndex_ = index;
+  manualStop_ = false;
+  const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
+  mpv_command_async(mpv_, 0, args);
+  std::cout << "[DEBUG] Loading: " << playlist_[currentIndex_] << std::endl;
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  loading_ = false;
+}
+
 void Player::loadNextTrack() {
   int nextIndex = currentIndex_ + 1;
   std::cout << "[DEBUG] loadNextTrack: currentIndex_=" << currentIndex_
@@ -188,6 +189,30 @@ void Player::loadNextTrack() {
 
 bool Player::start() { return mpv_ != nullptr; }
 
+void Player::stop() {
+  if (mpv_) {
+    manualStop_ = true;
+    const char *args[] = {"stop", NULL};
+    mpv_command_async(mpv_, 0, args);
+  }
+  currentIndex_ = -1;
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
+
+void Player::play() {
+  if (!mpv_)
+    return;
+  int pause = 0;
+  mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+}
+
+void Player::pause() {
+  if (!mpv_)
+    return;
+  int pause = 1;
+  mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+}
+
 void Player::setPlaylist(const std::vector<std::string> &tracks) {
   playlist_ = tracks;
   currentIndex_ = -1;
@@ -198,9 +223,23 @@ void Player::setPlaylist(const std::vector<std::string> &tracks) {
 
 std::vector<std::string> Player::getPlaylist() { return playlist_; }
 
+void Player::next() {
+  if (mpv_ && !loading_) {
+    const char *args[] = {"playlist-next", NULL};
+    mpv_command_async(mpv_, 0, args);
+  }
+}
+
+void Player::previous() {
+  if (mpv_ && !loading_) {
+    const char *args[] = {"playlist-prev", NULL};
+    mpv_command_async(mpv_, 0, args);
+  }
+}
+
 void Player::setFullscreen(bool fullscreen) {
   if (!mpv_) {
-    std::cout << "[DEBUG] setFullscreen: mpv_ is null, ignoring" << std::endl;
+    std::cout << "[DEBUG] setFullscreen: mpv_ is null" << std::endl;
     return;
   }
   std::cout << "[DEBUG] setFullscreen: fullscreen=" << fullscreen << std::endl;
@@ -244,18 +283,31 @@ bool Player::isFullscreen() const {
   return val != 0;
 }
 
-void Player::observeProperties() {
-  mpv_observe_property(mpv_, 0, "fullscreen", MPV_FORMAT_FLAG);
+void Player::setVideoEnabled(bool enabled) {
+  if (!mpv_)
+    return;
+  std::cout << "[DEBUG] setVideoEnabled: " << enabled << std::endl;
+  if (enabled) {
+    mpv_set_option_string(mpv_, "video", "yes");
+    mpv_set_option_string(mpv_, "vo", "gpu-next");
+    mpv_set_option_string(mpv_, "osc", "yes");
+    mpv_set_option_string(mpv_, "load-scripts", "yes");
+    mpv_set_option_string(mpv_, "keepaspect-window", "yes");
+    mpv_set_option_string(mpv_, "border", "yes");
+    mpv_set_option_string(mpv_, "geometry", "50%x50%");
+    mpv_set_option_string(mpv_, "cursor-autohide", "1000");
+    mpv_set_option_string(mpv_, "window-minimized", "no");
+    videoEnabled_ = true;
+    std::cout << "[DEBUG] Video enabled" << std::endl;
+  } else {
+    mpv_set_option_string(mpv_, "video", "no");
+    mpv_set_option_string(mpv_, "vo", "null");
+    mpv_set_option_string(mpv_, "osc", "no");
+    videoEnabled_ = false;
+    std::cout << "[DEBUG] Video disabled" << std::endl;
+  }
 }
 
-void Player::forceQuit() {
-  std::cout << "[DEBUG] forceQuit called" << std::endl;
-  running_ = false;
-  if (mpv_) {
-    mpv_terminate_destroy(mpv_);
-    mpv_ = nullptr;
-  }
-  if (eventThread_.joinable()) {
-    eventThread_.detach();
-  }
+void Player::observeProperties() {
+  mpv_observe_property(mpv_, 0, "fullscreen", MPV_FORMAT_FLAG);
 }

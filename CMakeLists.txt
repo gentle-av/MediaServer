@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(MediaExplorerDrogon)
+project(MediaServer)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,7 +23,7 @@ pkg_check_modules(LIBCURL REQUIRED libcurl)
 
 get_target_property(TAGLIB_INCLUDE_DIRS TagLib::TagLib INTERFACE_INCLUDE_DIRECTORIES)
 
-add_executable(media_explorer_drogon
+add_executable(MediaServer
     main.cpp
     controllers/VideoController.cpp
     controllers/MusicController.cpp
@@ -37,7 +37,7 @@ add_executable(media_explorer_drogon
     player/Player.cpp
 )
 
-target_link_libraries(media_explorer_drogon PRIVATE
+target_link_libraries(MediaServer PRIVATE
     Drogon::Drogon
     TagLib::TagLib
     ${SQLITE3_LIBRARIES}
@@ -45,20 +45,20 @@ target_link_libraries(media_explorer_drogon PRIVATE
     ${LIBCURL_LIBRARIES}
 )
 
-target_include_directories(media_explorer_drogon PRIVATE
+target_include_directories(MediaServer PRIVATE
     ${SQLITE3_INCLUDE_DIRS}
     ${TAGLIB_INCLUDE_DIRS}
     ${MPV_INCLUDE_DIRS}
     ${LIBCURL_INCLUDE_DIRS}
 )
 
-target_compile_definitions(media_explorer_drogon PRIVATE
+target_compile_definitions(MediaServer PRIVATE
     TAGLIB_STATIC
 )
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
     add_custom_command(
-        TARGET media_explorer_drogon POST_BUILD
+        TARGET MediaServer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
             ${CMAKE_CURRENT_SOURCE_DIR}/config.json
             ${CMAKE_CURRENT_BINARY_DIR}/config.json

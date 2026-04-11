@@ -6,22 +6,48 @@
 #include <iostream>
 #include <map>
 
-static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
-                            std::string *response) {
-  size_t totalSize = size * nmemb;
-  response->append((char *)contents, totalSize);
-  return totalSize;
-}
-
 PlayerService::PlayerService(int port)
     : port_(port), available_(false), useInternalPlayer_(false),
       isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
       internalPlayer_(nullptr), trackStartTimeValid_(false) {
   baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
-  audioPlayer_ = std::make_shared<Player>(false);
-  videoPlayer_ = std::make_shared<Player>(true);
-  internalPlayer_ = audioPlayer_;
+  internalPlayer_ = std::make_shared<Player>(true);
   ensureConnection();
+}
+
+void PlayerService::playTrack(int index) {
+  if (index < 0 || index >= (int)playlist_.size())
+    return;
+  currentIndex_ = index;
+  currentTrack_ = playlist_[currentIndex_];
+  currentTime_ = 0;
+  duration_ = 0;
+  trackStartTime_ = std::chrono::steady_clock::now();
+  trackStartTimeValid_ = true;
+  if (internalPlayer_) {
+    std::string ext = std::filesystem::path(currentTrack_).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    bool isVideo =
+        (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
+         ext == ".wmv" || ext == ".flv" || ext == ".webm");
+    if (isVideo) {
+      internalPlayer_->setVideoEnabled(true);
+      internalPlayer_->setFullscreen(true);
+    } else {
+      internalPlayer_->setVideoEnabled(false);
+    }
+    internalPlayer_->stop();
+    internalPlayer_->setPlaylist({currentTrack_});
+    internalPlayer_->play();
+  }
+  isPlaying_ = true;
+}
+
+static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
+                            std::string *response) {
+  size_t totalSize = size * nmemb;
+  response->append((char *)contents, totalSize);
+  return totalSize;
 }
 
 PlayerService::~PlayerService() {}
@@ -48,37 +74,6 @@ void PlayerService::ensurePlayerForCurrentTrack() {
   } else {
     internalPlayer_ = audioPlayer_;
   }
-}
-
-void PlayerService::playTrack(int index) {
-  if (index < 0 || index >= (int)playlist_.size())
-    return;
-  currentIndex_ = index;
-  currentTrack_ = playlist_[currentIndex_];
-  currentTime_ = 0;
-  duration_ = 0;
-  trackStartTime_ = std::chrono::steady_clock::now();
-  trackStartTimeValid_ = true;
-  ensurePlayerForCurrentTrack();
-  std::cout << "[DEBUG] playTrack: currentTrack_=" << currentTrack_
-            << std::endl;
-  if (internalPlayer_) {
-    std::string ext = std::filesystem::path(currentTrack_).extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    bool isVideo =
-        (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
-         ext == ".wmv" || ext == ".flv" || ext == ".webm");
-    std::cout << "[DEBUG] playTrack: ext=" << ext << ", isVideo=" << isVideo
-              << std::endl;
-    if (isVideo) {
-      std::cout << "[DEBUG] playTrack: calling setFullscreen(true)"
-                << std::endl;
-      internalPlayer_->setFullscreen(true);
-    }
-    internalPlayer_->setPlaylist({currentTrack_});
-    internalPlayer_->play();
-  }
-  isPlaying_ = true;
 }
 
 double PlayerService::getElapsedTime() const {
@@ -259,6 +254,7 @@ Json::Value PlayerService::handleInternalPlayIndex(const Json::Value &data) {
 }
 
 Json::Value PlayerService::handleInternalGetCurrentTime() {
+  updatePlaybackState();
   Json::Value data;
   data["currentTime"] = currentTime_;
   data["duration"] = duration_;
@@ -617,8 +613,9 @@ void PlayerService::updatePlaybackState() {
   mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
   duration_ = duration;
   int pause = 1;
-  int result = mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
-  std::cout << "[DEBUG] mpv_get_property pause result=" << result
-            << ", pause=" << pause << std::endl;
+  mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
   isPlaying_ = (pause == 0);
+  std::cout << "[DEBUG] updatePlaybackState: currentTime=" << currentTime_
+            << ", duration=" << duration_ << ", isPlaying=" << isPlaying_
+            << std::endl;
 }
