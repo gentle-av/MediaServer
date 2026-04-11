@@ -170,34 +170,19 @@ void VideoController::openVideo(
     callback(resp);
     return;
   }
-  std::string scriptPath =
-      "/tmp/run_mediateka_" + std::to_string(time(nullptr)) + ".sh";
-  std::string scriptContent = "#!/bin/bash\n"
-                              "export DISPLAY=:0\n"
-                              "export XAUTHORITY=/home/avr/.Xauthority\n"
-                              "nohup /usr/local/bin/Mediateka \"" +
-                              path +
-                              "\" > /tmp/mediateka.log 2>&1 &\n"
-                              "exit 0\n";
-  std::ofstream scriptFile(scriptPath);
-  if (scriptFile.is_open()) {
-    scriptFile << scriptContent;
-    scriptFile.close();
-    chmod(scriptPath.c_str(), 0755);
-    std::string command = "bash " + scriptPath;
-    system(command.c_str());
-    Json::Value response;
+  std::string command = "nohup /usr/local/bin/Mediateka \"" + path +
+                        "\" > /tmp/mediateka.log 2>&1 &";
+  int result = system(command.c_str());
+  Json::Value response;
+  if (result == 0) {
     response["success"] = true;
-    response["message"] = "Opening video with Mediateka: " + path;
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
+    response["message"] = "Video opened with Mediateka";
   } else {
-    Json::Value response;
     response["success"] = false;
-    response["error"] = "Failed to create launch script";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
+    response["error"] = "Failed to launch Mediateka";
   }
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
 }
 
 std::string VideoController::getMimeType(const std::string &extension) {
@@ -347,4 +332,22 @@ void VideoController::moveToTrash(
     resp->setStatusCode(k500InternalServerError);
     callback(resp);
   }
+}
+
+void VideoController::launchMediateka(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  std::string command =
+      "nohup /usr/local/bin/Mediateka > /tmp/mediateka.log 2>&1 &";
+  int result = system(command.c_str());
+  if (result == 0) {
+    response["success"] = true;
+    response["message"] = "Mediateka launched";
+  } else {
+    response["success"] = false;
+    response["error"] = "Failed to launch Mediateka";
+  }
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
 }

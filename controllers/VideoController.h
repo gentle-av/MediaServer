@@ -19,6 +19,7 @@ public:
   ADD_METHOD_TO(VideoController::getStatus, "/api/status", Post);
   ADD_METHOD_TO(VideoController::setFullscreen, "/api/fullscreen", Post);
   ADD_METHOD_TO(VideoController::moveToTrash, "/api/trash", Post);
+  ADD_METHOD_TO(VideoController::launchMediateka, "/api/launchMediateka", Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
@@ -37,6 +38,8 @@ public:
                      std::function<void(const HttpResponsePtr &)> &&callback);
   void moveToTrash(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
+  void launchMediateka(const HttpRequestPtr &req,
+                       std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;
