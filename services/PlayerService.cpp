@@ -393,6 +393,20 @@ Json::Value
 PlayerService::handleInternalAddToPlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
+  std::cout << "[DEBUG] handleInternalAddToPlaylist called" << std::endl;
+  if (data.isMember("path") && data["path"].isString()) {
+    std::string path = data["path"].asString();
+    std::cout << "[DEBUG] Adding to playlist: " << path << std::endl;
+    if (std::filesystem::exists(path)) {
+      playlist_.push_back(path);
+      std::cout << "[DEBUG] Added, playlist size: " << playlist_.size()
+                << std::endl;
+    } else {
+      std::cout << "[ERROR] File not found: " << path << std::endl;
+    }
+  } else {
+    std::cout << "[DEBUG] No path parameter in request" << std::endl;
+  }
   return result;
 }
 
