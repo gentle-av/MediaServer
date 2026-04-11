@@ -9,7 +9,7 @@
 PlayerService::PlayerService(int port)
     : port_(port), available_(false), useInternalPlayer_(false),
       isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
-      internalPlayer_(nullptr), trackStartTimeValid_(false) {
+      internalPlayer_(nullptr), trackStartTimeValid_(false), switching_(false) {
   baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
   audioPlayer_ = std::make_shared<Player>(false);
   videoPlayer_ = std::make_shared<Player>(true);
@@ -84,27 +84,38 @@ void PlayerService::stopAll() {
 void PlayerService::setVideoEnabled(bool enabled) {
   std::cout << "[DEBUG] PlayerService::setVideoEnabled: " << enabled
             << std::endl;
+  if (switching_.exchange(true)) {
+    std::cout << "[DEBUG] Already switching, skip" << std::endl;
+    return;
+  }
   stopCurrentPlayer();
   if (enabled) {
     if (audioPlayer_) {
       audioPlayer_->stop();
       audioPlayer_->setPlaylist({});
     }
+    if (videoPlayer_) {
+      videoPlayer_->forceQuit();
+    }
+    videoPlayer_ = std::make_shared<Player>(true);
     internalPlayer_ = videoPlayer_;
-    std::cout << "[DEBUG] Switched to videoPlayer_ (mpv_="
-              << videoPlayer_->getMpvHandle() << ")" << std::endl;
+    std::cout << "[DEBUG] Switched to videoPlayer_" << std::endl;
   } else {
     if (videoPlayer_) {
       videoPlayer_->stop();
       videoPlayer_->setPlaylist({});
     }
+    if (audioPlayer_) {
+      audioPlayer_->forceQuit();
+    }
+    audioPlayer_ = std::make_shared<Player>(false);
     internalPlayer_ = audioPlayer_;
-    std::cout << "[DEBUG] Switched to audioPlayer_ (mpv_="
-              << audioPlayer_->getMpvHandle() << ")" << std::endl;
+    std::cout << "[DEBUG] Switched to audioPlayer_" << std::endl;
   }
   playlist_.clear();
   currentIndex_ = -1;
   currentTrack_ = "";
+  switching_ = false;
 }
 
 void PlayerService::clear() {
@@ -192,12 +203,6 @@ Json::Value PlayerService::handleInternalStop() {
   result["success"] = true;
   if (internalPlayer_) {
     internalPlayer_->stop();
-    if (internalPlayer_ == videoPlayer_) {
-      std::thread([this]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        videoPlayer_->forceQuit();
-      }).detach();
-    }
     isPlaying_ = false;
     currentTime_ = 0;
     currentIndex_ = -1;
@@ -247,6 +252,10 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
   std::cout << "[DEBUG] handleInternalReplacePlaylist called" << std::endl;
+  if (switching_.exchange(true)) {
+    std::cout << "[DEBUG] Already switching, skip" << std::endl;
+    return result;
+  }
   if (audioPlayer_)
     audioPlayer_->stop();
   if (videoPlayer_)
@@ -273,19 +282,22 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
           (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
            ext == ".wmv" || ext == ".flv" || ext == ".webm");
       if (isVideo) {
-        if (!videoPlayer_ || !videoPlayer_->start()) {
-          videoPlayer_ = std::make_shared<Player>(true);
+        if (videoPlayer_) {
+          videoPlayer_->forceQuit();
         }
+        videoPlayer_ = std::make_shared<Player>(true);
         internalPlayer_ = videoPlayer_;
       } else {
-        if (!audioPlayer_ || !audioPlayer_->start()) {
-          audioPlayer_ = std::make_shared<Player>(false);
+        if (audioPlayer_) {
+          audioPlayer_->forceQuit();
         }
+        audioPlayer_ = std::make_shared<Player>(false);
         internalPlayer_ = audioPlayer_;
       }
       playTrack(0);
     }
   }
+  switching_ = false;
   return result;
 }
 
@@ -670,7 +682,12 @@ void PlayerService::updatePlaybackState() {
   duration_ = duration;
   int pause = 1;
   mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  bool wasPlaying = isPlaying_;
   isPlaying_ = (pause == 0);
+  if (wasPlaying != isPlaying_) {
+    std::cout << "[DEBUG] updatePlaybackState: isPlaying changed to "
+              << isPlaying_ << std::endl;
+  }
   std::cout << "[DEBUG] updatePlaybackState: currentTime=" << currentTime_
             << ", duration=" << duration_ << ", isPlaying=" << isPlaying_
             << std::endl;

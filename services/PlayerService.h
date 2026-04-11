@@ -1,7 +1,7 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
-#include <functional>
 #include <json/json.h>
 #include <memory>
 #include <string>
@@ -57,6 +57,7 @@ private:
   std::shared_ptr<Player> audioPlayer_;
   std::shared_ptr<Player> videoPlayer_;
   std::vector<std::string> playlist_;
+  std::atomic<bool> switching_;
 
   std::chrono::steady_clock::time_point trackStartTime_;
   bool trackStartTimeValid_;

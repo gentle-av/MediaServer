@@ -5,15 +5,39 @@
 #include <iostream>
 #include <thread>
 
-Player::Player() : Player(false) {}
-
 Player::Player(bool enableVideo)
     : mpv_(nullptr), running_(false), manualStop_(false), loading_(false),
-      currentIndex_(-1), fullscreen_(false), videoEnabled_(enableVideo) {
+      quitting_(false), currentIndex_(-1), fullscreen_(false),
+      videoEnabled_(enableVideo) {
   initMpv(enableVideo);
 }
 
+void Player::forceQuit() {
+  if (quitting_.exchange(true)) {
+    std::cout << "[DEBUG] forceQuit already in progress" << std::endl;
+    return;
+  }
+  std::cout << "[DEBUG] forceQuit called" << std::endl;
+  running_ = false;
+  {
+    std::lock_guard<std::mutex> lock(mpvMutex_);
+    if (mpv_) {
+      const char *args[] = {"quit", NULL};
+      mpv_command(mpv_, args);
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      mpv_terminate_destroy(mpv_);
+      mpv_ = nullptr;
+    }
+  }
+  if (eventThread_.joinable()) {
+    eventThread_.join();
+  }
+  quitting_ = false;
+}
+
 Player::~Player() { forceQuit(); }
+
+Player::Player() : Player(false) {}
 
 void Player::initMpv(bool enableVideo) {
   std::lock_guard<std::mutex> lock(mpvMutex_);
@@ -62,6 +86,7 @@ void Player::initMpv(bool enableVideo) {
   }
   std::cout << "[DEBUG] initMpv: mpv initialized" << std::endl;
   mpv_observe_property(mpv_, 0, "fullscreen", MPV_FORMAT_FLAG);
+  mpv_observe_property(mpv_, 1, "pause", MPV_FORMAT_FLAG);
   running_ = true;
   eventThread_ = std::thread(&Player::eventLoop, this);
 }
@@ -75,24 +100,6 @@ void Player::destroyMpv() {
     mpv_command(mpv_, args);
     mpv_terminate_destroy(mpv_);
     mpv_ = nullptr;
-  }
-}
-
-void Player::forceQuit() {
-  std::cout << "[DEBUG] forceQuit called" << std::endl;
-  running_ = false;
-  {
-    std::lock_guard<std::mutex> lock(mpvMutex_);
-    if (mpv_) {
-      const char *args[] = {"quit", NULL};
-      mpv_command(mpv_, args);
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      mpv_terminate_destroy(mpv_);
-      mpv_ = nullptr;
-    }
-  }
-  if (eventThread_.joinable()) {
-    eventThread_.join();
   }
 }
 
@@ -117,8 +124,7 @@ void Player::eventLoop() {
       std::cout << "[DEBUG] MPV_EVENT_END_FILE received" << std::endl;
       if (!manualStop_) {
         if (videoEnabled_ && playlist_.size() == 1) {
-          std::cout << "[DEBUG] Video finished, auto-quitting" << std::endl;
-          forceQuit();
+          std::cout << "[DEBUG] Video finished" << std::endl;
           break;
         }
         loadNextTrack();
@@ -135,11 +141,21 @@ void Player::eventLoop() {
         fullscreen_ = (val != 0);
         std::cout << "[DEBUG] Fullscreen changed to: " << fullscreen_
                   << std::endl;
+      } else if (prop->name && strcmp(prop->name, "pause") == 0 &&
+                 prop->format == MPV_FORMAT_FLAG) {
+        int val;
+        mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &val);
+        std::cout << "[DEBUG] Pause state changed to: " << (val != 0)
+                  << std::endl;
       }
     }
   }
   std::cout << "[DEBUG] Exiting event loop, stopping playback" << std::endl;
   stop();
+  if (videoEnabled_ && playlist_.size() == 1) {
+    mpv_terminate_destroy(mpv_);
+    mpv_ = nullptr;
+  }
 }
 
 void Player::loadTrack(int index) {

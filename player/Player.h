@@ -29,6 +29,7 @@ public:
   bool isFullscreen() const;
   void setVideoEnabled(bool enabled);
   void forceQuit();
+  bool isRunning() const { return running_; }
 
 private:
   mpv_handle *mpv_;
@@ -36,6 +37,7 @@ private:
   std::atomic<bool> running_;
   std::atomic<bool> manualStop_;
   std::atomic<bool> loading_;
+  std::atomic<bool> quitting_;
   std::vector<std::string> playlist_;
   int currentIndex_;
   std::atomic<bool> fullscreen_;
