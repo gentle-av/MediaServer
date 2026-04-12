@@ -1,3 +1,4 @@
+// TagEditor.cpp
 #include "TagEditor.h"
 #include <algorithm>
 #include <iostream>
@@ -130,13 +131,13 @@ bool TagEditor::save() {
       if (!tag)
         return false;
       if (!tags_.title.empty())
-        tag->setTitle(tags_.title);
+        tag->setTitle(TagLib::String(tags_.title, TagLib::String::UTF8));
       if (!tags_.artist.empty())
-        tag->setArtist(tags_.artist);
+        tag->setArtist(TagLib::String(tags_.artist, TagLib::String::UTF8));
       if (!tags_.album.empty())
-        tag->setAlbum(tags_.album);
+        tag->setAlbum(TagLib::String(tags_.album, TagLib::String::UTF8));
       if (!tags_.genre.empty())
-        tag->setGenre(tags_.genre);
+        tag->setGenre(TagLib::String(tags_.genre, TagLib::String::UTF8));
       if (tags_.track > 0)
         tag->setTrack(tags_.track);
       if (!tags_.date.empty() && tags_.date.length() >= 4) {
@@ -154,13 +155,13 @@ bool TagEditor::save() {
       if (!tag)
         return false;
       if (!tags_.title.empty())
-        tag->setTitle(tags_.title);
+        tag->setTitle(TagLib::String(tags_.title, TagLib::String::UTF8));
       if (!tags_.artist.empty())
-        tag->setArtist(tags_.artist);
+        tag->setArtist(TagLib::String(tags_.artist, TagLib::String::UTF8));
       if (!tags_.album.empty())
-        tag->setAlbum(tags_.album);
+        tag->setAlbum(TagLib::String(tags_.album, TagLib::String::UTF8));
       if (!tags_.genre.empty())
-        tag->setGenre(tags_.genre);
+        tag->setGenre(TagLib::String(tags_.genre, TagLib::String::UTF8));
       if (tags_.track > 0)
         tag->setTrack(tags_.track);
       if (!tags_.date.empty() && tags_.date.length() >= 4) {
@@ -172,10 +173,14 @@ bool TagEditor::save() {
       TagLib::Ogg::XiphComment *comment = file.xiphComment(true);
       if (comment) {
         if (!tags_.date.empty()) {
-          comment->addField("DATE", tags_.date, true);
+          comment->addField(
+              "DATE", TagLib::String(tags_.date, TagLib::String::UTF8), true);
         }
         if (tags_.track > 0) {
-          comment->addField("TRACKNUMBER", std::to_string(tags_.track), true);
+          comment->addField(
+              "TRACKNUMBER",
+              TagLib::String(std::to_string(tags_.track), TagLib::String::UTF8),
+              true);
         }
       }
       return file.save();

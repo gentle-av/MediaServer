@@ -156,6 +156,7 @@ void MusicController::scan(
   Json::Value response;
   try {
     scanNewFiles();
+    removeMissingFiles();
     response["status"] = "success";
     response["message"] = "Scan completed";
   } catch (const std::exception &e) {
@@ -236,16 +237,20 @@ bool MusicController::extractMetadata(const std::string &filePath,
     TagLib::FileRef f(filePath.c_str());
     if (!f.isNull() && f.tag()) {
       TagLib::Tag *tag = f.tag();
-      metadata.title = tag->title().to8Bit(true);
-      metadata.artist = tag->artist().to8Bit(true);
-      metadata.album = tag->album().to8Bit(true);
+      TagLib::String title = tag->title();
+      TagLib::String artist = tag->artist();
+      TagLib::String album = tag->album();
+      TagLib::String genre = tag->genre();
+      metadata.title = title.to8Bit(true);
+      metadata.artist = artist.to8Bit(true);
+      metadata.album = album.to8Bit(true);
+      metadata.genre = genre.to8Bit(true);
       if (f.audioProperties())
         metadata.duration = f.audioProperties()->lengthInSeconds();
       else
         metadata.duration = 0;
       metadata.track = tag->track();
       metadata.year = tag->year();
-      metadata.genre = tag->genre().to8Bit(true);
       return true;
     }
   } catch (const std::exception &e) {
@@ -660,40 +665,54 @@ void MusicController::forceRescan(
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value response;
   try {
-    LOG_INFO << "Force rescan started";
+    LOG_INFO << "Force rescan started - full database refresh";
     auto allFiles = db_->getAllFiles();
-    int updatedCount = 0;
-    int errorCount = 0;
+    int removedCount = 0;
     for (const auto &filePath : allFiles) {
-      if (fs::exists(filePath)) {
-        MusicMetadata metadata;
-        if (extractMetadata(filePath, metadata)) {
-          if (db_->addFile(filePath, metadata)) {
-            updatedCount++;
-            LOG_INFO << "Updated metadata for: " << filePath;
-
-            std::vector<char> albumArt;
-            if (extractAlbumArt(filePath, albumArt)) {
-              db_->saveAlbumArt(filePath, albumArt);
-            }
-          } else {
-            errorCount++;
-            LOG_ERROR << "Failed to update: " << filePath;
+      if (db_->removeFile(filePath)) {
+        removedCount++;
+      }
+    }
+    LOG_INFO << "Removed " << removedCount << " old entries from database";
+    std::vector<fs::path> musicFiles;
+    if (fs::exists(musicDir_)) {
+      for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
+        if (entry.is_regular_file()) {
+          auto ext = entry.path().extension().string();
+          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+          if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" ||
+              ext == ".wav" || ext == ".ogg" || ext == ".opus") {
+            musicFiles.push_back(entry.path());
           }
-        } else {
-          errorCount++;
-          LOG_ERROR << "Failed to extract metadata: " << filePath;
         }
       }
     }
-    scanNewFiles();
-    removeMissingFiles();
+    int addedCount = 0;
+    int errorCount = 0;
+    for (const auto &filePath : musicFiles) {
+      std::string pathStr = filePath.string();
+      MusicMetadata metadata;
+      if (extractMetadata(pathStr, metadata)) {
+        if (db_->addFile(pathStr, metadata)) {
+          addedCount++;
+          std::vector<char> albumArt;
+          if (extractAlbumArt(pathStr, albumArt)) {
+            db_->saveAlbumArt(pathStr, albumArt);
+          }
+        } else {
+          errorCount++;
+        }
+      } else {
+        errorCount++;
+      }
+    }
     response["status"] = "success";
     response["message"] = "Force rescan completed";
-    response["updated_files"] = updatedCount;
+    response["removed_files"] = removedCount;
+    response["added_files"] = addedCount;
     response["error_count"] = errorCount;
-    response["total_files"] = static_cast<int>(allFiles.size());
-    LOG_INFO << "Force rescan finished. Updated: " << updatedCount
+    response["total_files"] = addedCount;
+    LOG_INFO << "Force rescan finished. Added: " << addedCount
              << ", Errors: " << errorCount;
   } catch (const std::exception &e) {
     LOG_ERROR << "Force rescan error: " << e.what();
