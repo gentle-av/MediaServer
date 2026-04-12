@@ -27,8 +27,6 @@ MusicController::MusicController() {
   musicDir_ = "/mnt/media/music";
   if (!fs::exists(musicDir_))
     musicDir_ = "./music";
-  scanNewFiles();
-  removeMissingFiles();
 }
 
 void MusicController::setPlayerService(std::shared_ptr<PlayerService> service) {
@@ -186,35 +184,39 @@ void MusicController::removeMissing(
 }
 
 void MusicController::scanNewFiles() {
-  auto dbFiles = db_->getAllFiles();
-  std::unordered_set<std::string> existingFiles(dbFiles.begin(), dbFiles.end());
-  std::vector<fs::path> musicFiles;
-  if (fs::exists(musicDir_)) {
-    for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
-      if (entry.is_regular_file()) {
-        auto ext = entry.path().extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-        if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" || ext == ".wav") {
-          musicFiles.push_back(entry.path());
-        }
-      }
-    }
-  }
-  for (const auto &filePath : musicFiles) {
-    std::string pathStr = filePath.string();
-    if (existingFiles.find(pathStr) == existingFiles.end()) {
-      MusicMetadata metadata;
-      if (extractMetadata(pathStr, metadata)) {
-        if (db_->addFile(pathStr, metadata)) {
-          LOG_INFO << "Added new file: " << pathStr;
-          std::vector<char> albumArt;
-          if (extractAlbumArt(pathStr, albumArt)) {
-            db_->saveAlbumArt(pathStr, albumArt);
+  std::thread([this]() {
+    auto dbFiles = db_->getAllFiles();
+    std::unordered_set<std::string> existingFiles(dbFiles.begin(),
+                                                  dbFiles.end());
+    std::vector<fs::path> musicFiles;
+    if (fs::exists(musicDir_)) {
+      for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
+        if (entry.is_regular_file()) {
+          auto ext = entry.path().extension().string();
+          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+          if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" ||
+              ext == ".wav") {
+            musicFiles.push_back(entry.path());
           }
         }
       }
     }
-  }
+    for (const auto &filePath : musicFiles) {
+      std::string pathStr = filePath.string();
+      if (existingFiles.find(pathStr) == existingFiles.end()) {
+        MusicMetadata metadata;
+        if (extractMetadata(pathStr, metadata)) {
+          if (db_->addFile(pathStr, metadata)) {
+            LOG_INFO << "Added new file: " << pathStr;
+            std::vector<char> albumArt;
+            if (extractAlbumArt(pathStr, albumArt)) {
+              db_->saveAlbumArt(pathStr, albumArt);
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 void MusicController::removeMissingFiles() {

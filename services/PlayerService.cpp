@@ -7,14 +7,20 @@
 #include <map>
 
 PlayerService::PlayerService(int port)
-    : port_(port), available_(false), useInternalPlayer_(false),
+    : port_(port), available_(false), useInternalPlayer_(true),
       isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
-      internalPlayer_(nullptr), trackStartTimeValid_(false), switching_(false) {
+      internalPlayer_(nullptr), trackStartTimeValid_(false), switching_(false),
+      audioPlayer_(nullptr), videoPlayer_(nullptr) {
+  std::cout << "[PlayerService] Constructor start, port=" << port << std::endl;
   baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
-  audioPlayer_ = std::make_shared<Player>(false);
-  videoPlayer_ = std::make_shared<Player>(true);
-  internalPlayer_ = audioPlayer_;
-  ensureConnection();
+  useInternalPlayer_ = true;
+  available_ = true;
+  std::cout << "[PlayerService] Constructor end" << std::endl;
+}
+
+PlayerService::~PlayerService() {
+  std::cout << "[PlayerService] Destructor start" << std::endl;
+  std::cout << "[PlayerService] Destructor end" << std::endl;
 }
 
 void PlayerService::stopCurrentPlayer() {
@@ -33,31 +39,39 @@ void PlayerService::stopCurrentPlayer() {
 }
 
 void PlayerService::playTrack(int index) {
+  std::lock_guard<std::mutex> lock(stateMutex_);
   if (index < 0 || index >= (int)playlist_.size())
     return;
+  if (!std::filesystem::exists(playlist_[index]))
+    return;
+  if (internalPlayer_)
+    internalPlayer_->stopAsync();
   currentIndex_ = index;
   currentTrack_ = playlist_[currentIndex_];
   currentTime_ = 0;
   duration_ = 0;
+  std::string ext = std::filesystem::path(currentTrack_).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  bool isVideo =
+      (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
+       ext == ".wmv" || ext == ".flv" || ext == ".webm");
+  if (isVideo && internalPlayer_ != videoPlayer_) {
+    if (audioPlayer_)
+      audioPlayer_->stopAsync();
+    internalPlayer_ = videoPlayer_;
+    internalPlayer_->setVideoEnabled(true);
+    internalPlayer_->setFullscreen(true);
+  } else if (!isVideo && internalPlayer_ != audioPlayer_) {
+    if (videoPlayer_)
+      videoPlayer_->stopAsync();
+    internalPlayer_ = audioPlayer_;
+    internalPlayer_->setVideoEnabled(false);
+  }
+  internalPlayer_->setPlaylistAsync({currentTrack_});
+  internalPlayer_->playAsync();
+  isPlaying_ = true;
   trackStartTime_ = std::chrono::steady_clock::now();
   trackStartTimeValid_ = true;
-  if (internalPlayer_) {
-    std::string ext = std::filesystem::path(currentTrack_).extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    bool isVideo =
-        (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
-         ext == ".wmv" || ext == ".flv" || ext == ".webm");
-    if (isVideo) {
-      internalPlayer_->setVideoEnabled(true);
-      internalPlayer_->setFullscreen(true);
-    } else {
-      internalPlayer_->setVideoEnabled(false);
-    }
-    internalPlayer_->stop();
-    internalPlayer_->setPlaylist({currentTrack_});
-    internalPlayer_->play();
-  }
-  isPlaying_ = true;
 }
 
 static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
@@ -66,8 +80,6 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
   response->append((char *)contents, totalSize);
   return totalSize;
 }
-
-PlayerService::~PlayerService() {}
 
 void PlayerService::stopAll() {
   std::cout << "[DEBUG] PlayerService::stopAll called" << std::endl;
@@ -95,9 +107,8 @@ void PlayerService::setVideoEnabled(bool enabled) {
       audioPlayer_->setPlaylist({});
     }
     if (videoPlayer_) {
-      videoPlayer_->forceQuit();
+      videoPlayer_->stop();
     }
-    videoPlayer_ = std::make_shared<Player>(true);
     internalPlayer_ = videoPlayer_;
     std::cout << "[DEBUG] Switched to videoPlayer_" << std::endl;
   } else {
@@ -106,9 +117,8 @@ void PlayerService::setVideoEnabled(bool enabled) {
       videoPlayer_->setPlaylist({});
     }
     if (audioPlayer_) {
-      audioPlayer_->forceQuit();
+      audioPlayer_->stop();
     }
-    audioPlayer_ = std::make_shared<Player>(false);
     internalPlayer_ = audioPlayer_;
     std::cout << "[DEBUG] Switched to audioPlayer_" << std::endl;
   }
@@ -275,25 +285,6 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
       }
     }
     if (!playlist_.empty()) {
-      std::string ext =
-          std::filesystem::path(playlist_[0]).extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-      bool isVideo =
-          (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
-           ext == ".wmv" || ext == ".flv" || ext == ".webm");
-      if (isVideo) {
-        if (videoPlayer_) {
-          videoPlayer_->forceQuit();
-        }
-        videoPlayer_ = std::make_shared<Player>(true);
-        internalPlayer_ = videoPlayer_;
-      } else {
-        if (audioPlayer_) {
-          audioPlayer_->forceQuit();
-        }
-        audioPlayer_ = std::make_shared<Player>(false);
-        internalPlayer_ = audioPlayer_;
-      }
       playTrack(0);
     }
   }
@@ -427,30 +418,7 @@ void PlayerService::setInternalPlayer(std::shared_ptr<Player> player) {
 bool PlayerService::useInternalPlayer() const { return useInternalPlayer_; }
 
 void PlayerService::ensureConnection() {
-  if (useInternalPlayer_ && internalPlayer_) {
-    available_ = true;
-    return;
-  }
-  CURL *curl = curl_easy_init();
-  if (!curl) {
-    available_ = false;
-    return;
-  }
-  std::string url = baseUrl_ + "/api/playbackState";
-  std::string response;
-  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-  CURLcode res = curl_easy_perform(curl);
-  long httpCode = 0;
-  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-  curl_easy_cleanup(curl);
-  available_ = (res == CURLE_OK && httpCode == 200);
-  if (!available_) {
-    std::cout << "[PlayerService] Player not available on port " << port_
-              << std::endl;
-  }
+  available_ = (internalPlayer_ != nullptr);
 }
 
 Json::Value
@@ -679,18 +647,11 @@ void PlayerService::updatePlaybackState() {
   currentTime_ = time;
   double duration = 0;
   mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
-  duration_ = duration;
+  if (duration > 0)
+    duration_ = duration;
   int pause = 1;
   mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
-  bool wasPlaying = isPlaying_;
   isPlaying_ = (pause == 0);
-  if (wasPlaying != isPlaying_) {
-    std::cout << "[DEBUG] updatePlaybackState: isPlaying changed to "
-              << isPlaying_ << std::endl;
-  }
-  std::cout << "[DEBUG] updatePlaybackState: currentTime=" << currentTime_
-            << ", duration=" << duration_ << ", isPlaying=" << isPlaying_
-            << std::endl;
 }
 
 Json::Value PlayerService::handleInternalSeek(const Json::Value &data) {

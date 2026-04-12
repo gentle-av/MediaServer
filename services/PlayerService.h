@@ -42,6 +42,8 @@ public:
   void removeFromPlaylist(int index);
   void setVideoEnabled(bool enabled);
   void stopAll();
+  void setAudioPlayer(std::shared_ptr<Player> player) { audioPlayer_ = player; }
+  void setVideoPlayer(std::shared_ptr<Player> player) { videoPlayer_ = player; }
 
 private:
   double duration_;
@@ -58,7 +60,7 @@ private:
   std::shared_ptr<Player> videoPlayer_;
   std::vector<std::string> playlist_;
   std::atomic<bool> switching_;
-
+  std::mutex stateMutex_;
   std::chrono::steady_clock::time_point trackStartTime_;
   bool trackStartTimeValid_;
 
