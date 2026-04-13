@@ -25,6 +25,7 @@ public:
   ADD_METHOD_TO(VideoController::getMpvSockets, "/api/mpv/sockets", Get);
   ADD_METHOD_TO(VideoController::checkMpv, "/api/mpv/check", Post);
   ADD_METHOD_TO(VideoController::getActiveMpv, "/api/mpv/active", Get);
+  ADD_METHOD_TO(VideoController::killMpv, "/api/mpv/kill", Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
@@ -48,6 +49,8 @@ public:
                 std::function<void(const HttpResponsePtr &)> &&callback);
   void getActiveMpv(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
+  void killMpv(const HttpRequestPtr &req,
+               std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;

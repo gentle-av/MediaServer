@@ -447,3 +447,24 @@ void VideoController::getActiveMpv(
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
+
+void VideoController::killMpv(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("socket")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing socket";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string socketPath = (*json)["socket"].asString();
+  std::string cmd = "pkill -f \"" + socketPath + "\" 2>/dev/null";
+  int result = system(cmd.c_str());
+  Json::Value response;
+  response["success"] = (result == 0);
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
