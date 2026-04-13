@@ -22,32 +22,20 @@ PlayerService::~PlayerService() {
   std::cout << "[PlayerService] Destructor end" << std::endl;
 }
 
-void PlayerService::stopCurrentPlayer() {
-  std::cout << "[DEBUG] stopCurrentPlayer called" << std::endl;
-  if (internalPlayer_) {
-    internalPlayer_->stop();
-  }
-  isPlaying_ = false;
-  currentTime_ = 0;
-  trackStartTimeValid_ = false;
-}
-
 void PlayerService::playTrack(int index) {
   std::cout << "[PlayerService::playTrack] START index=" << index << std::endl;
+  if (!internalPlayer_) {
+    std::cout << "[PlayerService::playTrack] No internal player" << std::endl;
+    return;
+  }
   std::lock_guard<std::mutex> lock(stateMutex_);
   if (index < 0 || index >= (int)playlist_.size()) {
     std::cout << "[PlayerService::playTrack] Index out of range" << std::endl;
     return;
   }
   if (!std::filesystem::exists(playlist_[index])) {
-    std::cout << "[PlayerService::playTrack] File not exist: "
-              << playlist_[index] << std::endl;
+    std::cout << "[PlayerService::playTrack] File not exist" << std::endl;
     return;
-  }
-  if (internalPlayer_) {
-    std::cout << "[PlayerService::playTrack] Stopping internal player"
-              << std::endl;
-    internalPlayer_->stop();
   }
   currentIndex_ = index;
   currentTrack_ = playlist_[currentIndex_];
@@ -58,15 +46,18 @@ void PlayerService::playTrack(int index) {
   bool isVideo =
       (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
        ext == ".wmv" || ext == ".flv" || ext == ".webm");
-  if (internalPlayer_) {
-    internalPlayer_->setVideoMode(isVideo);
-    if (isVideo) {
-      internalPlayer_->setFullscreen(true);
-    }
-  }
-  std::cout << "[PlayerService::playTrack] Setting playlist" << std::endl;
+  std::cout << "[PlayerService::playTrack] isVideo=" << isVideo
+            << " currentIndex=" << currentIndex_ << std::endl;
+  internalPlayer_->stop();
   internalPlayer_->setPlaylist({currentTrack_});
-  std::cout << "[PlayerService::playTrack] Calling play" << std::endl;
+  if (isVideo) {
+    std::cout << "[PlayerService::playTrack] Enabling video mode after playlist"
+              << std::endl;
+    internalPlayer_->setVideoMode(true);
+    internalPlayer_->setFullscreen(true);
+  } else {
+    internalPlayer_->setVideoMode(false);
+  }
   internalPlayer_->play();
   isPlaying_ = true;
   trackStartTime_ = std::chrono::steady_clock::now();
@@ -82,43 +73,16 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
 }
 
 void PlayerService::stopAll() {
-  std::cout << "[DEBUG] PlayerService::stopAll called" << std::endl;
-  if (internalPlayer_) {
+  if (internalPlayer_)
     internalPlayer_->stop();
-  }
 }
 
 void PlayerService::setVideoEnabled(bool enabled) {
-  std::cout << "[DEBUG] PlayerService::setVideoEnabled: " << enabled
-            << std::endl;
-  if (internalPlayer_) {
+  if (internalPlayer_)
     internalPlayer_->setVideoMode(enabled);
-  }
 }
 
-void PlayerService::clear() {
-  std::cout << "[DEBUG] PlayerService::clear called" << std::endl;
-  sendRequest("/api/clear", "POST");
-}
-
-double PlayerService::getElapsedTime() const {
-  if (!trackStartTimeValid_) {
-    return currentTime_;
-  }
-  if (isPlaying_) {
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       now - trackStartTime_)
-                       .count();
-    double result = currentTime_ + (elapsed / 1000.0);
-    if (duration_ > 0 && result > duration_) {
-      return duration_;
-    }
-    return result;
-  } else {
-    return currentTime_;
-  }
-}
+void PlayerService::clear() { sendRequest("/api/clear", "POST"); }
 
 Json::Value PlayerService::handleInternalPlay() {
   Json::Value result;
@@ -170,7 +134,6 @@ Json::Value PlayerService::handleInternalStop() {
     currentIndex_ = -1;
     trackStartTimeValid_ = false;
     duration_ = 0;
-    std::cout << "[DEBUG] handleInternalStop called" << std::endl;
   }
   return result;
 }
@@ -222,9 +185,6 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
         if (std::filesystem::exists(path)) {
           playlist_.push_back(path);
           std::cout << "[DEBUG] Added to playlist: " << path << std::endl;
-        } else {
-          std::cout << "[ERROR] File not found, skipping: " << path
-                    << std::endl;
         }
       }
     }
@@ -241,14 +201,6 @@ Json::Value PlayerService::handleInternalPlayIndex(const Json::Value &data) {
   if (data.isMember("index") && data["index"].isInt()) {
     int index = data["index"].asInt();
     if (index >= 0 && index < (int)playlist_.size()) {
-      if (isPlaying_ && trackStartTimeValid_) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           now - trackStartTime_)
-                           .count();
-        currentTime_ += (elapsed / 1000.0);
-        trackStartTimeValid_ = false;
-      }
       playTrack(index);
     }
   }
@@ -266,35 +218,27 @@ void PlayerService::removeFromPlaylist(int index) {
       isPlaying_ = false;
       currentTime_ = 0;
       trackStartTimeValid_ = false;
-      if (internalPlayer_) {
+      if (internalPlayer_)
         internalPlayer_->stop();
-      }
     } else if (currentIndex_ >= (int)playlist_.size()) {
       currentIndex_ = (int)playlist_.size() - 1;
       currentTrack_ = playlist_[currentIndex_];
       currentTime_ = 0;
       trackStartTime_ = std::chrono::steady_clock::now();
       trackStartTimeValid_ = true;
-      if (internalPlayer_) {
+      if (internalPlayer_)
         internalPlayer_->setPlaylist({currentTrack_});
-      }
     } else {
       currentTrack_ = playlist_[currentIndex_];
       currentTime_ = 0;
       trackStartTime_ = std::chrono::steady_clock::now();
       trackStartTimeValid_ = true;
-      if (internalPlayer_) {
+      if (internalPlayer_)
         internalPlayer_->setPlaylist({currentTrack_});
-      }
     }
   } else if (currentIndex_ > index) {
     currentIndex_--;
   }
-}
-
-void PlayerService::resetTrackStartTime() {
-  trackStartTime_ = std::chrono::steady_clock::now();
-  trackStartTimeValid_ = true;
 }
 
 Json::Value PlayerService::handleInternalGetPlaylist() {
@@ -312,9 +256,8 @@ Json::Value PlayerService::handleInternalClear() {
   isPlaying_ = false;
   currentTime_ = 0;
   trackStartTimeValid_ = false;
-  if (internalPlayer_) {
+  if (internalPlayer_)
     internalPlayer_->stop();
-  }
   return Json::Value();
 }
 
@@ -333,6 +276,18 @@ Json::Value PlayerService::handleInternalGetCurrentTrack() {
   return data;
 }
 
+Json::Value PlayerService::handleInternalGetCurrentTime() {
+  Json::Value data;
+  if (internalPlayer_) {
+    data["currentTime"] = internalPlayer_->getCurrentTime();
+    data["duration"] = internalPlayer_->getDuration();
+  } else {
+    data["currentTime"] = 0;
+    data["duration"] = 0;
+  }
+  return data;
+}
+
 bool PlayerService::isAvailable() const {
   return useInternalPlayer_ ? (internalPlayer_ != nullptr) : available_;
 }
@@ -345,9 +300,8 @@ std::shared_ptr<Player> PlayerService::getInternalPlayer() {
 
 void PlayerService::setInternalPlayer(std::shared_ptr<Player> player) {
   internalPlayer_ = player;
-  if (internalPlayer_) {
+  if (internalPlayer_)
     available_ = true;
-  }
 }
 
 bool PlayerService::useInternalPlayer() const { return useInternalPlayer_; }
@@ -360,19 +314,11 @@ Json::Value
 PlayerService::handleInternalAddToPlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
-  std::cout << "[DEBUG] handleInternalAddToPlaylist called" << std::endl;
   if (data.isMember("path") && data["path"].isString()) {
     std::string path = data["path"].asString();
-    std::cout << "[DEBUG] Adding to playlist: " << path << std::endl;
     if (std::filesystem::exists(path)) {
       playlist_.push_back(path);
-      std::cout << "[DEBUG] Added, playlist size: " << playlist_.size()
-                << std::endl;
-    } else {
-      std::cout << "[ERROR] File not found: " << path << std::endl;
     }
-  } else {
-    std::cout << "[DEBUG] No path parameter in request" << std::endl;
   }
   return result;
 }
@@ -426,76 +372,26 @@ Json::Value PlayerService::sendRequest(const std::string &endpoint,
         {"/api/seek",
          [this](const Json::Value &d) { return handleInternalSeek(d); }}};
     auto itVoid = voidHandlers.find(endpoint);
-    if (itVoid != voidHandlers.end()) {
+    if (itVoid != voidHandlers.end())
       return itVoid->second();
-    }
     auto itData = dataHandlers.find(endpoint);
-    if (itData != dataHandlers.end()) {
+    if (itData != dataHandlers.end())
       return itData->second(data);
-    }
     Json::Value result;
     result["success"] = true;
     return result;
   }
-  if (!available_) {
-    Json::Value result;
-    result["success"] = false;
-    result["error"] = "Player not available";
-    return result;
-  }
-  CURL *curl = curl_easy_init();
-  if (!curl) {
-    Json::Value result;
-    result["success"] = false;
-    return result;
-  }
-  std::string url = baseUrl_ + endpoint;
-  std::string response;
-  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-  if (method == "POST") {
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    if (!data.isNull()) {
-      Json::StreamWriterBuilder writer;
-      std::string body = Json::writeString(writer, data);
-      curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-      struct curl_slist *headers = nullptr;
-      headers = curl_slist_append(headers, "Content-Type: application/json");
-      curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    }
-  }
-  CURLcode res = curl_easy_perform(curl);
   Json::Value result;
-  if (res == CURLE_OK) {
-    Json::CharReaderBuilder reader;
-    std::string errors;
-    std::unique_ptr<Json::CharReader> jsonReader(reader.newCharReader());
-    if (jsonReader->parse(response.c_str(), response.c_str() + response.size(),
-                          &result, &errors)) {
-      if (!result.isMember("success")) {
-        result["success"] = true;
-      }
-    } else {
-      result["success"] = false;
-      result["error"] = "Failed to parse response";
-    }
-  } else {
-    result["success"] = false;
-    result["error"] = curl_easy_strerror(res);
-    available_ = false;
-  }
-  curl_easy_cleanup(curl);
+  result["success"] = false;
+  result["error"] = "Player not available";
   return result;
 }
 
 void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
   Json::Value data;
   Json::Value tracksArray(Json::arrayValue);
-  for (const auto &track : tracks) {
+  for (const auto &track : tracks)
     tracksArray.append(track);
-  }
   data["tracks"] = tracksArray;
   sendRequest("/api/replacePlaylist", "POST", data);
 }
@@ -513,47 +409,39 @@ void PlayerService::addAfterCurrent(const std::string &track) {
 }
 
 void PlayerService::replacePlaylistWithTrack(const std::string &track) {
-  if (!std::filesystem::exists(track)) {
-    std::cerr << "[ERROR] File not found: " << track << std::endl;
+  if (!std::filesystem::exists(track))
     return;
-  }
   currentTrack_ = track;
   setPlaylist({track});
 }
 
 void PlayerService::replacePlaylist(const std::vector<std::string> &tracks) {
-  if (!tracks.empty()) {
+  if (!tracks.empty())
     currentTrack_ = tracks[0];
-  }
   setPlaylist(tracks);
 }
 
 void PlayerService::play() { sendRequest("/api/play", "POST"); }
-
 void PlayerService::pause() { sendRequest("/api/pause", "POST"); }
-
-void PlayerService::stop() { sendRequest("/api/stop", "POST"); };
-
+void PlayerService::stop() { sendRequest("/api/stop", "POST"); }
 void PlayerService::next() { sendRequest("/api/next", "POST"); }
-
 void PlayerService::previous() { sendRequest("/api/previous", "POST"); }
-
 void PlayerService::playIndex(int index) {
   Json::Value data;
   data["index"] = index;
   sendRequest("/api/playIndex", "POST", data);
 }
-
 Json::Value PlayerService::getPlaylist() {
   return sendRequest("/api/getPlaylist", "GET");
 }
-
 Json::Value PlayerService::getPlaybackState() {
   return sendRequest("/api/playbackState", "GET");
 }
-
 Json::Value PlayerService::getCurrentTrack() {
   return sendRequest("/api/currentTrack", "GET");
+}
+Json::Value PlayerService::getCurrentTime() {
+  return sendRequest("/api/currentTime", "GET");
 }
 
 Json::Value
@@ -561,8 +449,7 @@ PlayerService::handleInternalRemoveFromPlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
   if (data.isMember("index") && data["index"].isInt()) {
-    int index = data["index"].asInt();
-    removeFromPlaylist(index);
+    removeFromPlaylist(data["index"].asInt());
   }
   return result;
 }
@@ -572,23 +459,10 @@ Json::Value PlayerService::handleInternalSeek(const Json::Value &data) {
   result["success"] = true;
   if (data.isMember("position") && data["position"].isDouble() &&
       internalPlayer_) {
-    double position = data["position"].asDouble();
-    internalPlayer_->seekTo(position);
-    currentTime_ = position;
+    internalPlayer_->seekTo(data["position"].asDouble());
+    currentTime_ = data["position"].asDouble();
     trackStartTime_ = std::chrono::steady_clock::now();
     trackStartTimeValid_ = true;
   }
   return result;
-}
-
-Json::Value PlayerService::handleInternalGetCurrentTime() {
-  Json::Value data;
-  if (internalPlayer_) {
-    data["currentTime"] = internalPlayer_->getCurrentTime();
-    data["duration"] = internalPlayer_->getDuration();
-  } else {
-    data["currentTime"] = 0;
-    data["duration"] = 0;
-  }
-  return data;
 }

@@ -56,7 +56,10 @@ void Player::eventLoop() {
     if (event->event_id == MPV_EVENT_END_FILE) {
       if (!manualStop_) {
         if (videoMode_ && playlist_.size() == 1) {
-          break;
+          // Не выходим из цикла, просто останавливаемся
+          std::cout << "[Player::eventLoop] Video finished, waiting"
+                    << std::endl;
+          continue;
         }
         loadNextTrack();
       }
@@ -154,16 +157,12 @@ void Player::pause() {
 bool Player::isFullscreen() const { return fullscreen_.load(); }
 
 void Player::initMpv() {
-  std::cout << "[Player::initMpv] START" << std::endl;
   mpv_ = mpv_create();
   if (!mpv_) {
-    std::cout << "[Player::initMpv] mpv_create FAILED" << std::endl;
     mpvValid_ = false;
     return;
   }
   mpvValid_ = true;
-  std::cout << "[Player::initMpv] mpv_create SUCCESS, mpv_=" << mpv_
-            << std::endl;
   mpv_set_option_string(mpv_, "terminal", "yes");
   mpv_set_option_string(mpv_, "msg-level", "all=error");
   mpv_set_option_string(mpv_, "volume", "100");
@@ -179,22 +178,19 @@ void Player::initMpv() {
   mpv_set_option_string(mpv_, "video", "no");
   mpv_set_option_string(mpv_, "vo", "null");
   mpv_set_option_string(mpv_, "osc", "no");
+  mpv_set_option_string(mpv_, "force-window", "no");
   int keepOpen = 1;
   mpv_set_option(mpv_, "keep-open", MPV_FORMAT_FLAG, &keepOpen);
-  std::cout << "[Player::initMpv] Calling mpv_initialize..." << std::endl;
   if (mpv_initialize(mpv_) < 0) {
-    std::cout << "[Player::initMpv] mpv_initialize FAILED" << std::endl;
     mpv_terminate_destroy(mpv_);
     mpv_ = nullptr;
     return;
   }
-  std::cout << "[Player::initMpv] mpv_initialize SUCCESS" << std::endl;
   mpv_observe_property(mpv_, 0, "time-pos", MPV_FORMAT_DOUBLE);
   mpv_observe_property(mpv_, 1, "duration", MPV_FORMAT_DOUBLE);
   mpv_observe_property(mpv_, 2, "pause", MPV_FORMAT_FLAG);
   running_ = true;
   eventThread_ = std::thread(&Player::eventLoop, this);
-  std::cout << "[Player::initMpv] END" << std::endl;
 }
 
 void Player::stop() {
@@ -267,18 +263,19 @@ void Player::seekTo(double position) {
 }
 
 void Player::setVideoMode(bool enabled) {
-  std::cout << "[Player::setVideoMode] START, enabled=" << enabled
-            << ", videoMode_=" << videoMode_ << std::endl;
+  std::cout << "[Player::setVideoMode] ENTERED enabled=" << enabled
+            << " videoMode_=" << videoMode_
+            << " currentIndex_=" << currentIndex_ << std::endl;
   std::lock_guard<std::mutex> lock(mpvMutex_);
   if (!mpv_) {
     std::cout << "[Player::setVideoMode] mpv_ is NULL" << std::endl;
     return;
   }
   if (enabled && !videoMode_) {
-    const char *stop_args[] = {"stop", NULL};
-    mpv_command(mpv_, stop_args);
+    std::cout << "[Player::setVideoMode] Enabling video" << std::endl;
     mpv_set_option_string(mpv_, "video", "yes");
     mpv_set_option_string(mpv_, "vo", "gpu-next");
+    mpv_set_option_string(mpv_, "hwdec", "auto-safe");
     mpv_set_option_string(mpv_, "osc", "yes");
     mpv_set_option_string(mpv_, "load-scripts", "yes");
     mpv_set_option_string(mpv_, "keepaspect-window", "yes");
@@ -286,26 +283,29 @@ void Player::setVideoMode(bool enabled) {
     mpv_set_option_string(mpv_, "geometry", "50%x50%");
     mpv_set_option_string(mpv_, "cursor-autohide", "1000");
     mpv_set_option_string(mpv_, "window-minimized", "no");
+    mpv_set_option_string(mpv_, "force-window", "yes");
+    mpv_set_option_string(mpv_, "x11-bypass-compositor", "yes");
     int fullscreen = 1;
     mpv_set_option(mpv_, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
     videoMode_ = true;
     if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size()) {
+      std::cout << "[Player::setVideoMode] Reloading track" << std::endl;
       const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
       mpv_command(mpv_, args);
     }
   } else if (!enabled && videoMode_) {
-    const char *stop_args[] = {"stop", NULL};
-    mpv_command(mpv_, stop_args);
+    std::cout << "[Player::setVideoMode] Disabling video" << std::endl;
     mpv_set_option_string(mpv_, "video", "no");
     mpv_set_option_string(mpv_, "vo", "null");
     mpv_set_option_string(mpv_, "osc", "no");
+    mpv_set_option_string(mpv_, "force-window", "no");
     videoMode_ = false;
     if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size()) {
       const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
       mpv_command(mpv_, args);
     }
   }
-  std::cout << "[Player::setVideoMode] END" << std::endl;
+  std::cout << "[Player::setVideoMode] EXIT" << std::endl;
 }
 
 void Player::loadNextTrack() {

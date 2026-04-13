@@ -41,6 +41,7 @@ public:
   void removeFromPlaylist(int index);
   void setVideoEnabled(bool enabled);
   void stopAll();
+  Json::Value getCurrentTime();
   Json::Value sendRequest(const std::string &endpoint,
                           const std::string &method = "POST",
                           const Json::Value &data = Json::Value());

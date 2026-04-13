@@ -1,3 +1,4 @@
+// VideoController.h
 #pragma once
 
 #include <drogon/HttpController.h>
@@ -20,6 +21,10 @@ public:
   ADD_METHOD_TO(VideoController::listFiles, "/api/list", Post);
   ADD_METHOD_TO(VideoController::openVideo, "/api/open", Post);
   ADD_METHOD_TO(VideoController::moveToTrash, "/api/trash", Post);
+  ADD_METHOD_TO(VideoController::controlMpv, "/api/mpv/control", Post);
+  ADD_METHOD_TO(VideoController::getMpvSockets, "/api/mpv/sockets", Get);
+  ADD_METHOD_TO(VideoController::checkMpv, "/api/mpv/check", Post);
+  ADD_METHOD_TO(VideoController::getActiveMpv, "/api/mpv/active", Get);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
@@ -35,6 +40,14 @@ public:
                  std::function<void(const HttpResponsePtr &)> &&callback);
   void moveToTrash(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
+  void controlMpv(const HttpRequestPtr &req,
+                  std::function<void(const HttpResponsePtr &)> &&callback);
+  void getMpvSockets(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
+  void checkMpv(const HttpRequestPtr &req,
+                std::function<void(const HttpResponsePtr &)> &&callback);
+  void getActiveMpv(const HttpRequestPtr &req,
+                    std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;
