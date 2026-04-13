@@ -167,15 +167,15 @@ void VideoController::openVideo(
     return;
   }
   static int socketCounter = 0;
-  std::string socketPath = "/tmp/mpv-socket-" + std::to_string(getpid()) + "-" +
-                           std::to_string(socketCounter++);
+  activeSocket_ = "/tmp/mpv-socket-" + std::to_string(getpid()) + "-" +
+                  std::to_string(socketCounter++);
   std::string cmd =
       "mpv --fs --vo=gpu-next --hwdec=auto-safe --input-ipc-server=" +
-      socketPath + " \"" + path + "\" > /dev/null 2>&1 &";
+      activeSocket_ + " \"" + path + "\" > /dev/null 2>&1 &";
   int result = system(cmd.c_str());
   Json::Value response;
   response["success"] = (result == 0);
-  response["socket"] = socketPath;
+  response["socket"] = activeSocket_;
   response["message"] = (result == 0) ? "Video playing" : "Failed to start mpv";
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
@@ -185,19 +185,51 @@ void VideoController::controlMpv(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   auto json = req->getJsonObject();
-  if (!json || !json->isMember("socket") || !json->isMember("command")) {
+  if (!json || !json->isMember("command")) {
     Json::Value response;
     response["success"] = false;
-    response["error"] = "Missing socket or command";
+    response["error"] = "Missing command";
     auto resp = HttpResponse::newHttpJsonResponse(response);
     callback(resp);
     return;
   }
-  std::string socketPath = (*json)["socket"].asString();
+  if (activeSocket_.empty()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No active video";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
   std::string command = (*json)["command"].asString();
-  std::string cmd = "echo '{\"command\":[\"" + command + "\"]}' | socat - " +
-                    socketPath + " 2>/dev/null";
-  int result = system(cmd.c_str());
+  std::string fullCmd;
+  if (command == "cycle pause") {
+    fullCmd = "echo '{\"command\":[\"cycle\",\"pause\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  } else if (command == "set pause yes") {
+    fullCmd = "echo '{\"command\":[\"set\",\"pause\",\"yes\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  } else if (command == "set pause no") {
+    fullCmd = "echo '{\"command\":[\"set\",\"pause\",\"no\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  } else if (command == "stop") {
+    fullCmd =
+        "echo '{\"command\":[\"stop\"]}' | socat - " + activeSocket_ + " 2>&1";
+    activeSocket_.clear();
+  } else if (command == "seek 10") {
+    fullCmd = "echo '{\"command\":[\"seek\",\"10\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  } else if (command == "seek -10") {
+    fullCmd = "echo '{\"command\":[\"seek\",\"-10\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  } else if (command == "cycle fullscreen") {
+    fullCmd = "echo '{\"command\":[\"cycle\",\"fullscreen\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  } else {
+    fullCmd = "echo '{\"command\":[\"" + command + "\"]}' | socat - " +
+              activeSocket_ + " 2>&1";
+  }
+  int result = system(fullCmd.c_str());
   Json::Value response;
   response["success"] = (result == 0);
   auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -390,60 +422,28 @@ void VideoController::getActiveMpv(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   Json::Value response;
-  std::string cmd = "pgrep -a mpv | grep -v grep | head -1";
-  std::array<char, 256> buffer;
-  std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    response["success"] = false;
-    response["error"] = "Failed to check mpv";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-    result += buffer.data();
-  }
-  pclose(pipe);
-  if (result.empty()) {
+  if (activeSocket_.empty()) {
     response["success"] = true;
     response["active"] = false;
     auto resp = HttpResponse::newHttpJsonResponse(response);
     callback(resp);
     return;
   }
-  size_t socketPos = result.find("--input-ipc-server=");
-  std::string socketPath;
-  if (socketPos != std::string::npos) {
-    size_t start = socketPos + 21;
-    size_t end = result.find(" ", start);
-    if (end == std::string::npos)
-      end = result.length();
-    socketPath = result.substr(start, end - start);
-  }
-  size_t filePos = result.find(".mkv");
-  if (filePos == std::string::npos)
-    filePos = result.find(".mp4");
-  if (filePos == std::string::npos)
-    filePos = result.find(".avi");
-  if (filePos == std::string::npos)
-    filePos = result.find(".mov");
-  std::string filePath;
-  if (filePos != std::string::npos) {
-    size_t start = result.rfind(" ", filePos);
-    if (start == std::string::npos)
-      start = 0;
-    else
-      start++;
-    size_t end = result.find("\n", filePos);
-    if (end == std::string::npos)
-      end = result.length();
-    filePath = result.substr(start, end - start);
+  std::string cmd =
+      "echo '{ \"command\": [\"get_property\", \"path\"] }' | socat - " +
+      activeSocket_ + " 2>/dev/null";
+  std::array<char, 256> buffer;
+  std::string result;
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (pipe) {
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result += buffer.data();
+    }
+    pclose(pipe);
   }
   response["success"] = true;
   response["active"] = true;
-  response["socket"] = socketPath;
-  response["path"] = filePath;
+  response["socket"] = activeSocket_;
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

@@ -59,4 +59,5 @@ private:
   Json::Value getFileInfo(const fs::path &path);
   bool isVideoFile(const std::string &filename);
   std::string formatFileSize(uintmax_t size);
+  std::string activeSocket_;
 };
