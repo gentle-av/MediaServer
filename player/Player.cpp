@@ -39,13 +39,11 @@ void Player::eventLoop() {
     mpv_get_property(mpv_, "time-pos", MPV_FORMAT_DOUBLE, &time);
     if (time != currentTime_.load()) {
       currentTime_ = time;
-      std::cout << "[Player::eventLoop] time=" << time << std::endl;
     }
     double duration = 0;
     mpv_get_property(mpv_, "duration", MPV_FORMAT_DOUBLE, &duration);
     if (duration > 0 && duration != duration_.load()) {
       duration_ = duration;
-      std::cout << "[Player::eventLoop] duration=" << duration << std::endl;
     }
     int pause = 1;
     mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
@@ -54,16 +52,25 @@ void Player::eventLoop() {
       continue;
     }
     if (event->event_id == MPV_EVENT_END_FILE) {
+      std::cout << "[Player::eventLoop] MPV_EVENT_END_FILE" << std::endl;
       if (!manualStop_) {
-        if (videoMode_ && playlist_.size() == 1) {
-          // Не выходим из цикла, просто останавливаемся
-          std::cout << "[Player::eventLoop] Video finished, waiting"
-                    << std::endl;
-          continue;
-        }
         loadNextTrack();
       }
       manualStop_ = false;
+    } else if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
+      mpv_event_property *prop = (mpv_event_property *)event->data;
+      if (prop->name && strcmp(prop->name, "eof-reached") == 0 &&
+          prop->format == MPV_FORMAT_FLAG) {
+        int val;
+        mpv_get_property(mpv_, "eof-reached", MPV_FORMAT_FLAG, &val);
+        if (val) {
+          std::cout << "[Player::eventLoop] EOF reached" << std::endl;
+          if (!manualStop_) {
+            loadNextTrack();
+          }
+          manualStop_ = false;
+        }
+      }
     } else if (event->event_id == MPV_EVENT_SHUTDOWN) {
       break;
     }
@@ -107,8 +114,7 @@ void Player::loadTrack(int index) {
   if (!mpvValid_)
     return;
   std::cout << "[Player::loadTrack] START, index=" << index
-            << ", loading_=" << loading_.load() << ", mpv_=" << mpv_
-            << std::endl;
+            << ", loading_=" << loading_.load() << std::endl;
   if (loading_)
     return;
   loading_ = true;
@@ -135,9 +141,6 @@ void Player::loadTrack(int index) {
       int err = mpv_command(mpv_, args);
       std::cout << "[Player::loadTrack] mpv_command returned: " << err
                 << std::endl;
-    } else {
-      std::cout << "[Player::loadTrack] mpv_=" << mpv_
-                << ", running_=" << running_ << std::endl;
     }
   }
   loading_ = false;
@@ -163,6 +166,7 @@ void Player::initMpv() {
     return;
   }
   mpvValid_ = true;
+  mpv_observe_property(mpv_, 3, "eof-reached", MPV_FORMAT_FLAG);
   mpv_set_option_string(mpv_, "terminal", "yes");
   mpv_set_option_string(mpv_, "msg-level", "all=error");
   mpv_set_option_string(mpv_, "volume", "100");
@@ -310,10 +314,32 @@ void Player::setVideoMode(bool enabled) {
 
 void Player::loadNextTrack() {
   int nextIndex = currentIndex_ + 1;
-  std::cout << "[Player::loadNextTrack] nextIndex=" << nextIndex << std::endl;
-  if (nextIndex < (int)playlist_.size() && nextIndex >= 0) {
-    loadTrack(nextIndex);
+  std::cout << "[Player::loadNextTrack] nextIndex=" << nextIndex
+            << ", playlist_.size()=" << playlist_.size() << std::endl;
+  if (nextIndex < (int)playlist_.size()) {
+    playIndex(nextIndex);
   } else {
+    std::cout << "[Player::loadNextTrack] End of playlist, stopping"
+              << std::endl;
     currentIndex_ = -1;
+    stop();
   }
+}
+
+void Player::playIndex(int index) {
+  std::cout << "[Player::playIndex] START, index=" << index << std::endl;
+  if (index < 0 || index >= (int)playlist_.size()) {
+    std::cout << "[Player::playIndex] index out of range" << std::endl;
+    return;
+  }
+  currentIndex_ = index;
+  manualStop_ = false;
+  {
+    std::lock_guard<std::mutex> lock(mpvMutex_);
+    if (mpv_ && running_) {
+      const char *args[] = {"loadfile", playlist_[currentIndex_].c_str(), NULL};
+      mpv_command(mpv_, args);
+    }
+  }
+  std::cout << "[Player::playIndex] END" << std::endl;
 }

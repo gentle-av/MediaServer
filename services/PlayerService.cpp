@@ -41,24 +41,10 @@ void PlayerService::playTrack(int index) {
   currentTrack_ = playlist_[currentIndex_];
   currentTime_ = 0;
   duration_ = 0;
-  std::string ext = std::filesystem::path(currentTrack_).extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  bool isVideo =
-      (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
-       ext == ".wmv" || ext == ".flv" || ext == ".webm");
-  std::cout << "[PlayerService::playTrack] isVideo=" << isVideo
-            << " currentIndex=" << currentIndex_ << std::endl;
   internalPlayer_->stop();
-  internalPlayer_->setPlaylist({currentTrack_});
-  if (isVideo) {
-    std::cout << "[PlayerService::playTrack] Enabling video mode after playlist"
-              << std::endl;
-    internalPlayer_->setVideoMode(true);
-    internalPlayer_->setFullscreen(true);
-  } else {
-    internalPlayer_->setVideoMode(false);
-  }
-  internalPlayer_->play();
+  internalPlayer_->setVideoMode(false);
+  internalPlayer_->setPlaylist(playlist_);
+  internalPlayer_->playIndex(index);
   isPlaying_ = true;
   trackStartTime_ = std::chrono::steady_clock::now();
   trackStartTimeValid_ = true;

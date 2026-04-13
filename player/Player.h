@@ -30,6 +30,7 @@ public:
   double getCurrentTime() const { return currentTime_.load(); }
   double getDuration() const { return duration_.load(); }
   bool isPlaying() const { return isPlaying_.load(); }
+  void playIndex(int index);
 
 private:
   mpv_handle *mpv_;
