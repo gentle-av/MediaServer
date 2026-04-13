@@ -32,7 +32,6 @@ public:
   Json::Value getPlaylist();
   Json::Value getPlaybackState();
   Json::Value getCurrentTrack();
-  Json::Value getCurrentTime();
   Json::Value handleInternalSeek(const Json::Value &data);
 
   std::shared_ptr<Player> getInternalPlayer();
@@ -42,8 +41,9 @@ public:
   void removeFromPlaylist(int index);
   void setVideoEnabled(bool enabled);
   void stopAll();
-  void setAudioPlayer(std::shared_ptr<Player> player) { audioPlayer_ = player; }
-  void setVideoPlayer(std::shared_ptr<Player> player) { videoPlayer_ = player; }
+  Json::Value sendRequest(const std::string &endpoint,
+                          const std::string &method = "POST",
+                          const Json::Value &data = Json::Value());
 
 private:
   double duration_;
@@ -56,17 +56,10 @@ private:
   std::string currentTrack_;
   std::string baseUrl_;
   std::shared_ptr<Player> internalPlayer_;
-  std::shared_ptr<Player> audioPlayer_;
-  std::shared_ptr<Player> videoPlayer_;
   std::vector<std::string> playlist_;
-  std::atomic<bool> switching_;
   std::mutex stateMutex_;
   std::chrono::steady_clock::time_point trackStartTime_;
   bool trackStartTimeValid_;
-
-  Json::Value sendRequest(const std::string &endpoint,
-                          const std::string &method = "POST",
-                          const Json::Value &data = Json::Value());
 
   Json::Value handleInternalPlay();
   Json::Value handleInternalPause();
@@ -84,10 +77,8 @@ private:
   Json::Value handleInternalGetCurrentTime();
   Json::Value handleInternalRemoveFromPlaylist(const Json::Value &data);
 
-  void updatePlaybackState();
   void playTrack(int index);
   void resetTrackStartTime();
   double getElapsedTime() const;
-  void ensurePlayerForCurrentTrack();
   void stopCurrentPlayer();
 };

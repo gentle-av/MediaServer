@@ -1,4 +1,5 @@
 #pragma once
+
 #include <atomic>
 #include <mpv/client.h>
 #include <mutex>
@@ -9,8 +10,8 @@
 class Player {
 public:
   Player();
-  explicit Player(bool enableVideo);
   ~Player();
+
   void stop();
   void play();
   void pause();
@@ -23,11 +24,12 @@ public:
   void setFullscreen(bool fullscreen);
   void seekTo(double position);
   bool isFullscreen() const;
-  void setVideoEnabled(bool enabled);
-  void stopAsync();
-  void setPlaylistAsync(const std::vector<std::string> &tracks);
-  void playAsync();
+  void setVideoMode(bool enabled);
   void forceQuit();
+  bool isValid() const { return mpv_ != nullptr; }
+  double getCurrentTime() const { return currentTime_.load(); }
+  double getDuration() const { return duration_.load(); }
+  bool isPlaying() const { return isPlaying_.load(); }
 
 private:
   mpv_handle *mpv_;
@@ -38,9 +40,15 @@ private:
   std::vector<std::string> playlist_;
   int currentIndex_;
   std::atomic<bool> fullscreen_;
-  bool videoEnabled_;
+  bool videoMode_;
   std::mutex mpvMutex_;
-  void initMpv(bool enableVideo);
+  std::atomic<bool> mpvValid_;
+  std::atomic<bool> stopping_;
+  std::atomic<double> currentTime_;
+  std::atomic<double> duration_;
+  std::atomic<bool> isPlaying_;
+
+  void initMpv();
   void loadTrack(int index);
   void loadNextTrack();
   void eventLoop();

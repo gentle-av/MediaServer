@@ -9,8 +9,7 @@
 PlayerService::PlayerService(int port)
     : port_(port), available_(false), useInternalPlayer_(true),
       isPlaying_(false), currentTime_(0.0), duration_(0.0), currentIndex_(-1),
-      internalPlayer_(nullptr), trackStartTimeValid_(false), switching_(false),
-      audioPlayer_(nullptr), videoPlayer_(nullptr) {
+      internalPlayer_(nullptr), trackStartTimeValid_(false) {
   std::cout << "[PlayerService] Constructor start, port=" << port << std::endl;
   baseUrl_ = "http://0.0.0.0:" + std::to_string(port_);
   useInternalPlayer_ = true;
@@ -25,13 +24,8 @@ PlayerService::~PlayerService() {
 
 void PlayerService::stopCurrentPlayer() {
   std::cout << "[DEBUG] stopCurrentPlayer called" << std::endl;
-  if (audioPlayer_ && audioPlayer_->getMpvHandle()) {
-    std::cout << "[DEBUG] Stopping audioPlayer" << std::endl;
-    audioPlayer_->stop();
-  }
-  if (videoPlayer_ && videoPlayer_->getMpvHandle()) {
-    std::cout << "[DEBUG] Stopping videoPlayer" << std::endl;
-    videoPlayer_->stop();
+  if (internalPlayer_) {
+    internalPlayer_->stop();
   }
   isPlaying_ = false;
   currentTime_ = 0;
@@ -39,13 +33,22 @@ void PlayerService::stopCurrentPlayer() {
 }
 
 void PlayerService::playTrack(int index) {
+  std::cout << "[PlayerService::playTrack] START index=" << index << std::endl;
   std::lock_guard<std::mutex> lock(stateMutex_);
-  if (index < 0 || index >= (int)playlist_.size())
+  if (index < 0 || index >= (int)playlist_.size()) {
+    std::cout << "[PlayerService::playTrack] Index out of range" << std::endl;
     return;
-  if (!std::filesystem::exists(playlist_[index]))
+  }
+  if (!std::filesystem::exists(playlist_[index])) {
+    std::cout << "[PlayerService::playTrack] File not exist: "
+              << playlist_[index] << std::endl;
     return;
-  if (internalPlayer_)
-    internalPlayer_->stopAsync();
+  }
+  if (internalPlayer_) {
+    std::cout << "[PlayerService::playTrack] Stopping internal player"
+              << std::endl;
+    internalPlayer_->stop();
+  }
   currentIndex_ = index;
   currentTrack_ = playlist_[currentIndex_];
   currentTime_ = 0;
@@ -55,23 +58,20 @@ void PlayerService::playTrack(int index) {
   bool isVideo =
       (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
        ext == ".wmv" || ext == ".flv" || ext == ".webm");
-  if (isVideo && internalPlayer_ != videoPlayer_) {
-    if (audioPlayer_)
-      audioPlayer_->stopAsync();
-    internalPlayer_ = videoPlayer_;
-    internalPlayer_->setVideoEnabled(true);
-    internalPlayer_->setFullscreen(true);
-  } else if (!isVideo && internalPlayer_ != audioPlayer_) {
-    if (videoPlayer_)
-      videoPlayer_->stopAsync();
-    internalPlayer_ = audioPlayer_;
-    internalPlayer_->setVideoEnabled(false);
+  if (internalPlayer_) {
+    internalPlayer_->setVideoMode(isVideo);
+    if (isVideo) {
+      internalPlayer_->setFullscreen(true);
+    }
   }
-  internalPlayer_->setPlaylistAsync({currentTrack_});
-  internalPlayer_->playAsync();
+  std::cout << "[PlayerService::playTrack] Setting playlist" << std::endl;
+  internalPlayer_->setPlaylist({currentTrack_});
+  std::cout << "[PlayerService::playTrack] Calling play" << std::endl;
+  internalPlayer_->play();
   isPlaying_ = true;
   trackStartTime_ = std::chrono::steady_clock::now();
   trackStartTimeValid_ = true;
+  std::cout << "[PlayerService::playTrack] END" << std::endl;
 }
 
 static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
@@ -83,70 +83,22 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
 
 void PlayerService::stopAll() {
   std::cout << "[DEBUG] PlayerService::stopAll called" << std::endl;
-  if (audioPlayer_) {
-    std::cout << "[DEBUG] Stopping audioPlayer_" << std::endl;
-    audioPlayer_->stop();
-  }
-  if (videoPlayer_) {
-    std::cout << "[DEBUG] Stopping videoPlayer_" << std::endl;
-    videoPlayer_->stop();
+  if (internalPlayer_) {
+    internalPlayer_->stop();
   }
 }
 
 void PlayerService::setVideoEnabled(bool enabled) {
   std::cout << "[DEBUG] PlayerService::setVideoEnabled: " << enabled
             << std::endl;
-  if (switching_.exchange(true)) {
-    std::cout << "[DEBUG] Already switching, skip" << std::endl;
-    return;
+  if (internalPlayer_) {
+    internalPlayer_->setVideoMode(enabled);
   }
-  stopCurrentPlayer();
-  if (enabled) {
-    if (audioPlayer_) {
-      audioPlayer_->stop();
-      audioPlayer_->setPlaylist({});
-    }
-    if (videoPlayer_) {
-      videoPlayer_->stop();
-    }
-    internalPlayer_ = videoPlayer_;
-    std::cout << "[DEBUG] Switched to videoPlayer_" << std::endl;
-  } else {
-    if (videoPlayer_) {
-      videoPlayer_->stop();
-      videoPlayer_->setPlaylist({});
-    }
-    if (audioPlayer_) {
-      audioPlayer_->stop();
-    }
-    internalPlayer_ = audioPlayer_;
-    std::cout << "[DEBUG] Switched to audioPlayer_" << std::endl;
-  }
-  playlist_.clear();
-  currentIndex_ = -1;
-  currentTrack_ = "";
-  switching_ = false;
 }
 
 void PlayerService::clear() {
   std::cout << "[DEBUG] PlayerService::clear called" << std::endl;
   sendRequest("/api/clear", "POST");
-}
-
-void PlayerService::ensurePlayerForCurrentTrack() {
-  if (currentIndex_ < 0 || currentIndex_ >= (int)playlist_.size())
-    return;
-  std::string ext =
-      std::filesystem::path(playlist_[currentIndex_]).extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  bool isVideo =
-      (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" ||
-       ext == ".wmv" || ext == ".flv" || ext == ".webm");
-  if (isVideo) {
-    internalPlayer_ = videoPlayer_;
-  } else {
-    internalPlayer_ = audioPlayer_;
-  }
 }
 
 double PlayerService::getElapsedTime() const {
@@ -262,14 +214,6 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
   Json::Value result;
   result["success"] = true;
   std::cout << "[DEBUG] handleInternalReplacePlaylist called" << std::endl;
-  if (switching_.exchange(true)) {
-    std::cout << "[DEBUG] Already switching, skip" << std::endl;
-    return result;
-  }
-  if (audioPlayer_)
-    audioPlayer_->stop();
-  if (videoPlayer_)
-    videoPlayer_->stop();
   if (data.isMember("tracks") && data["tracks"].isArray()) {
     playlist_.clear();
     for (const auto &track : data["tracks"]) {
@@ -288,7 +232,6 @@ PlayerService::handleInternalReplacePlaylist(const Json::Value &data) {
       playTrack(0);
     }
   }
-  switching_ = false;
   return result;
 }
 
@@ -310,14 +253,6 @@ Json::Value PlayerService::handleInternalPlayIndex(const Json::Value &data) {
     }
   }
   return result;
-}
-
-Json::Value PlayerService::handleInternalGetCurrentTime() {
-  updatePlaybackState();
-  Json::Value data;
-  data["currentTime"] = currentTime_;
-  data["duration"] = duration_;
-  return data;
 }
 
 void PlayerService::removeFromPlaylist(int index) {
@@ -385,7 +320,7 @@ Json::Value PlayerService::handleInternalClear() {
 
 Json::Value PlayerService::handleInternalGetPlaybackState() {
   Json::Value data;
-  data["isPlaying"] = isPlaying_;
+  data["isPlaying"] = internalPlayer_ ? internalPlayer_->isPlaying() : false;
   data["currentTrack"] = currentTrack_;
   data["currentIndex"] = currentIndex_;
   data["totalTracks"] = (int)playlist_.size();
@@ -621,10 +556,6 @@ Json::Value PlayerService::getCurrentTrack() {
   return sendRequest("/api/currentTrack", "GET");
 }
 
-Json::Value PlayerService::getCurrentTime() {
-  return sendRequest("/api/currentTime", "GET");
-}
-
 Json::Value
 PlayerService::handleInternalRemoveFromPlaylist(const Json::Value &data) {
   Json::Value result;
@@ -634,24 +565,6 @@ PlayerService::handleInternalRemoveFromPlaylist(const Json::Value &data) {
     removeFromPlaylist(index);
   }
   return result;
-}
-
-void PlayerService::updatePlaybackState() {
-  if (!internalPlayer_)
-    return;
-  mpv_handle *mpv = internalPlayer_->getMpvHandle();
-  if (!mpv)
-    return;
-  double time = 0;
-  mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &time);
-  currentTime_ = time;
-  double duration = 0;
-  mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &duration);
-  if (duration > 0)
-    duration_ = duration;
-  int pause = 1;
-  mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
-  isPlaying_ = (pause == 0);
 }
 
 Json::Value PlayerService::handleInternalSeek(const Json::Value &data) {
@@ -666,4 +579,16 @@ Json::Value PlayerService::handleInternalSeek(const Json::Value &data) {
     trackStartTimeValid_ = true;
   }
   return result;
+}
+
+Json::Value PlayerService::handleInternalGetCurrentTime() {
+  Json::Value data;
+  if (internalPlayer_) {
+    data["currentTime"] = internalPlayer_->getCurrentTime();
+    data["duration"] = internalPlayer_->getDuration();
+  } else {
+    data["currentTime"] = 0;
+    data["duration"] = 0;
+  }
+  return data;
 }
