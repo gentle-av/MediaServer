@@ -249,9 +249,9 @@ Json::Value PlayerService::handleInternalClear() {
 
 Json::Value PlayerService::handleInternalGetPlaybackState() {
   Json::Value data;
-  data["isPlaying"] = internalPlayer_ ? internalPlayer_->isPlaying() : false;
+  data["isPlaying"] = (isPlaying_ && !playlist_.empty());
   data["currentTrack"] = currentTrack_;
-  data["currentIndex"] = currentIndex_;
+  data["currentIndex"] = (playlist_.empty() ? -1 : currentIndex_);
   data["totalTracks"] = (int)playlist_.size();
   return data;
 }

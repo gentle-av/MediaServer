@@ -208,6 +208,9 @@ void Player::stop() {
   const char *args[] = {"stop", NULL};
   mpv_command(mpv_, args);
   currentIndex_ = -1;
+  isPlaying_ = false;
+  currentTime_ = 0;
+  duration_ = 0;
   std::cout << "[Player::stop] END" << std::endl;
 }
 
