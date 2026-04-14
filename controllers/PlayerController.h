@@ -1,5 +1,4 @@
 #pragma once
-
 #include "services/PlayerService.h"
 #include <drogon/HttpController.h>
 #include <json/json.h>

@@ -327,7 +327,7 @@ void PlayerController::handleGetCurrentTime(
     callback(resp);
     return;
   }
-  Json::Value time = playerService_->sendRequest("/api/currentTime", "GET");
+  Json::Value time = playerService_->getCurrentTime();
   auto resp =
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", time));
   callback(resp);
