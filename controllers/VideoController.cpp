@@ -267,9 +267,7 @@ void VideoController::moveToTrash(
     callback(resp);
     return;
   }
-  std::string trashCmd = "gio trash \"" + path +
-                         "\" 2>/dev/null || trash-put \"" + path +
-                         "\" 2>/dev/null";
+  std::string trashCmd = "kioclient5 move \"" + path + "\" trash:/";
   int result = system(trashCmd.c_str());
   if (result == 0) {
     Json::Value response;

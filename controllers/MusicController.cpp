@@ -923,3 +923,60 @@ void MusicController::updateFileTags(
   resp->setStatusCode(drogon::k200OK);
   callback(resp);
 }
+
+void MusicController::deleteAlbum(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("album") || !json->isMember("artist")) {
+    response["status"] = "error";
+    response["message"] = "Missing album or artist parameter";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string albumName = (*json)["album"].asString();
+  std::string artistName = (*json)["artist"].asString();
+  std::string decodedAlbum = drogon::utils::urlDecode(albumName);
+  std::string decodedArtist = drogon::utils::urlDecode(artistName);
+  try {
+    auto tracks = db_->getTracksByAlbum(decodedAlbum, decodedArtist);
+    if (tracks.empty()) {
+      response["status"] = "error";
+      response["message"] = "Album not found";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k404NotFound);
+      callback(resp);
+      return;
+    }
+    int deletedCount = 0;
+    int errorCount = 0;
+    for (const auto &track : tracks) {
+      if (fs::exists(track.filePath)) {
+        std::string trashCmd =
+            "kioclient5 move \"" + track.filePath + "\" trash:/ 2>/dev/null";
+        int result = system(trashCmd.c_str());
+        if (result == 0) {
+          deletedCount++;
+        } else {
+          errorCount++;
+        }
+      }
+      db_->removeFile(track.filePath);
+    }
+    response["status"] = "success";
+    response["message"] = "Album deleted";
+    response["deleted_files"] = deletedCount;
+    response["error_count"] = errorCount;
+    response["album"] = decodedAlbum;
+    response["artist"] = decodedArtist;
+  } catch (const std::exception &e) {
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
