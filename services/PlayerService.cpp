@@ -1,4 +1,3 @@
-// PlayerService.cpp - добавьте реализацию onTrackLoaded в начало файла
 #include "services/PlayerService.h"
 #include "player/Player.h"
 #include <chrono>
@@ -6,26 +5,19 @@
 #include <iostream>
 #include <thread>
 
-PlayerService::PlayerService(int port)
-    : currentIndex_(-1), isSwitching_(false), manualSwitch_(false) {
-  std::cout << "[PlayerService] Constructor" << std::endl;
-}
-
-PlayerService::~PlayerService() {
-  std::cout << "[PlayerService] Destructor" << std::endl;
-}
-
 void PlayerService::onTrackLoaded() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] onTrackLoaded, manualSwitch="
             << manualSwitch_.load() << std::endl;
   manualSwitch_ = false;
+  isSwitching_ = false;
 }
 
 void PlayerService::onTrackEnd() {
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] onTrackEnd, currentIndex=" << currentIndex_
+            << ", playlistSize=" << playlist_.size()
             << ", isSwitching=" << isSwitching_.load()
             << ", manualSwitch=" << manualSwitch_.load() << std::endl;
   if (isSwitching_) {
@@ -33,15 +25,17 @@ void PlayerService::onTrackEnd() {
               << std::endl;
     return;
   }
-  if (manualSwitch_) {
-    std::cout << "[PlayerService] onTrackEnd: manual switch was done, ignoring "
-                 "auto next"
-              << std::endl;
-    return;
-  }
   if (currentIndex_ + 1 < (int)playlist_.size()) {
+    std::cout << "[PlayerService] onTrackEnd: switching to next track, index="
+              << currentIndex_ + 1 << std::endl;
+    manualSwitch_ = false;
     isSwitching_ = true;
-    playTrack(currentIndex_ + 1);
+    currentIndex_++;
+    if (internalPlayer_) {
+      internalPlayer_->playFile(playlist_[currentIndex_]);
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      internalPlayer_->play();
+    }
     isSwitching_ = false;
   } else {
     std::cout << "[PlayerService] End of playlist" << std::endl;
@@ -71,7 +65,111 @@ void PlayerService::playTrack(int index) {
             << std::endl;
   if (internalPlayer_) {
     internalPlayer_->playFile(playlist_[currentIndex_]);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    internalPlayer_->play();
   }
+}
+
+void PlayerService::next() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::cout << "[PlayerService] next, currentIndex=" << currentIndex_
+            << ", isSwitching=" << isSwitching_.load() << std::endl;
+  if (isSwitching_) {
+    std::cout << "[PlayerService] next: already switching, ignoring"
+              << std::endl;
+    return;
+  }
+  if (currentIndex_ + 1 < (int)playlist_.size()) {
+    manualSwitch_ = true;
+    if (internalPlayer_) {
+      internalPlayer_->stop();
+    }
+    playTrack(currentIndex_ + 1);
+  } else {
+    std::cout << "[PlayerService] next: at end of playlist" << std::endl;
+  }
+}
+
+void PlayerService::previous() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::cout << "[PlayerService] previous, currentIndex=" << currentIndex_
+            << ", isSwitching=" << isSwitching_.load() << std::endl;
+  if (isSwitching_) {
+    std::cout << "[PlayerService] previous: already switching, ignoring"
+              << std::endl;
+    return;
+  }
+  if (currentIndex_ - 1 >= 0) {
+    manualSwitch_ = true;
+    if (internalPlayer_) {
+      internalPlayer_->stop();
+    }
+    playTrack(currentIndex_ - 1);
+  } else {
+    std::cout << "[PlayerService] previous: at start of playlist" << std::endl;
+  }
+}
+
+void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::cout << "[PlayerService] setPlaylist, size=" << tracks.size()
+            << std::endl;
+  playlist_ = tracks;
+  currentIndex_ = -1;
+  manualSwitch_ = false;
+  isSwitching_ = false;
+  if (!playlist_.empty()) {
+    manualSwitch_ = true;
+    playTrack(0);
+  }
+}
+
+void PlayerService::playIndex(int index) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::cout << "[PlayerService] playIndex: " << index << std::endl;
+  if (index >= 0 && index < (int)playlist_.size()) {
+    manualSwitch_ = true;
+    if (internalPlayer_) {
+      internalPlayer_->stop();
+    }
+    playTrack(index);
+  }
+}
+
+void PlayerService::checkPlaybackProgress() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (internalPlayer_ && currentIndex_ >= 0 &&
+      currentIndex_ < (int)playlist_.size()) {
+    double currentTime = internalPlayer_->getCurrentTime();
+    double duration = internalPlayer_->getDuration();
+    if (duration > 0 && currentTime >= duration - 0.5 && !isSwitching_) {
+      std::cout << "[PlayerService] Track near end, forcing next" << std::endl;
+      if (currentIndex_ + 1 < (int)playlist_.size()) {
+        manualSwitch_ = false;
+        isSwitching_ = true;
+        currentIndex_++;
+        internalPlayer_->playFile(playlist_[currentIndex_]);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        internalPlayer_->play();
+        isSwitching_ = false;
+      }
+    }
+  }
+}
+
+PlayerService::PlayerService(int port)
+    : currentIndex_(-1), isSwitching_(false), manualSwitch_(false) {
+  std::cout << "[PlayerService] Constructor" << std::endl;
+  std::thread([this]() {
+    while (true) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      checkPlaybackProgress();
+    }
+  }).detach();
+}
+
+PlayerService::~PlayerService() {
+  std::cout << "[PlayerService] Destructor" << std::endl;
 }
 
 void PlayerService::play() {
@@ -97,62 +195,8 @@ void PlayerService::stop() {
     internalPlayer_->stop();
   }
   currentIndex_ = -1;
-}
-
-void PlayerService::next() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] next, currentIndex=" << currentIndex_
-            << ", isSwitching=" << isSwitching_.load() << std::endl;
-  if (isSwitching_) {
-    std::cout << "[PlayerService] next: already switching, ignoring"
-              << std::endl;
-    return;
-  }
-  if (currentIndex_ + 1 < (int)playlist_.size()) {
-    isSwitching_ = true;
-    manualSwitch_ = true;
-    if (internalPlayer_) {
-      internalPlayer_->stop();
-    }
-    playTrack(currentIndex_ + 1);
-    isSwitching_ = false;
-  } else {
-    std::cout << "[PlayerService] next: at end of playlist" << std::endl;
-  }
-}
-
-void PlayerService::previous() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] previous, currentIndex=" << currentIndex_
-            << ", isSwitching=" << isSwitching_.load() << std::endl;
-  if (isSwitching_) {
-    std::cout << "[PlayerService] previous: already switching, ignoring"
-              << std::endl;
-    return;
-  }
-  if (currentIndex_ - 1 >= 0) {
-    isSwitching_ = true;
-    manualSwitch_ = true;
-    if (internalPlayer_) {
-      internalPlayer_->stop();
-    }
-    playTrack(currentIndex_ - 1);
-    isSwitching_ = false;
-  } else {
-    std::cout << "[PlayerService] previous: at start of playlist" << std::endl;
-  }
-}
-
-void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] setPlaylist, size=" << tracks.size()
-            << std::endl;
-  playlist_ = tracks;
-  currentIndex_ = -1;
-  if (!playlist_.empty()) {
-    manualSwitch_ = true;
-    playTrack(0);
-  }
+  manualSwitch_ = false;
+  isSwitching_ = false;
 }
 
 void PlayerService::addToPlaylist(const std::string &track) {
@@ -179,20 +223,13 @@ void PlayerService::replacePlaylistWithTrack(const std::string &track) {
   setPlaylist({track});
 }
 
-void PlayerService::playIndex(int index) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] playIndex: " << index << std::endl;
-  if (index >= 0 && index < (int)playlist_.size()) {
-    manualSwitch_ = true;
-    playTrack(index);
-  }
-}
-
 void PlayerService::clear() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] clear" << std::endl;
   playlist_.clear();
   currentIndex_ = -1;
+  manualSwitch_ = false;
+  isSwitching_ = false;
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
@@ -210,6 +247,7 @@ void PlayerService::removeFromPlaylist(int index) {
   } else if (currentIndex_ == index) {
     if (playlist_.empty()) {
       currentIndex_ = -1;
+      manualSwitch_ = false;
       if (internalPlayer_) {
         internalPlayer_->stop();
       }

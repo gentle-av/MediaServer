@@ -1,6 +1,4 @@
-// Player.cpp - добавьте setOnTrackLoaded и вызов в processEvents
 #include "Player.h"
-#include <chrono>
 #include <iostream>
 
 Player::Player() : mpv_(nullptr), running_(true) {
@@ -44,7 +42,9 @@ void Player::processEvents() {
     }
     std::cout << "[Player] Event: " << event->event_id << std::endl;
     if (event->event_id == MPV_EVENT_END_FILE) {
-      std::cout << "[Player] Track ended" << std::endl;
+      mpv_event_end_file *end_file = (mpv_event_end_file *)event->data;
+      std::cout << "[Player] Track ended, reason: " << end_file->reason
+                << std::endl;
       if (onTrackEnd_) {
         onTrackEnd_();
       }
@@ -86,6 +86,8 @@ void Player::playFile(const std::string &path) {
     std::cout << "[Player] playFile: " << path << std::endl;
     const char *cmd[] = {"loadfile", path.c_str(), "replace", NULL};
     mpv_command(mpv_, cmd);
+    int pause = 0;
+    mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
   });
 }
 
