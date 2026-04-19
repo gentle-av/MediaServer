@@ -32,6 +32,7 @@ private:
   std::function<void()> onTrackEnd_;
   std::function<void()> onTrackLoaded_;
   std::mutex mutex_;
+  bool playlistEnded_ = false;
   std::queue<std::function<void()>> commandQueue_;
   std::condition_variable commandCv_;
   static void onMpvWakeup(void *ctx);

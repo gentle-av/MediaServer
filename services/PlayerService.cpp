@@ -1,15 +1,13 @@
 #include "services/PlayerService.h"
 #include "player/Player.h"
-#include <chrono>
 #include <filesystem>
 #include <iostream>
-#include <thread>
 
 void PlayerService::onTrackLoaded() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] onTrackLoaded, manualSwitch="
             << manualSwitch_.load() << std::endl;
-  if (internalPlayer_) {
+  if (internalPlayer_ && manualSwitch_.load()) {
     internalPlayer_->play();
   }
   manualSwitch_ = false;
@@ -17,8 +15,9 @@ void PlayerService::onTrackLoaded() {
 }
 
 void PlayerService::onTrackEnd() {
+  std::cout << "[PlayerService] onTrackEnd: ENTERED FUNCTION" << std::endl;
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] onTrackEnd, currentIndex=" << currentIndex_
+  std::cout << "[PlayerService] onTrackEnd: currentIndex=" << currentIndex_
             << ", playlistSize=" << playlist_.size()
             << ", isSwitching=" << isSwitching_.load()
             << ", manualSwitch=" << manualSwitch_.load() << std::endl;
@@ -28,17 +27,28 @@ void PlayerService::onTrackEnd() {
               << std::endl;
     return;
   }
-  if (currentIndex_ < 0 || currentIndex_ + 1 >= (int)playlist_.size()) {
-    std::cout << "[PlayerService] End of playlist or invalid index"
-              << std::endl;
+  if (currentIndex_ < 0) {
+    std::cout << "[PlayerService] onTrackEnd: invalid index" << std::endl;
+    return;
+  }
+  if (currentIndex_ + 1 >= (int)playlist_.size()) {
+    std::cout << "[PlayerService] End of playlist" << std::endl;
     currentIndex_ = -1;
     return;
   }
   isSwitching_ = true;
   currentIndex_++;
+  std::cout << "[PlayerService] onTrackEnd: playing next track index="
+            << currentIndex_ << ", path=" << playlist_[currentIndex_]
+            << std::endl;
   if (internalPlayer_) {
     internalPlayer_->playFile(playlist_[currentIndex_]);
+  } else {
+    std::cout << "[PlayerService] onTrackEnd: internalPlayer_ is NULL!"
+              << std::endl;
   }
+  isSwitching_ = false;
+  std::cout << "[PlayerService] onTrackEnd: EXITING" << std::endl;
 }
 
 void PlayerService::playTrack(int index) {

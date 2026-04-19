@@ -2,6 +2,47 @@
 #include <cstring>
 #include <iostream>
 
+static const char *mpv_event_name(int event_id) {
+  switch (event_id) {
+  case MPV_EVENT_NONE:
+    return "NONE";
+  case MPV_EVENT_SHUTDOWN:
+    return "SHUTDOWN";
+  case MPV_EVENT_LOG_MESSAGE:
+    return "LOG_MESSAGE";
+  case MPV_EVENT_GET_PROPERTY_REPLY:
+    return "GET_PROPERTY_REPLY";
+  case MPV_EVENT_SET_PROPERTY_REPLY:
+    return "SET_PROPERTY_REPLY";
+  case MPV_EVENT_COMMAND_REPLY:
+    return "COMMAND_REPLY";
+  case MPV_EVENT_START_FILE:
+    return "START_FILE";
+  case MPV_EVENT_END_FILE:
+    return "END_FILE";
+  case MPV_EVENT_FILE_LOADED:
+    return "FILE_LOADED";
+  case MPV_EVENT_IDLE:
+    return "IDLE";
+  case MPV_EVENT_TICK:
+    return "TICK";
+  case MPV_EVENT_VIDEO_RECONFIG:
+    return "VIDEO_RECONFIG";
+  case MPV_EVENT_AUDIO_RECONFIG:
+    return "AUDIO_RECONFIG";
+  case MPV_EVENT_SEEK:
+    return "SEEK";
+  case MPV_EVENT_PLAYBACK_RESTART:
+    return "PLAYBACK_RESTART";
+  case MPV_EVENT_PROPERTY_CHANGE:
+    return "PROPERTY_CHANGE";
+  case MPV_EVENT_QUEUE_OVERFLOW:
+    return "QUEUE_OVERFLOW";
+  default:
+    return "UNKNOWN";
+  }
+}
+
 Player::Player() : mpv_(nullptr), running_(true) {
   mpv_ = mpv_create();
   mpv_set_option_string(mpv_, "volume", "100");
@@ -11,8 +52,11 @@ Player::Player() : mpv_(nullptr), running_(true) {
   mpv_set_option_string(mpv_, "vo", "null");
   mpv_set_option_string(mpv_, "osc", "no");
   mpv_set_option_string(mpv_, "idle", "yes");
-  mpv_set_option_string(mpv_, "keep-open", "yes");
+  mpv_set_option_string(mpv_, "keep-open", "no");
+  mpv_set_option_string(mpv_, "keep-open-pause", "no");
+  mpv_set_option_string(mpv_, "gapless-audio", "yes");
   mpv_initialize(mpv_);
+  mpv_request_log_messages(mpv_, "info");
   mpv_set_wakeup_callback(mpv_, onMpvWakeup, this);
   eventThread_ = std::thread(&Player::eventLoop, this);
   std::cout << "[Player] Constructor" << std::endl;
@@ -40,20 +84,34 @@ void Player::processEvents() {
     if (event->event_id == MPV_EVENT_NONE) {
       break;
     }
-    std::cout << "[Player] Event: " << event->event_id << std::endl;
+    std::cout << "[Player] Event: " << event->event_id << " ("
+              << mpv_event_name(event->event_id) << ")" << std::endl;
+
     if (event->event_id == MPV_EVENT_END_FILE) {
       mpv_event_end_file *end_file = (mpv_event_end_file *)event->data;
       std::cout << "[Player] Track ended, reason: " << end_file->reason
-                << std::endl;
+                << " (1=EOF, 2=STOP, 3=QUIT, 4=ERROR)" << std::endl;
       if (onTrackEnd_) {
+        std::cout << "[Player] Calling onTrackEnd_ callback" << std::endl;
         onTrackEnd_();
       }
-    }
-    if (event->event_id == MPV_EVENT_FILE_LOADED) {
+    } else if (event->event_id == MPV_EVENT_FILE_LOADED) {
       std::cout << "[Player] File loaded" << std::endl;
       if (onTrackLoaded_) {
+        std::cout << "[Player] Calling onTrackLoaded_ callback" << std::endl;
         onTrackLoaded_();
       }
+    } else if (event->event_id == MPV_EVENT_IDLE) {
+      std::cout << "[Player] IDLE state - playback finished" << std::endl;
+      if (onTrackEnd_ && playlistEnded_) {
+        onTrackEnd_();
+      }
+      playlistEnded_ = true;
+    } else if (event->event_id == MPV_EVENT_START_FILE) {
+      std::cout << "[Player] Start file" << std::endl;
+      playlistEnded_ = false;
+    } else if (event->event_id == MPV_EVENT_PLAYBACK_RESTART) {
+      std::cout << "[Player] Playback restart" << std::endl;
     }
   }
 }
@@ -101,10 +159,13 @@ void Player::stop() {
 
 void Player::play() {
   executeCommand([this]() {
-    std::cout << "[Player] play" << std::endl;
+    std::cout << "[Player] play: BEFORE set_property" << std::endl;
     int pause = 0;
     int result = mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
     std::cout << "[Player] play: set_property result=" << result << std::endl;
+    int checkPause = 1;
+    mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &checkPause);
+    std::cout << "[Player] play: after set, pause=" << checkPause << std::endl;
   });
 }
 
@@ -155,19 +216,19 @@ bool Player::isPlaying() {
   int pause = 1;
   int result = mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
   if (result < 0) {
-    std::cout << "[Player] isPlaying: mpv_get_property failed, result="
-              << result << std::endl;
     return false;
   }
-  int idle = 0;
-  mpv_get_property(mpv_, "idle", MPV_FORMAT_FLAG, &idle);
+  double timePos = 0;
+  mpv_get_property(mpv_, "time-pos", MPV_FORMAT_DOUBLE, &timePos);
   const char *filename = mpv_get_property_string(mpv_, "filename");
   bool hasFile = (filename != nullptr && strlen(filename) > 0);
-  std::cout << "[Player] isPlaying: pause=" << pause << ", idle=" << idle
-            << ", hasFile=" << hasFile << std::endl;
   if (!hasFile)
     return false;
-  return pause == 0;
+  if (timePos > 0 && pause == 0)
+    return true;
+  if (timePos == 0 && pause == 0 && hasFile)
+    return true;
+  return false;
 }
 
 void Player::setOnTrackEnd(std::function<void()> callback) {
