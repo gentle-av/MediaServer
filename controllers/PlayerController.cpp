@@ -163,7 +163,10 @@ void PlayerController::handleSetPlaylist(
         tracks.push_back(track.asString());
       }
     }
-    playerService_->replacePlaylist(tracks);
+    std::thread([this, tracks]() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      playerService_->replacePlaylist(tracks);
+    }).detach();
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "Playlist set"));
     callback(resp);

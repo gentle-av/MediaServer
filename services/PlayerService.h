@@ -48,5 +48,4 @@ private:
   void onTrackEnd();
   void onTrackLoaded();
   void playTrack(int index);
-  void checkPlaybackProgress();
 };

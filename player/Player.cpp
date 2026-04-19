@@ -1,4 +1,5 @@
 #include "Player.h"
+#include <cstring>
 #include <iostream>
 
 Player::Player() : mpv_(nullptr), running_(true) {
@@ -10,8 +11,7 @@ Player::Player() : mpv_(nullptr), running_(true) {
   mpv_set_option_string(mpv_, "vo", "null");
   mpv_set_option_string(mpv_, "osc", "no");
   mpv_set_option_string(mpv_, "idle", "yes");
-  int keepOpen = 1;
-  mpv_set_option(mpv_, "keep-open", MPV_FORMAT_FLAG, &keepOpen);
+  mpv_set_option_string(mpv_, "keep-open", "yes");
   mpv_initialize(mpv_);
   mpv_set_wakeup_callback(mpv_, onMpvWakeup, this);
   eventThread_ = std::thread(&Player::eventLoop, this);
@@ -81,13 +81,13 @@ void Player::executeCommand(std::function<void()> cmd) {
   commandCv_.notify_one();
 }
 
-void Player::playFile(const std::string &path) {
-  executeCommand([this, path]() {
-    std::cout << "[Player] playFile: " << path << std::endl;
-    const char *cmd[] = {"loadfile", path.c_str(), "replace", NULL};
-    mpv_command(mpv_, cmd);
-    int pause = 0;
-    mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+void Player::playFile(const std::string &filePath) {
+  executeCommand([this, filePath]() {
+    std::cout << "[Player] playFile: " << filePath << std::endl;
+    const char *cmd[] = {"loadfile", filePath.c_str(), "replace", NULL};
+    int result = mpv_command(mpv_, cmd);
+    std::cout << "[Player] playFile: mpv_command result=" << result
+              << std::endl;
   });
 }
 
@@ -103,7 +103,8 @@ void Player::play() {
   executeCommand([this]() {
     std::cout << "[Player] play" << std::endl;
     int pause = 0;
-    mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+    int result = mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+    std::cout << "[Player] play: set_property result=" << result << std::endl;
   });
 }
 
@@ -149,8 +150,23 @@ double Player::getDuration() {
 }
 
 bool Player::isPlaying() {
+  if (!mpv_)
+    return false;
   int pause = 1;
-  mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+  int result = mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
+  if (result < 0) {
+    std::cout << "[Player] isPlaying: mpv_get_property failed, result="
+              << result << std::endl;
+    return false;
+  }
+  int idle = 0;
+  mpv_get_property(mpv_, "idle", MPV_FORMAT_FLAG, &idle);
+  const char *filename = mpv_get_property_string(mpv_, "filename");
+  bool hasFile = (filename != nullptr && strlen(filename) > 0);
+  std::cout << "[Player] isPlaying: pause=" << pause << ", idle=" << idle
+            << ", hasFile=" << hasFile << std::endl;
+  if (!hasFile)
+    return false;
   return pause == 0;
 }
 
