@@ -28,8 +28,10 @@ void PlayerService::onTrackEnd() {
               << std::endl;
     return;
   }
-  if (currentIndex_ + 1 >= (int)playlist_.size()) {
-    std::cout << "[PlayerService] End of playlist" << std::endl;
+  if (currentIndex_ < 0 || currentIndex_ + 1 >= (int)playlist_.size()) {
+    std::cout << "[PlayerService] End of playlist or invalid index"
+              << std::endl;
+    currentIndex_ = -1;
     return;
   }
   isSwitching_ = true;
@@ -171,6 +173,7 @@ void PlayerService::stop() {
   currentIndex_ = -1;
   manualSwitch_ = false;
   isSwitching_ = false;
+  playlist_.clear();
 }
 
 void PlayerService::addToPlaylist(const std::string &track) {
