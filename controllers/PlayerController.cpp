@@ -368,7 +368,9 @@ void PlayerController::handleRemoveFromPlaylist(
 void PlayerController::handleSeek(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  LOG_INFO << "handleSeek called";
   if (!playerService_ || !playerService_->isAvailable()) {
+    LOG_ERROR << "Player service not available";
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(false, "Player service not available"));
     callback(resp);
@@ -376,27 +378,43 @@ void PlayerController::handleSeek(
   }
   try {
     Json::Value json = parseBody(req);
-    if (!json.isMember("position") || !json["position"].isDouble()) {
+    LOG_INFO << "Parsed JSON: " << json.toStyledString();
+    if (!json.isMember("position")) {
+      LOG_ERROR << "Missing position parameter";
       auto resp = drogon::HttpResponse::newHttpJsonResponse(
           jsonResponse(false, "Missing position parameter"));
       callback(resp);
       return;
     }
-    double position = json["position"].asDouble();
+    double position = 0.0;
+    if (json["position"].isDouble()) {
+      position = json["position"].asDouble();
+    } else if (json["position"].isInt()) {
+      position = json["position"].asInt();
+    }
+    LOG_INFO << "Seeking to position: " << position << " seconds";
+    if (position < 0)
+      position = 0;
     if (playerService_->useInternalPlayer()) {
       auto player = playerService_->getInternalPlayer();
       if (player) {
         player->seekTo(position);
+        LOG_INFO << "Seek completed successfully to " << position << "s";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(
             jsonResponse(true, "Seek completed"));
         callback(resp);
         return;
+      } else {
+        LOG_ERROR << "Internal player is null";
       }
+    } else {
+      LOG_ERROR << "useInternalPlayer() returned false";
     }
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
-        jsonResponse(false, "Seek failed"));
+        jsonResponse(false, "Seek failed - internal player not available"));
     callback(resp);
   } catch (const std::exception &e) {
+    LOG_ERROR << "Exception in handleSeek: " << e.what();
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(false, e.what()));
     callback(resp);
