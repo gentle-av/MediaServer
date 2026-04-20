@@ -52,7 +52,6 @@ void PlayerService::onTrackEnd() {
 }
 
 void PlayerService::playTrack(int index) {
-  std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] playTrack: index=" << index
             << ", currentIndex=" << currentIndex_ << std::endl;
   if (index < 0 || index >= (int)playlist_.size()) {
@@ -64,8 +63,6 @@ void PlayerService::playTrack(int index) {
               << playlist_[index] << std::endl;
     return;
   }
-  isSwitching_ = true;
-  manualSwitch_ = true;
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
@@ -135,14 +132,26 @@ void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
 }
 
 void PlayerService::playIndex(int index) {
-  std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] playIndex: " << index << std::endl;
-  if (index >= 0 && index < (int)playlist_.size()) {
+  if (index < 0 || index >= (int)playlist_.size()) {
+    std::cout << "[PlayerService] playIndex: invalid index" << std::endl;
+    return;
+  }
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    isSwitching_ = true;
     manualSwitch_ = true;
     if (internalPlayer_) {
       internalPlayer_->stop();
     }
-    playTrack(index);
+    currentIndex_ = index;
+  }
+  if (internalPlayer_) {
+    internalPlayer_->playFile(playlist_[index]);
+  }
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    isSwitching_ = false;
   }
 }
 
