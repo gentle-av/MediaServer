@@ -666,7 +666,11 @@ void MusicController::forceRescan(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value response;
-  try {
+  response["status"] = "success";
+  response["message"] = "Force rescan started in background";
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+  std::thread([this]() {
     LOG_INFO << "Force rescan started - full database refresh";
     auto allFiles = db_->getAllFiles();
     int removedCount = 0;
@@ -708,22 +712,9 @@ void MusicController::forceRescan(
         errorCount++;
       }
     }
-    response["status"] = "success";
-    response["message"] = "Force rescan completed";
-    response["removed_files"] = removedCount;
-    response["added_files"] = addedCount;
-    response["error_count"] = errorCount;
-    response["total_files"] = addedCount;
     LOG_INFO << "Force rescan finished. Added: " << addedCount
              << ", Errors: " << errorCount;
-  } catch (const std::exception &e) {
-    LOG_ERROR << "Force rescan error: " << e.what();
-    response["status"] = "error";
-    response["message"] = e.what();
-  }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
+  }).detach();
 }
 
 bool MusicController::extractMetadataWithTagEditor(const std::string &filePath,
