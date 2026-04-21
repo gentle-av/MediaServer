@@ -15,6 +15,8 @@
 namespace fs = std::filesystem;
 
 std::shared_ptr<PlayerService> MusicController::playerService_ = nullptr;
+MusicController::RescanStatus MusicController::rescanStatus_;
+std::mutex MusicController::rescanStatusMutex_;
 
 MusicController::MusicController() {
   const char *home = getenv("HOME");
@@ -207,7 +209,7 @@ void MusicController::scanNewFiles() {
         MusicMetadata metadata;
         if (extractMetadata(pathStr, metadata)) {
           if (db_->addFile(pathStr, metadata)) {
-            LOG_INFO << "Added new file: " << pathStr;
+            std::cout << "Added new file: " << pathStr << '\n';
             std::vector<char> albumArt;
             if (extractAlbumArt(pathStr, albumArt)) {
               db_->saveAlbumArt(pathStr, albumArt);
@@ -224,7 +226,7 @@ void MusicController::removeMissingFiles() {
   for (const auto &filePath : allFiles) {
     if (!fs::exists(filePath)) {
       db_->removeFile(filePath);
-      LOG_INFO << "Removed missing file: " << filePath;
+      std::cout << "Removed missing file: " << filePath << '\n';
     }
   }
 }
@@ -256,7 +258,7 @@ bool MusicController::extractMetadata(const std::string &filePath,
       return true;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR << "Error extracting metadata: " << e.what();
+    std::cout << "Error extracting metadata: " << e.what() << '\n';
   }
   std::string filename = fs::path(filePath).stem().string();
   static const std::regex trackPrefix(R"(^\s*\d{1,2}[\.\-\s]+\s*)");
@@ -299,8 +301,8 @@ bool MusicController::extractAlbumArt(const std::string &filePath,
     albumArt.assign(data.data(), data.data() + data.size());
     return true;
   } catch (const std::exception &e) {
-    LOG_ERROR << "Error extracting album art from " << filePath << ": "
-              << e.what();
+    std::cout << "Error extracting album art from " << filePath << ": "
+              << e.what() << '\n';
   }
   return false;
 }
@@ -378,19 +380,19 @@ void MusicController::getAlbumArtByAlbum(
     const std::string &album) {
   std::string decodedAlbum = drogon::utils::urlDecode(album);
   std::string artistFilter = req->getParameter("artist");
-  LOG_INFO << "Looking for album art: " << decodedAlbum
-           << " artist: " << artistFilter;
+  std::cout << "Looking for album art: " << decodedAlbum
+            << " artist: " << artistFilter << '\n';
   std::string filePath = db_->getFilePathByAlbum(decodedAlbum, artistFilter);
   if (filePath.empty()) {
-    LOG_INFO << "No file path found for album: " << decodedAlbum;
+    std::cout << "No file path found for album: " << decodedAlbum << '\n';
     auto resp = drogon::HttpResponse::newNotFoundResponse();
     callback(resp);
     return;
   }
-  LOG_INFO << "Found file path: " << filePath;
+  std::cout << "Found file path: " << filePath << '\n';
   auto albumArt = db_->getAlbumArt(filePath);
   if (albumArt.data.empty()) {
-    LOG_INFO << "No album art data for: " << filePath;
+    std::cout << "No album art data for: " << filePath << '\n';
     auto resp = drogon::HttpResponse::newNotFoundResponse();
     callback(resp);
     return;
@@ -665,55 +667,102 @@ void MusicController::getDatabaseStats(
 void MusicController::forceRescan(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  LOG_INFO << "forceRescan called";
+  {
+    std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                       now - rescanStatus_.lastRescanTime)
+                       .count();
+    if (rescanStatus_.inProgress || elapsed < 5) {
+      LOG_WARN << "Rescan rejected - inProgress=" << rescanStatus_.inProgress
+               << " elapsed=" << elapsed;
+      Json::Value response;
+      response["status"] = "error";
+      response["message"] = "Rescan already in progress or too frequent";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      callback(resp);
+      return;
+    }
+    rescanStatus_ = RescanStatus();
+    rescanStatus_.inProgress = true;
+    rescanStatus_.lastRescanTime = now;
+    LOG_INFO << "Rescan started";
+  }
   Json::Value response;
   response["status"] = "success";
   response["message"] = "Force rescan started in background";
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   callback(resp);
   std::thread([this]() {
-    LOG_INFO << "Force rescan started - full database refresh";
-    auto allFiles = db_->getAllFiles();
-    int removedCount = 0;
-    for (const auto &filePath : allFiles) {
-      if (db_->removeFile(filePath)) {
-        removedCount++;
+    LOG_INFO << "Rescan thread started";
+    try {
+      auto oldAlbums = db_->getAlbums();
+      {
+        std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+        rescanStatus_.oldAlbumsCount = oldAlbums.size();
       }
-    }
-    LOG_INFO << "Removed " << removedCount << " old entries from database";
-    std::vector<fs::path> musicFiles;
-    if (fs::exists(musicDir_)) {
-      for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
-        if (entry.is_regular_file()) {
-          auto ext = entry.path().extension().string();
-          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-          if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" ||
-              ext == ".wav" || ext == ".ogg" || ext == ".opus") {
-            musicFiles.push_back(entry.path());
+      std::vector<fs::path> musicFiles;
+      if (fs::exists(musicDir_)) {
+        for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
+          if (entry.is_regular_file()) {
+            auto ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" ||
+                ext == ".wav") {
+              musicFiles.push_back(entry.path());
+            }
           }
         }
       }
-    }
-    int addedCount = 0;
-    int errorCount = 0;
-    for (const auto &filePath : musicFiles) {
-      std::string pathStr = filePath.string();
-      MusicMetadata metadata;
-      if (extractMetadata(pathStr, metadata)) {
-        if (db_->addFile(pathStr, metadata)) {
-          addedCount++;
-          std::vector<char> albumArt;
-          if (extractAlbumArt(pathStr, albumArt)) {
-            db_->saveAlbumArt(pathStr, albumArt);
+      {
+        std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+        rescanStatus_.totalFiles = musicFiles.size();
+      }
+      auto allFiles = db_->getAllFiles();
+      for (const auto &filePath : allFiles) {
+        db_->removeFile(filePath);
+      }
+      for (size_t i = 0; i < musicFiles.size(); i++) {
+        std::string pathStr = musicFiles[i].string();
+        MusicMetadata metadata;
+        if (extractMetadata(pathStr, metadata)) {
+          if (db_->addFile(pathStr, metadata)) {
+            {
+              std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+              rescanStatus_.addedFiles++;
+            }
+            std::vector<char> albumArt;
+            if (extractAlbumArt(pathStr, albumArt)) {
+              db_->saveAlbumArt(pathStr, albumArt);
+            }
+          } else {
+            std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+            rescanStatus_.errorCount++;
           }
         } else {
-          errorCount++;
+          std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+          rescanStatus_.errorCount++;
         }
-      } else {
-        errorCount++;
+        {
+          std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+          rescanStatus_.processedFiles = i + 1;
+        }
       }
+      auto newAlbums = db_->getAlbums();
+      {
+        std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+        rescanStatus_.newAlbumsCount = newAlbums.size();
+        rescanStatus_.inProgress = false;
+        LOG_INFO << "Rescan completed. Added files: "
+                 << rescanStatus_.addedFiles
+                 << ", New albums: " << rescanStatus_.newAlbumsCount;
+      }
+    } catch (const std::exception &e) {
+      LOG_ERROR << "Rescan failed: " << e.what();
+      std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+      rescanStatus_.inProgress = false;
     }
-    LOG_INFO << "Force rescan finished. Added: " << addedCount
-             << ", Errors: " << errorCount;
   }).detach();
 }
 
@@ -969,5 +1018,23 @@ void MusicController::deleteAlbum(
   }
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::getRescanStatus(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "getRescanStatus called\n";
+  Json::Value response;
+  std::lock_guard<std::mutex> lock(rescanStatusMutex_);
+  response["status"] = "success";
+  response["in_progress"] = rescanStatus_.inProgress;
+  response["total_files"] = rescanStatus_.totalFiles;
+  response["processed_files"] = rescanStatus_.processedFiles;
+  response["added_files"] = rescanStatus_.addedFiles;
+  response["error_count"] = rescanStatus_.errorCount;
+  response["old_albums_count"] = rescanStatus_.oldAlbumsCount;
+  response["new_albums_count"] = rescanStatus_.newAlbumsCount;
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

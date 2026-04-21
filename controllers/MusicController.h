@@ -2,6 +2,7 @@
 #include "database/MusicDatabase.h"
 #include "services/PlayerService.h"
 #include <drogon/drogon.h>
+#include <mutex>
 
 class MusicController : public drogon::HttpController<MusicController> {
 public:
@@ -33,6 +34,8 @@ public:
                 drogon::Post);
   ADD_METHOD_TO(MusicController::deleteAlbum, "/api/music/delete-album",
                 drogon::Post);
+  ADD_METHOD_TO(MusicController::getRescanStatus, "/api/music/rescan-status",
+                drogon::Get);
   METHOD_LIST_END
 
   MusicController();
@@ -89,11 +92,26 @@ public:
   void
   deleteAlbum(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void getRescanStatus(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
   std::string musicDir_;
   static std::shared_ptr<PlayerService> playerService_;
+  struct RescanStatus {
+    bool inProgress = false;
+    int totalFiles = 0;
+    int processedFiles = 0;
+    int addedFiles = 0;
+    int errorCount = 0;
+    int oldAlbumsCount = 0;
+    int newAlbumsCount = 0;
+    std::chrono::steady_clock::time_point lastRescanTime;
+  };
+  static RescanStatus rescanStatus_;
+  static std::mutex rescanStatusMutex_;
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
   bool extractMetadataWithTagEditor(const std::string &filePath,
                                     MusicMetadata &metadata);
