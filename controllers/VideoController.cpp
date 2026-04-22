@@ -1,6 +1,7 @@
 #include "VideoController.h"
 #include "profilers/Profiler.h"
 #include "services/PlayerService.h"
+#include "services/ThumbnailExtractor.h"
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -465,6 +466,57 @@ void VideoController::killMpv(
   }
   Json::Value response;
   response["success"] = (result == 0);
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void VideoController::getThumbnail(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto pathParam = req->getParameter("path");
+  if (pathParam.empty()) {
+    Json::Value resp;
+    resp["success"] = false;
+    resp["error"] = "Missing 'path' parameter";
+    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
+    httpResp->setStatusCode(k400BadRequest);
+    callback(httpResp);
+    return;
+  }
+  if (pathParam.find("/mnt/video") != 0) {
+    Json::Value resp;
+    resp["success"] = false;
+    resp["error"] = "Access denied";
+    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
+    httpResp->setStatusCode(k403Forbidden);
+    callback(httpResp);
+    return;
+  }
+  if (!fs::exists(pathParam) ||
+      !isVideoFile(fs::path(pathParam).extension().string())) {
+    Json::Value resp;
+    resp["success"] = false;
+    resp["error"] = "Invalid video file";
+    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
+    httpResp->setStatusCode(k404NotFound);
+    callback(httpResp);
+    return;
+  }
+  std::string base64Image =
+      ThumbnailExtractor::generateThumbnailBase64(pathParam);
+  if (base64Image.empty()) {
+    Json::Value resp;
+    resp["success"] = false;
+    resp["error"] = "Failed to generate thumbnail";
+    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
+    httpResp->setStatusCode(k500InternalServerError);
+    callback(httpResp);
+    return;
+  }
+  Json::Value response;
+  response["success"] = true;
+  response["path"] = pathParam;
+  response["thumbnail"] = "data:image/jpeg;base64," + base64Image;
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

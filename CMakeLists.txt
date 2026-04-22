@@ -20,6 +20,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
+pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 
 get_target_property(TAGLIB_INCLUDE_DIRS TagLib::TagLib INTERFACE_INCLUDE_DIRECTORIES)
 
@@ -31,6 +32,7 @@ add_executable(MediaServer
     services/AlbumArtExtractor.cpp
     services/MusicMetadataExtractor.cpp
     services/PlayerService.cpp
+    services/ThumbnailExtractor.cpp
     database/MusicDatabase.cpp
     profilers/Profiler.cpp
     tagger/TagEditor.cpp
@@ -43,6 +45,7 @@ target_link_libraries(MediaServer PRIVATE
     ${SQLITE3_LIBRARIES}
     ${MPV_LIBRARIES}
     ${LIBCURL_LIBRARIES}
+    ${FFMPEGTHUMBNAILER_LIBRARIES}
 )
 
 target_include_directories(MediaServer PRIVATE
@@ -50,6 +53,7 @@ target_include_directories(MediaServer PRIVATE
     ${TAGLIB_INCLUDE_DIRS}
     ${MPV_INCLUDE_DIRS}
     ${LIBCURL_INCLUDE_DIRS}
+    ${FFMPEGTHUMBNAILER_INCLUDE_DIRS}
 )
 
 target_compile_definitions(MediaServer PRIVATE
