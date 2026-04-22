@@ -32,6 +32,7 @@ add_executable(MediaServer
     services/AlbumArtExtractor.cpp
     services/MusicMetadataExtractor.cpp
     services/PlayerService.cpp
+    services/ThumbnailCache.cpp
     services/ThumbnailExtractor.cpp
     database/MusicDatabase.cpp
     profilers/Profiler.cpp

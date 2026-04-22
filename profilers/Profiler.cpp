@@ -80,6 +80,22 @@ void Profiler::loadConfiguration() {
       }
     }
   }
+  if (drogonConfig_.contains("app") &&
+      drogonConfig_["app"].contains("document_root")) {
+    config_.htmlPath = drogonConfig_["app"]["document_root"].get<std::string>();
+  }
+  if (config_.htmlPath.empty()) {
+    std::cerr << "ERROR: 'document_root' not found in config.json for profile '"
+              << config_.name << "'" << std::endl;
+    throw std::runtime_error(
+        "Missing required 'document_root' in configuration");
+  }
+  if (!fs::exists(config_.htmlPath)) {
+    std::cerr << "ERROR: HTML path does not exist: " << config_.htmlPath
+              << std::endl;
+    throw std::runtime_error("HTML path does not exist: " + config_.htmlPath);
+  }
+  config_.documentRoot = config_.htmlPath;
   if (drogonConfig_.empty()) {
     drogonConfig_["app"]["number_of_threads"] = config_.isTest ? 2 : 8;
     drogonConfig_["app"]["log"]["log_level"] =
@@ -107,21 +123,12 @@ void Profiler::loadConfiguration() {
     config_.uploadPath = app.value(
         "upload_path",
         config_.isTest ? "./uploads" : "/var/lib/media-explorer/uploads");
-    if (app.contains("document_root")) {
-      config_.documentRoot = app["document_root"].get<std::string>();
-      std::cout << "Document root from config: " << config_.documentRoot
-                << std::endl;
-    }
-    if (drogonConfig_.contains("listeners") &&
-        !drogonConfig_["listeners"].empty()) {
-      auto &listener = drogonConfig_["listeners"][0];
-      config_.address = listener.value("address", config_.address);
-      config_.port = listener.value("port", config_.port);
-    }
   }
-  if (config_.documentRoot.empty()) {
-    config_.documentRoot =
-        config_.isTest ? "./views" : "/home/avr/code/html/product/views";
+  if (drogonConfig_.contains("listeners") &&
+      !drogonConfig_["listeners"].empty()) {
+    auto &listener = drogonConfig_["listeners"][0];
+    config_.address = listener.value("address", config_.address);
+    config_.port = listener.value("port", config_.port);
   }
 }
 
@@ -150,6 +157,11 @@ void Profiler::findIndexFile() {
     throw std::runtime_error("Could not find index.html");
   }
   config_.indexPath = foundPath.string();
+  fs::path indexPath = fs::path(config_.htmlPath) / "index.html";
+  if (!fs::exists(indexPath)) {
+    throw std::runtime_error("index.html not found at: " + indexPath.string());
+  }
+  config_.indexPath = indexPath.string();
   std::cout << "Found index.html at: " << config_.indexPath << std::endl;
 }
 
@@ -175,6 +187,7 @@ void Profiler::setupDrogonConfig() {
       std::cout << "Configured document root: " << docRoot << std::endl;
     }
   }
+  app["document_root"] = config_.htmlPath;
 }
 
 fs::path Profiler::findConfigFile() const {
@@ -333,6 +346,7 @@ void Profiler::printStartupInfo() const {
   if (config_.isTest)
     std::cout << " (TEST MODE)";
   std::cout << std::endl;
+  std::cout << "HTML Path: " << config_.htmlPath << std::endl;
   std::cout << "Web Port: " << config_.port << std::endl;
   std::cout << "Player Port: " << config_.playerPort << std::endl;
   std::cout << "Address: " << config_.address << std::endl;

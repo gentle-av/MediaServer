@@ -10,6 +10,7 @@
 #include <memory>
 
 std::shared_ptr<PlayerService> g_playerService;
+Profiler *g_profiler = nullptr;
 
 void signalHandler(int signal) {
   std::cout << "\n[INFO] Shutting down..." << std::endl;
@@ -23,6 +24,7 @@ int main(int argc, char *argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
   Profiler profiler(argc, argv);
+  g_profiler = &profiler;
   auto config = profiler.getConfig();
   auto player = std::make_shared<Player>();
   auto playerService = std::make_shared<PlayerService>(config.playerPort);

@@ -1,26 +1,61 @@
 #include "ThumbnailExtractor.h"
+#include "ThumbnailCache.h"
+#include <filesystem>
 #include <libffmpegthumbnailer/imagetypes.h>
 #include <libffmpegthumbnailer/videothumbnailer.h>
-#include <stdexcept>
 #include <vector>
 
-std::string
-ThumbnailExtractor::generateThumbnailBase64(const std::string &videoPath,
-                                            int width, int quality) {
+namespace fs = std::filesystem;
+
+static bool isCacheInitialized = false;
+
+void ThumbnailExtractor::initCache(const std::string &dbPath) {
+  if (!isCacheInitialized) {
+    std::string path = dbPath;
+    if (path.empty()) {
+      const char *home = getenv("HOME");
+      path = home ? std::string(home) + "/.local/share/media-explorer/video.db"
+                  : "./video.db";
+      fs::create_directories(fs::path(path).parent_path());
+    }
+    ThumbnailCache::getInstance().init(path);
+    isCacheInitialized = true;
+  }
+}
+
+bool ThumbnailExtractor::generateRawThumbnail(const std::string &videoPath,
+                                              int width, int quality,
+                                              std::vector<uint8_t> &imageData) {
   try {
     ffmpegthumbnailer::VideoThumbnailer thumbnailer;
     thumbnailer.setThumbnailSize(width);
     thumbnailer.setSeekPercentage(50);
     thumbnailer.setImageQuality(quality);
     thumbnailer.setMaintainAspectRatio(true);
-    std::vector<uint8_t> imageData;
     thumbnailer.generateThumbnail(videoPath, Jpeg, imageData);
-    if (imageData.empty()) {
-      return "";
-    }
-    return base64Encode(imageData);
+    return !imageData.empty();
   } catch (const std::exception &) {
-    return "";
+    return false;
+  }
+}
+
+std::string
+ThumbnailExtractor::generateThumbnailBase64(const std::string &videoPath,
+                                            int width, int quality) {
+  initCache();
+  return ThumbnailCache::getInstance().getThumbnail(videoPath, width, quality);
+}
+
+void ThumbnailExtractor::clearCache() {
+  if (isCacheInitialized) {
+    ThumbnailCache::getInstance().clearCache();
+  }
+}
+
+void ThumbnailExtractor::shutdownCache() {
+  if (isCacheInitialized) {
+    ThumbnailCache::getInstance().shutdown();
+    isCacheInitialized = false;
   }
 }
 

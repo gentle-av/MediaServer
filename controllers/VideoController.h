@@ -1,4 +1,3 @@
-// VideoController.h
 #pragma once
 
 #include <drogon/HttpController.h>

@@ -8,6 +8,7 @@
 #include <vector>
 
 std::shared_ptr<PlayerService> VideoController::playerService_ = nullptr;
+extern Profiler *g_profiler;
 
 void VideoController::setPlayerService(std::shared_ptr<PlayerService> service) {
   playerService_ = service;
@@ -16,38 +17,32 @@ void VideoController::setPlayerService(std::shared_ptr<PlayerService> service) {
 void VideoController::getIndex(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  std::string indexPath;
-  if (profiler_) {
-    indexPath = profiler_->getIndexPath();
+  if (!profiler_) {
+    profiler_ = g_profiler;
   }
+  std::string indexPath = profiler_->getIndexPath();
   if (indexPath.empty()) {
-    std::vector<std::string> searchPaths = {
-        "/home/avr/code/html/test/views/index.html",
-        "/home/avr/code/html/product/views/index.html", "./views/index.html",
-        "./index.html"};
-    for (const auto &path : searchPaths) {
-      std::ifstream file(path);
-      if (file.good()) {
-        indexPath = path;
-        break;
-      }
-    }
-  }
-  if (!indexPath.empty()) {
-    std::ifstream file(indexPath);
-    std::string content((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
-    auto resp = HttpResponse::newHttpResponse();
-    resp->setStatusCode(k200OK);
-    resp->setContentTypeCode(CT_TEXT_HTML);
-    resp->setBody(content);
-    callback(resp);
-  } else {
     auto resp = HttpResponse::newHttpResponse();
     resp->setStatusCode(k404NotFound);
-    resp->setBody("index.html not found");
+    resp->setBody("index.html not found in configuration");
     callback(resp);
+    return;
   }
+  std::ifstream file(indexPath);
+  if (!file.is_open()) {
+    auto resp = HttpResponse::newHttpResponse();
+    resp->setStatusCode(k404NotFound);
+    resp->setBody("Cannot open index.html at: " + indexPath);
+    callback(resp);
+    return;
+  }
+  std::string content((std::istreambuf_iterator<char>(file)),
+                      std::istreambuf_iterator<char>());
+  auto resp = HttpResponse::newHttpResponse();
+  resp->setStatusCode(k200OK);
+  resp->setContentTypeCode(CT_TEXT_HTML);
+  resp->setBody(content);
+  callback(resp);
 }
 
 void VideoController::serveStatic(
@@ -470,6 +465,9 @@ void VideoController::killMpv(
   callback(resp);
 }
 
+// VideoController.cpp - только измененная часть (добавить метод
+// getThumbnailsBatch) Остальной код остается без изменений
+
 void VideoController::getThumbnail(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -502,8 +500,18 @@ void VideoController::getThumbnail(
     callback(httpResp);
     return;
   }
+  int width = 320;
+  int quality = 85;
+  auto widthParam = req->getParameter("width");
+  if (!widthParam.empty()) {
+    width = std::stoi(widthParam);
+  }
+  auto qualityParam = req->getParameter("quality");
+  if (!qualityParam.empty()) {
+    quality = std::stoi(qualityParam);
+  }
   std::string base64Image =
-      ThumbnailExtractor::generateThumbnailBase64(pathParam);
+      ThumbnailExtractor::generateThumbnailBase64(pathParam, width, quality);
   if (base64Image.empty()) {
     Json::Value resp;
     resp["success"] = false;

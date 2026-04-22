@@ -21,6 +21,7 @@ struct ProfileConfig {
   std::string logPath;
   std::string uploadPath;
   std::string musicDirectory;
+  std::string htmlPath;
 };
 
 class Profiler {
@@ -32,6 +33,7 @@ public:
   nlohmann::json getDrogonConfig() const { return drogonConfig_; }
   std::string getIndexPath() const { return config_.indexPath; }
   std::string getDocumentRoot() const { return config_.documentRoot; }
+  std::string getHtmlPath() const { return config_.htmlPath; }
   int getPlayerPort() const { return config_.playerPort; }
   void applyToDrogon(drogon::HttpAppFramework &app) const;
   void printStartupInfo() const;
