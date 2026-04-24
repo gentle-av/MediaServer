@@ -10,11 +10,11 @@
             "path": "/"
           }
         ],
-        "document_root": "/home/avr/code/html/MediaServer/product/views",
-        "upload_path": "/home/avr/code/html/MediaServer/product/uploads",
+        "document_root": "/home/avr/.local/html/MediaServer/product/views",
+        "upload_path": "/home/avr/.local/html/MediaServer/product/uploads",
         "client_max_body_size": "16M",
         "log": {
-          "log_path": "/home/avr/code/html/MediaServer/product/logs",
+          "log_path": "/home/avr/.local/html/MediaServer/product/logs",
           "logfile_base_name": "media-explorer",
           "log_size_limit": 100000000,
           "log_level": "INFO"
@@ -38,11 +38,11 @@
             "path": "/"
           }
         ],
-        "document_root": "/home/avr/code/html/MediaServer/test/views/",
-        "upload_path": "/home/avr/code/html/MediaServer/test/uploads",
+        "document_root": "/home/avr/.local/html/MediaServer/test/views/",
+        "upload_path": "/home/avr/.local/html/MediaServer/test/uploads",
         "client_max_body_size": "16M",
         "log": {
-          "log_path": "/home/avr/code/html/MediaServer/test/logs",
+          "log_path": "/home/avr/.local/html/MediaServer/test/logs",
           "logfile_base_name": "media-explorer-test",
           "log_size_limit": 50000000,
           "log_level": "DEBUG"

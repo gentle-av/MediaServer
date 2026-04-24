@@ -289,8 +289,6 @@ Json::Value PlayerService::getPlaybackState() {
   bool isPlaying = false;
   if (internalPlayer_) {
     isPlaying = internalPlayer_->isPlaying();
-    std::cout << "[PlayerService] getPlaybackState: isPlaying=" << isPlaying
-              << std::endl;
   }
   data["isPlaying"] = isPlaying;
   data["currentTrack"] =

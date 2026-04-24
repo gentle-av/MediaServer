@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
+#include <string>
+#include <unistd.h>
 #include <vector>
 
 std::shared_ptr<PlayerService> VideoController::playerService_ = nullptr;
@@ -176,61 +179,6 @@ void VideoController::openVideo(
   callback(resp);
 }
 
-std::string VideoController::getMimeType(const std::string &extension) {
-  static std::map<std::string, std::string> mimeTypes = {
-      {".html", "text/html"},        {".htm", "text/html"},
-      {".css", "text/css"},          {".js", "application/javascript"},
-      {".json", "application/json"}, {".png", "image/png"},
-      {".jpg", "image/jpeg"},        {".jpeg", "image/jpeg"},
-      {".gif", "image/gif"},         {".svg", "image/svg+xml"},
-      {".ico", "image/x-icon"},      {".txt", "text/plain"},
-      {".mp4", "video/mp4"},         {".webm", "video/webm"},
-      {".ogg", "video/ogg"},         {".avi", "video/x-msvideo"},
-      {".mkv", "video/x-matroska"}};
-  auto it = mimeTypes.find(extension);
-  if (it != mimeTypes.end()) {
-    return it->second;
-  }
-  return "application/octet-stream";
-}
-
-Json::Value VideoController::getFileInfo(const fs::path &path) {
-  Json::Value info;
-  info["name"] = path.filename().string();
-  info["path"] = path.string();
-  info["isDirectory"] = fs::is_directory(path);
-  if (fs::is_regular_file(path)) {
-    info["size"] = formatFileSize(fs::file_size(path));
-    std::string ext = path.extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    info["isVideo"] = isVideoFile(ext);
-  }
-  return info;
-}
-
-bool VideoController::isVideoFile(const std::string &filename) {
-  std::vector<std::string> videoExts = {".mp4", ".avi", ".mkv",  ".mov",
-                                        ".wmv", ".flv", ".webm", ".m4v",
-                                        ".mpg", ".mpeg"};
-  std::string lower = filename;
-  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-  return std::find(videoExts.begin(), videoExts.end(), lower) !=
-         videoExts.end();
-}
-
-std::string VideoController::formatFileSize(uintmax_t size) {
-  const char *units[] = {"B", "KB", "MB", "GB", "TB"};
-  int unitIndex = 0;
-  double fileSize = size;
-  while (fileSize >= 1024 && unitIndex < 4) {
-    fileSize /= 1024;
-    unitIndex++;
-  }
-  char buffer[64];
-  snprintf(buffer, sizeof(buffer), "%.1f %s", fileSize, units[unitIndex]);
-  return std::string(buffer);
-}
-
 void VideoController::moveToTrash(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -245,7 +193,7 @@ void VideoController::moveToTrash(
     return;
   }
   std::string path = (*json)["path"].asString();
-  if (path.find("/mnt/video") != 0 && path.find("/mnt/media/music") != 0) {
+  if (path.find("/mnt/video") != 0) {
     Json::Value response;
     response["success"] = false;
     response["error"] = "Access denied";
@@ -280,193 +228,6 @@ void VideoController::moveToTrash(
     callback(resp);
   }
 }
-
-void VideoController::getMpvSockets(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  Json::Value response;
-  Json::Value sockets(Json::arrayValue);
-  std::string cmd = "ls /tmp/mpv-socket-* 2>/dev/null";
-  std::array<char, 128> buffer;
-  std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    response["success"] = false;
-    response["error"] = "Failed to list sockets";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-    std::string line(buffer.data());
-    line.erase(line.find_last_not_of("\n") + 1);
-    if (!line.empty()) {
-      sockets.append(line);
-    }
-  }
-  pclose(pipe);
-  response["success"] = true;
-  response["sockets"] = sockets;
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
-}
-
-void VideoController::checkMpv(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  auto json = req->getJsonObject();
-  if (!json || !json->isMember("socket")) {
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "Missing socket";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  std::string socketPath = (*json)["socket"].asString();
-  std::string command = (*json)["command"].asString();
-  std::string cmd = "echo '{\"command\":[\"" + command + "\"]}' | socat - " +
-                    socketPath + " 2>/dev/null";
-  std::array<char, 128> buffer;
-  std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (pipe) {
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-      result += buffer.data();
-    }
-    pclose(pipe);
-  }
-  Json::Value response;
-  response["success"] = true;
-  if (command.find("get_property path") != std::string::npos) {
-    size_t pos = result.find("\"data\"");
-    if (pos != std::string::npos) {
-      size_t start = result.find("\"", pos + 7);
-      if (start != std::string::npos) {
-        size_t end = result.find("\"", start + 1);
-        if (end != std::string::npos) {
-          response["path"] = result.substr(start + 1, end - start - 1);
-        }
-      }
-    }
-  } else if (command.find("get_property pause") != std::string::npos) {
-    response["playing"] = (result.find("true") != std::string::npos);
-  }
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
-}
-
-void VideoController::getActiveMpv(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  Json::Value response;
-  if (activeSocket_.empty()) {
-    response["success"] = true;
-    response["active"] = false;
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  std::string cmd =
-      "echo '{ \"command\": [\"get_property\", \"path\"] }' | socat - " +
-      activeSocket_ + " 2>/dev/null";
-  std::array<char, 256> buffer;
-  std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (pipe) {
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-      result += buffer.data();
-    }
-    pclose(pipe);
-  }
-  response["success"] = true;
-  response["active"] = true;
-  response["socket"] = activeSocket_;
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
-}
-
-void VideoController::controlMpv(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  auto json = req->getJsonObject();
-  if (!json || !json->isMember("command")) {
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "Missing command";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  if (activeSocket_.empty()) {
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "No active video";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  std::string command = (*json)["command"].asString();
-  std::string fullCmd;
-  if (command == "cycle pause") {
-    fullCmd = "echo '{\"command\":[\"cycle\",\"pause\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  } else if (command == "set pause yes") {
-    fullCmd = "echo '{\"command\":[\"set\",\"pause\",\"yes\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  } else if (command == "set pause no") {
-    fullCmd = "echo '{\"command\":[\"set\",\"pause\",\"no\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  } else if (command == "stop") {
-    fullCmd =
-        "echo '{\"command\":[\"stop\"]}' | socat - " + activeSocket_ + " 2>&1";
-    activeSocket_.clear();
-  } else if (command == "seek 10") {
-    fullCmd = "echo '{\"command\":[\"seek\",\"10\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  } else if (command == "seek -10") {
-    fullCmd = "echo '{\"command\":[\"seek\",\"-10\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  } else if (command == "cycle fullscreen") {
-    fullCmd = "echo '{\"command\":[\"cycle\",\"fullscreen\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  } else {
-    fullCmd = "echo '{\"command\":[\"" + command + "\"]}' | socat - " +
-              activeSocket_ + " 2>&1";
-  }
-  int result = system(fullCmd.c_str());
-  Json::Value response;
-  response["success"] = (result == 0);
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
-}
-
-void VideoController::killMpv(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  auto json = req->getJsonObject();
-  if (!json || !json->isMember("socket")) {
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "Missing socket";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
-    return;
-  }
-  std::string socketPath = (*json)["socket"].asString();
-  std::string cmd = "pkill -f \"" + socketPath + "\" 2>/dev/null";
-  int result = system(cmd.c_str());
-  if (socketPath == activeSocket_) {
-    activeSocket_.clear();
-  }
-  Json::Value response;
-  response["success"] = (result == 0);
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
-}
-
-// VideoController.cpp - только измененная часть (добавить метод
-// getThumbnailsBatch) Остальной код остается без изменений
 
 void VideoController::getThumbnail(
     const HttpRequestPtr &req,
@@ -525,6 +286,146 @@ void VideoController::getThumbnail(
   response["success"] = true;
   response["path"] = pathParam;
   response["thumbnail"] = "data:image/jpeg;base64," + base64Image;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+std::string VideoController::getMimeType(const std::string &extension) {
+  static std::map<std::string, std::string> mimeTypes = {
+      {".html", "text/html"},        {".htm", "text/html"},
+      {".css", "text/css"},          {".js", "application/javascript"},
+      {".json", "application/json"}, {".png", "image/png"},
+      {".jpg", "image/jpeg"},        {".jpeg", "image/jpeg"},
+      {".gif", "image/gif"},         {".svg", "image/svg+xml"},
+      {".ico", "image/x-icon"},      {".txt", "text/plain"}};
+  auto it = mimeTypes.find(extension);
+  if (it != mimeTypes.end()) {
+    return it->second;
+  }
+  return "application/octet-stream";
+}
+
+Json::Value VideoController::getFileInfo(const fs::path &path) {
+  Json::Value info;
+  info["name"] = path.filename().string();
+  info["path"] = path.string();
+  info["isDirectory"] = fs::is_directory(path);
+  if (fs::is_regular_file(path)) {
+    info["size"] = formatFileSize(fs::file_size(path));
+    std::string ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    info["isVideo"] = isVideoFile(ext);
+  }
+  return info;
+}
+
+bool VideoController::isVideoFile(const std::string &filename) {
+  std::vector<std::string> videoExts = {".mp4", ".avi", ".mkv",  ".mov",
+                                        ".wmv", ".flv", ".webm", ".m4v",
+                                        ".mpg", ".mpeg"};
+  std::string lower = filename;
+  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+  return std::find(videoExts.begin(), videoExts.end(), lower) !=
+         videoExts.end();
+}
+
+std::string VideoController::formatFileSize(uintmax_t size) {
+  const char *units[] = {"B", "KB", "MB", "GB", "TB"};
+  int unitIndex = 0;
+  double fileSize = size;
+  while (fileSize >= 1024 && unitIndex < 4) {
+    fileSize /= 1024;
+    unitIndex++;
+  }
+  char buffer[64];
+  snprintf(buffer, sizeof(buffer), "%.1f %s", fileSize, units[unitIndex]);
+  return std::string(buffer);
+}
+
+void VideoController::getPlaybackStatus(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  if (activeSocket_.empty()) {
+    response["success"] = true;
+    response["playing"] = false;
+    response["reason"] = "no_active_video";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string checkCmd =
+      "kill -0 $(pgrep -f '" + activeSocket_ + "') 2>/dev/null";
+  int result = system(checkCmd.c_str());
+  if (result != 0) {
+    activeSocket_.clear();
+    response["success"] = true;
+    response["playing"] = false;
+    response["reason"] = "process_dead";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string cmd =
+      "echo '{ \"command\": [\"get_property\", \"pause\"] }' | socat - " +
+      activeSocket_ + " 2>/dev/null";
+  std::array<char, 128> buffer;
+  std::string result_str;
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe) {
+    response["success"] = false;
+    response["error"] = "Failed to check playback status";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+    result_str += buffer.data();
+  }
+  pclose(pipe);
+  bool isPaused = result_str.find("\"data\":true") != std::string::npos;
+  cmd = "echo '{ \"command\": [\"get_property\", \"time-pos\"] }' | socat - " +
+        activeSocket_ + " 2>/dev/null";
+  pipe = popen(cmd.c_str(), "r");
+  double currentTime = 0;
+  if (pipe) {
+    result_str.clear();
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result_str += buffer.data();
+    }
+    pclose(pipe);
+    size_t pos = result_str.find("\"data\"");
+    if (pos != std::string::npos) {
+      size_t start = result_str.find(":", pos);
+      if (start != std::string::npos) {
+        currentTime = std::stod(result_str.substr(start + 1));
+      }
+    }
+  }
+  cmd = "echo '{ \"command\": [\"get_property\", \"duration\"] }' | socat - " +
+        activeSocket_ + " 2>/dev/null";
+  pipe = popen(cmd.c_str(), "r");
+  double duration = 0;
+  if (pipe) {
+    result_str.clear();
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result_str += buffer.data();
+    }
+    pclose(pipe);
+    size_t pos = result_str.find("\"data\"");
+    if (pos != std::string::npos) {
+      size_t start = result_str.find(":", pos);
+      if (start != std::string::npos) {
+        duration = std::stod(result_str.substr(start + 1));
+      }
+    }
+  }
+  response["success"] = true;
+  response["playing"] = true;
+  response["paused"] = isPaused;
+  response["currentTime"] = currentTime;
+  response["duration"] = duration;
+  response["progress"] = duration > 0 ? (currentTime / duration * 100) : 0;
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
