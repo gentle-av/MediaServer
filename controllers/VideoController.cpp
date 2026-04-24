@@ -420,12 +420,98 @@ void VideoController::getPlaybackStatus(
       }
     }
   }
+  cmd = "echo '{ \"command\": [\"get_property\", \"path\"] }' | socat - " +
+        activeSocket_ + " 2>/dev/null";
+  pipe = popen(cmd.c_str(), "r");
+  std::string currentFile;
+  if (pipe) {
+    result_str.clear();
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result_str += buffer.data();
+    }
+    pclose(pipe);
+    size_t pos = result_str.find("\"data\"");
+    if (pos != std::string::npos) {
+      size_t start = result_str.find("\"", pos + 7);
+      if (start != std::string::npos) {
+        size_t end = result_str.find("\"", start + 1);
+        if (end != std::string::npos) {
+          currentFile = result_str.substr(start + 1, end - start - 1);
+        }
+      }
+    }
+  }
   response["success"] = true;
   response["playing"] = true;
   response["paused"] = isPaused;
   response["currentTime"] = currentTime;
   response["duration"] = duration;
   response["progress"] = duration > 0 ? (currentTime / duration * 100) : 0;
+  response["currentFile"] = currentFile;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void VideoController::controlMpv(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("command")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing command parameter";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string command = (*json)["command"].asString();
+  if (activeSocket_.empty()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No active video playing";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string checkCmd =
+      "kill -0 $(pgrep -f '" + activeSocket_ + "') 2>/dev/null";
+  if (system(checkCmd.c_str()) != 0) {
+    activeSocket_.clear();
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "MPV process is dead";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string mpvCommand;
+  if (command == "play") {
+    mpvCommand = "set pause no";
+  } else if (command == "pause") {
+    mpvCommand = "set pause yes";
+  } else if (command == "playpause") {
+    mpvCommand = "cycle pause";
+  } else if (command == "stop") {
+    mpvCommand = "stop";
+  } else if (command == "seek_forward") {
+    mpvCommand = "seek 10";
+  } else if (command == "seek_backward") {
+    mpvCommand = "seek -10";
+  } else if (command == "fullscreen") {
+    mpvCommand = "cycle fullscreen";
+  } else {
+    mpvCommand = command;
+  }
+  std::string cmd = "echo '{\"command\":[\"" + mpvCommand + "\"]}' | socat - " +
+                    activeSocket_ + " 2>/dev/null";
+  int result = system(cmd.c_str());
+  Json::Value response;
+  response["success"] = (result == 0);
+  if (command == "stop") {
+    activeSocket_.clear();
+    response["message"] = "Video stopped";
+  }
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
