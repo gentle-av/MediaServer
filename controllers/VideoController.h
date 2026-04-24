@@ -23,6 +23,7 @@ public:
   ADD_METHOD_TO(VideoController::getThumbnail, "/api/thumbnail", Get);
   ADD_METHOD_TO(VideoController::getPlaybackStatus, "/api/video/status", Get);
   ADD_METHOD_TO(VideoController::controlMpv, "/api/mpv/control", Post);
+  ADD_METHOD_TO(VideoController::seekMpv, "/api/mpv/seek", Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
@@ -46,6 +47,8 @@ public:
                     std::function<void(const HttpResponsePtr &)> &&callback);
   void controlMpv(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
+  void seekMpv(const HttpRequestPtr &req,
+               std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;

@@ -515,3 +515,116 @@ void VideoController::controlMpv(
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
+
+void VideoController::seekMpv(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  std::cout << "=== seekMpv called ===" << std::endl;
+  auto json = req->getJsonObject();
+  if (!json) {
+    std::cout << "No JSON in request" << std::endl;
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Invalid JSON";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  if (!json->isMember("time")) {
+    std::cout << "Missing 'time' parameter" << std::endl;
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing 'time' parameter (seconds)";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  double seekTime = (*json)["time"].asDouble();
+  std::cout << "Seek time: " << seekTime << " seconds" << std::endl;
+  if (activeSocket_.empty()) {
+    std::cout << "activeSocket_ is empty" << std::endl;
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No active video playing";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::cout << "Active socket: " << activeSocket_ << std::endl;
+  std::string checkCmd = "pgrep -f '" + activeSocket_ + "'";
+  std::cout << "Check command: " << checkCmd << std::endl;
+  std::array<char, 128> buffer;
+  std::string result_str;
+  FILE *pipe = popen(checkCmd.c_str(), "r");
+  bool processAlive = false;
+  if (pipe) {
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result_str += buffer.data();
+    }
+    pclose(pipe);
+    processAlive = !result_str.empty();
+  }
+  std::cout << "Process alive: " << (processAlive ? "yes" : "no") << std::endl;
+  if (!processAlive) {
+    std::cout << "MPV process is dead, clearing socket" << std::endl;
+    activeSocket_.clear();
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "MPV process is dead";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string durationCmd =
+      "echo '{ \"command\": [\"get_property\", \"duration\"] }' | socat - " +
+      activeSocket_ + " 2>&1";
+  std::cout << "Duration command: " << durationCmd << std::endl;
+  result_str.clear();
+  pipe = popen(durationCmd.c_str(), "r");
+  double duration = 0;
+  if (pipe) {
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result_str += buffer.data();
+    }
+    pclose(pipe);
+    std::cout << "Duration response: " << result_str << std::endl;
+    size_t pos = result_str.find("\"data\"");
+    if (pos != std::string::npos) {
+      size_t start = result_str.find(":", pos);
+      if (start != std::string::npos) {
+        duration = std::stod(result_str.substr(start + 1));
+        std::cout << "Duration parsed: " << duration << std::endl;
+      }
+    }
+  }
+  if (duration > 0) {
+    if (seekTime < 0)
+      seekTime = 0;
+    if (seekTime > duration)
+      seekTime = duration;
+    std::cout << "Adjusted seek time: " << seekTime << std::endl;
+  }
+  std::string seekCommand =
+      "echo '{\"command\":[\"seek\", " + std::to_string(seekTime) +
+      ", \"absolute\"]}' | socat - " + activeSocket_ + " 2>&1";
+  std::cout << "Seek command: " << seekCommand << std::endl;
+  pipe = popen(seekCommand.c_str(), "r");
+  result_str.clear();
+  if (pipe) {
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result_str += buffer.data();
+    }
+    pclose(pipe);
+    std::cout << "Seek response: " << result_str << std::endl;
+  }
+  Json::Value response;
+  response["success"] = true;
+  response["time"] = seekTime;
+  response["duration"] = duration;
+  response["debug_socket"] = activeSocket_;
+  response["debug_process_alive"] = processAlive;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}

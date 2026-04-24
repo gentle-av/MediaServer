@@ -16,7 +16,6 @@ pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 
-# Собираем всё в один исполняемый файл
 add_executable(MediaServer
     main.cpp
     controllers/VideoController.cpp
@@ -54,3 +53,16 @@ target_include_directories(MediaServer PRIVATE
 )
 
 target_compile_definitions(MediaServer PRIVATE TAGLIB_STATIC)
+
+set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local")
+set(CMAKE_INSTALL_BINDIR "bin")
+
+install(TARGETS MediaServer
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config.json
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
