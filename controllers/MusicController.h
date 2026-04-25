@@ -1,8 +1,10 @@
 #pragma once
+
 #include "database/MusicDatabase.h"
 #include "services/PlayerService.h"
 #include <drogon/drogon.h>
 #include <mutex>
+#include <taglib/tstring.h>
 
 class MusicController : public drogon::HttpController<MusicController> {
 public:
@@ -110,6 +112,7 @@ private:
     int newAlbumsCount = 0;
     std::chrono::steady_clock::time_point lastRescanTime;
   };
+  std::string fixTagLibString(const TagLib::String &str);
   static RescanStatus rescanStatus_;
   static std::mutex rescanStatusMutex_;
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);

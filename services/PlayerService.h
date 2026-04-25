@@ -1,6 +1,7 @@
-// PlayerService.h - добавьте объявление onTrackLoaded
 #pragma once
+
 #include <atomic>
+#include <database/MusicDatabase.h>
 #include <json/json.h>
 #include <memory>
 #include <mutex>
@@ -31,11 +32,13 @@ public:
   Json::Value getPlaybackState();
   Json::Value getCurrentTrack();
   Json::Value getCurrentTime();
+  void setMusicDatabase(std::shared_ptr<MusicDatabase> db) { musicDb_ = db; }
 
   void setInternalPlayer(std::shared_ptr<Player> player);
   bool isAvailable() const { return internalPlayer_ != nullptr; }
   bool useInternalPlayer() const { return internalPlayer_ != nullptr; }
   std::shared_ptr<Player> getInternalPlayer() { return internalPlayer_; }
+  std::string getTrackTitle(const std::string &trackPath);
 
 private:
   int currentIndex_;
@@ -44,6 +47,7 @@ private:
   std::mutex mutex_;
   std::atomic<bool> isSwitching_;
   std::atomic<bool> manualSwitch_;
+  std::shared_ptr<MusicDatabase> musicDb_;
 
   void onTrackEnd();
   void onTrackLoaded();

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <json/json.h>
+#include <regex>
 #include <taglib/attachedpictureframe.h>
 #include <taglib/fileref.h>
 #include <taglib/flacfile.h>
@@ -231,7 +232,53 @@ void MusicController::removeMissingFiles() {
   }
 }
 
-#include <regex>
+std::string MusicController::fixTagLibString(const TagLib::String &str) {
+  std::string utf8 = str.to8Bit(true);
+  bool needsConversion = false;
+  for (unsigned char c : utf8) {
+    if (c >= 0x80 && c <= 0xFF) {
+      needsConversion = true;
+      break;
+    }
+  }
+  if (!needsConversion) {
+    return utf8;
+  }
+  std::string result;
+  for (unsigned char c : utf8) {
+    if (c < 0x80) {
+      result += c;
+    } else if (c == 0xD8) {
+      result += "\xC3\x98";
+    } else if (c == 0xF8) {
+      result += "\xC3\xB8";
+    } else if (c == 0xE5) {
+      result += "\xC3\xA5";
+    } else if (c == 0xC5) {
+      result += "\xC3\x85";
+    } else if (c == 0xF6) {
+      result += "\xC3\xB6";
+    } else if (c == 0xD6) {
+      result += "\xC3\x96";
+    } else if (c == 0xE4) {
+      result += "\xC3\xA4";
+    } else if (c == 0xC4) {
+      result += "\xC3\x84";
+    } else {
+      wchar_t wc = static_cast<wchar_t>(c);
+      if (wc <= 0xFF) {
+        if (wc >= 0xC0 && wc <= 0xFF) {
+          result += static_cast<char>(0xC0 | (wc >> 6));
+          result += static_cast<char>(0x80 | (wc & 0x3F));
+        } else {
+          result += static_cast<char>(0xC3);
+          result += static_cast<char>(0x80 | (wc - 0x80));
+        }
+      }
+    }
+  }
+  return result;
+}
 
 bool MusicController::extractMetadata(const std::string &filePath,
                                       MusicMetadata &metadata) {
@@ -241,14 +288,10 @@ bool MusicController::extractMetadata(const std::string &filePath,
     TagLib::FileRef f(filePath.c_str());
     if (!f.isNull() && f.tag()) {
       TagLib::Tag *tag = f.tag();
-      TagLib::String title = tag->title();
-      TagLib::String artist = tag->artist();
-      TagLib::String album = tag->album();
-      TagLib::String genre = tag->genre();
-      metadata.title = title.to8Bit(true);
-      metadata.artist = artist.to8Bit(true);
-      metadata.album = album.to8Bit(true);
-      metadata.genre = genre.to8Bit(true);
+      metadata.title = fixTagLibString(tag->title());
+      metadata.artist = fixTagLibString(tag->artist());
+      metadata.album = fixTagLibString(tag->album());
+      metadata.genre = fixTagLibString(tag->genre());
       if (f.audioProperties())
         metadata.duration = f.audioProperties()->lengthInSeconds();
       else

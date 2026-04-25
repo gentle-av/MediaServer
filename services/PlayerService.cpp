@@ -121,6 +121,9 @@ void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
   std::lock_guard<std::mutex> lock(mutex_);
   std::cout << "[PlayerService] setPlaylist, size=" << tracks.size()
             << std::endl;
+  for (auto &track : tracks) {
+    std::cout << "loaded: " << track << '\n';
+  }
   playlist_ = tracks;
   currentIndex_ = -1;
   manualSwitch_ = false;
@@ -218,6 +221,8 @@ void PlayerService::replacePlaylist(const std::vector<std::string> &tracks) {
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
+  for (auto &track : tracks)
+    std::cout << "loaded: " << track << '\n';
   playlist_ = tracks;
   currentIndex_ = -1;
   manualSwitch_ = false;
@@ -303,9 +308,15 @@ Json::Value PlayerService::getPlaybackState() {
 Json::Value PlayerService::getCurrentTrack() {
   std::lock_guard<std::mutex> lock(mutex_);
   Json::Value data;
-  data["track"] = currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size()
-                      ? playlist_[currentIndex_]
-                      : "";
+  if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size()) {
+    std::string trackPath = playlist_[currentIndex_];
+    data["track"] = getTrackTitle(trackPath);
+    data["path"] = trackPath;
+  } else {
+    data["track"] = "";
+    data["path"] = "";
+  }
+
   return data;
 }
 
@@ -325,4 +336,30 @@ void PlayerService::setInternalPlayer(std::shared_ptr<Player> player) {
   internalPlayer_ = player;
   internalPlayer_->setOnTrackEnd([this]() { onTrackEnd(); });
   internalPlayer_->setOnTrackLoaded([this]() { onTrackLoaded(); });
+}
+
+std::string PlayerService::getTrackTitle(const std::string &trackPath) {
+  std::cout << "[PlayerService] getTrackTitle: path=" << trackPath << std::endl;
+  std::cout << "[PlayerService] musicDb_ is " << (musicDb_ ? "set" : "NULL")
+            << std::endl;
+  if (musicDb_) {
+    MusicMetadata metadata;
+    if (musicDb_->getMetadata(trackPath, metadata)) {
+      std::cout << "[PlayerService] Found metadata: title='" << metadata.title
+                << "', artist='" << metadata.artist << "'" << std::endl;
+      if (!metadata.title.empty() && metadata.title != "Unknown") {
+        return metadata.title;
+      }
+    } else {
+      std::cout << "[PlayerService] No metadata found in database for: "
+                << trackPath << std::endl;
+    }
+  }
+  std::filesystem::path path(trackPath);
+  std::string filename = path.stem().string();
+  std::regex trackPrefix(R"(^\d{1,2}[\.\-\s]+\s*)");
+  std::string cleanTitle = std::regex_replace(filename, trackPrefix, "");
+  std::cout << "[PlayerService] Using fallback filename: " << cleanTitle
+            << std::endl;
+  return cleanTitle.empty() ? filename : cleanTitle;
 }

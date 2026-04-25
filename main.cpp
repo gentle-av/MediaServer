@@ -1,6 +1,7 @@
 #include "controllers/MusicController.h"
 #include "controllers/PlayerController.h"
 #include "controllers/VideoController.h"
+#include "database/MusicDatabase.h"
 #include "player/Player.h"
 #include "profilers/Profiler.h"
 #include "services/PlayerService.h"
@@ -26,12 +27,20 @@ int main(int argc, char *argv[]) {
   Profiler profiler(argc, argv);
   g_profiler = &profiler;
   auto config = profiler.getConfig();
+  const char *home = getenv("HOME");
+  std::string dbPath =
+      home ? std::string(home) + "/.local/share/media-explorer/music.db"
+           : "./music.db";
+  auto musicDb = std::make_shared<MusicDatabase>(dbPath);
+  musicDb->init();
   auto player = std::make_shared<Player>();
   auto playerService = std::make_shared<PlayerService>(config.playerPort);
   playerService->setInternalPlayer(player);
+  playerService->setMusicDatabase(musicDb);
   g_playerService = playerService;
   MusicController::setPlayerService(playerService);
   PlayerController::setPlayerService(playerService);
+  VideoController::setPlayerService(playerService);
   profiler.applyToDrogon(drogon::app());
   profiler.printStartupInfo();
   drogon::app().run();
