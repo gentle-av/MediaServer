@@ -87,46 +87,69 @@ bool MusicController::extractMetadata(const std::string &filePath,
   MusicMetadata *cached = getMetadataFromCache(filePath);
   if (cached) {
     metadata = *cached;
+    LOG_INFO << "Using cached metadata for: " << filePath
+             << " title: " << metadata.title;
     return true;
   }
-  if (!fs::exists(filePath))
+  if (!fs::exists(filePath)) {
+    LOG_ERROR << "File does not exist: " << filePath;
     return false;
+  }
+  bool success = false;
   try {
     TagLib::FileRef f(filePath.c_str());
     if (!f.isNull() && f.tag()) {
       TagLib::Tag *tag = f.tag();
-      metadata.title = fixTagLibString(tag->title());
-      metadata.artist = fixTagLibString(tag->artist());
-      metadata.album = fixTagLibString(tag->album());
+      std::string title = fixTagLibString(tag->title());
+      std::string artist = fixTagLibString(tag->artist());
+      std::string album = fixTagLibString(tag->album());
+      LOG_INFO << "Raw tags from " << filePath << ": title='" << title << "'"
+               << ", artist='" << artist << "'"
+               << ", album='" << album << "'";
+      if (title.empty()) {
+        std::string filename = fs::path(filePath).stem().string();
+        std::regex trackPrefix(R"(^\s*\d{1,3}[\.\-\s]+\s*)");
+        title = std::regex_replace(filename, trackPrefix, "");
+        if (title.find_last_of('.') != std::string::npos) {
+          title = title.substr(0, title.find_last_of('.'));
+        }
+        LOG_INFO << "Title extracted from filename: '" << title << "'";
+      }
+      metadata.title = title.empty() ? "Unknown" : title;
+      metadata.artist = artist.empty() ? "Unknown" : artist;
+      metadata.album = album.empty() ? "Unknown" : album;
       metadata.genre = fixTagLibString(tag->genre());
-      if (f.audioProperties())
+      if (f.audioProperties()) {
         metadata.duration = f.audioProperties()->lengthInSeconds();
-      else
+      } else {
         metadata.duration = 0;
+      }
       metadata.track = tag->track();
       metadata.year = tag->year();
-      addMetadataToCache(filePath, metadata);
-      return true;
+      LOG_INFO << "Final metadata: title='" << metadata.title << "', artist='"
+               << metadata.artist << "'";
+      success = true;
     }
   } catch (const std::exception &e) {
-    std::cout << "Error extracting metadata: " << e.what() << '\n';
+    LOG_ERROR << "Error extracting metadata: " << e.what();
   }
-  std::string filename = fs::path(filePath).stem().string();
-  static const std::regex trackPrefix(R"(^\s*\d{1,2}[\.\-\s]+\s*)");
-  filename = std::regex_replace(filename, trackPrefix, "");
-  if (filename.find_last_of('.') != std::string::npos) {
-    filename = filename.substr(0, filename.find_last_of('.'));
+  if (!success) {
+    std::string filename = fs::path(filePath).stem().string();
+    std::regex trackPrefix(R"(^\s*\d{1,3}[\.\-\s]+\s*)");
+    filename = std::regex_replace(filename, trackPrefix, "");
+    metadata.title = filename.empty() ? "Unknown" : filename;
+    metadata.artist = "Unknown";
+    metadata.album = "Unknown";
+    metadata.duration = 0;
+    metadata.track = 0;
+    metadata.year = 0;
+    success = true;
   }
-  metadata.title = filename;
-  metadata.artist = "Unknown";
-  metadata.album = "Unknown";
-  addMetadataToCache(filePath, metadata);
-  return true;
+  if (success) {
+    addMetadataToCache(filePath, metadata);
+  }
+  return success;
 }
-
-// Остальные методы MusicController без изменений, только добавьте вызовы
-// addMetadataToCache в refreshFileMetadata и updateFileTags после успешного
-// обновления
 
 void MusicController::refreshFileMetadata(
     const drogon::HttpRequestPtr &req,
