@@ -2,9 +2,11 @@
 
 #include "database/MusicDatabase.h"
 #include "services/PlayerService.h"
+#include <chrono>
 #include <drogon/drogon.h>
 #include <mutex>
 #include <taglib/tstring.h>
+#include <unordered_map>
 
 class MusicController : public drogon::HttpController<MusicController> {
 public:
@@ -112,9 +114,18 @@ private:
     int newAlbumsCount = 0;
     std::chrono::steady_clock::time_point lastRescanTime;
   };
+  struct CachedMetadata {
+    MusicMetadata metadata;
+    std::chrono::steady_clock::time_point lastAccess;
+    std::vector<char> albumArt;
+    bool hasAlbumArt = false;
+  };
   std::string fixTagLibString(const TagLib::String &str);
   static RescanStatus rescanStatus_;
   static std::mutex rescanStatusMutex_;
+  std::unordered_map<std::string, CachedMetadata> metadataCache_;
+  std::mutex cacheMutex_;
+  static constexpr size_t MAX_CACHE_SIZE = 500;
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
   bool extractMetadataWithTagEditor(const std::string &filePath,
                                     MusicMetadata &metadata);
@@ -124,4 +135,8 @@ private:
                        std::vector<char> &albumArt);
   void scanNewFiles();
   void removeMissingFiles();
+  MusicMetadata *getMetadataFromCache(const std::string &filePath);
+  void addMetadataToCache(const std::string &filePath,
+                          const MusicMetadata &metadata);
+  void cleanupCache();
 };

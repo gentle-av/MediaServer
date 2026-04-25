@@ -45,21 +45,36 @@ static const char *mpv_event_name(int event_id) {
 
 Player::Player() : mpv_(nullptr), running_(true) {
   mpv_ = mpv_create();
-  mpv_set_option_string(mpv_, "volume", "100");
+  if (!mpv_) {
+    std::cerr << "[Player] Failed to create mpv handle" << std::endl;
+    return;
+  }
+  mpv_set_option_string(mpv_, "ao", "pulse");
   mpv_set_option_string(mpv_, "cache", "yes");
-  mpv_set_option_string(mpv_, "cache-secs", "2");
+  mpv_set_option_string(mpv_, "cache-secs", "10"); // Было 2
+  mpv_set_option_string(mpv_, "demuxer-max-bytes", "100M");
+  mpv_set_option_string(mpv_, "demuxer-max-back-bytes", "50M");
+  mpv_set_option_string(mpv_, "demuxer-readahead-secs", "10");
+  mpv_set_option_string(mpv_, "audio-buffer", "1.0");   // 1 секунда буфера
+  mpv_set_option_string(mpv_, "audio-exclusive", "no"); // НЕ эксклюзивный!
+  mpv_set_option_string(mpv_, "audio-pitch-correction", "yes");
   mpv_set_option_string(mpv_, "video", "no");
   mpv_set_option_string(mpv_, "vo", "null");
   mpv_set_option_string(mpv_, "osc", "no");
   mpv_set_option_string(mpv_, "idle", "yes");
-  mpv_set_option_string(mpv_, "keep-open", "no");
-  mpv_set_option_string(mpv_, "keep-open-pause", "no");
   mpv_set_option_string(mpv_, "gapless-audio", "yes");
-  mpv_initialize(mpv_);
+  mpv_set_option_string(mpv_, "keep-open", "no");
+  mpv_set_option_string(mpv_, "volume", "100");
+  mpv_set_option_string(mpv_, "rtc", "no");
   mpv_request_log_messages(mpv_, "info");
   mpv_set_wakeup_callback(mpv_, onMpvWakeup, this);
+  int init_result = mpv_initialize(mpv_);
+  if (init_result < 0) {
+    std::cerr << "[Player] mpv_initialize failed: " << init_result << std::endl;
+  }
   eventThread_ = std::thread(&Player::eventLoop, this);
-  std::cout << "[Player] Constructor" << std::endl;
+  std::cout << "[Player] Constructor completed with optimized settings"
+            << std::endl;
 }
 
 Player::~Player() {

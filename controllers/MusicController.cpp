@@ -1,3 +1,5 @@
+// MusicController.cpp - добавьте методы кэша и измените extractMetadata
+
 #include "controllers/MusicController.h"
 #include "services/AlbumArtExtractor.h"
 #include "tagger/TagEditor.h"
@@ -34,6 +36,271 @@ MusicController::MusicController() {
 
 void MusicController::setPlayerService(std::shared_ptr<PlayerService> service) {
   playerService_ = service;
+}
+
+MusicMetadata *
+MusicController::getMetadataFromCache(const std::string &filePath) {
+  std::lock_guard<std::mutex> lock(cacheMutex_);
+  auto it = metadataCache_.find(filePath);
+  if (it != metadataCache_.end()) {
+    it->second.lastAccess = std::chrono::steady_clock::now();
+    return &it->second.metadata;
+  }
+  return nullptr;
+}
+
+void MusicController::addMetadataToCache(const std::string &filePath,
+                                         const MusicMetadata &metadata) {
+  std::lock_guard<std::mutex> lock(cacheMutex_);
+  if (metadataCache_.size() >= MAX_CACHE_SIZE) {
+    cleanupCache();
+  }
+  CachedMetadata cached;
+  cached.metadata = metadata;
+  cached.lastAccess = std::chrono::steady_clock::now();
+  metadataCache_[filePath] = cached;
+}
+
+void MusicController::cleanupCache() {
+  auto now = std::chrono::steady_clock::now();
+  for (auto it = metadataCache_.begin(); it != metadataCache_.end();) {
+    auto age = std::chrono::duration_cast<std::chrono::seconds>(
+                   now - it->second.lastAccess)
+                   .count();
+    if (age > 3600) {
+      it = metadataCache_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  if (metadataCache_.size() > MAX_CACHE_SIZE) {
+    size_t toErase = metadataCache_.size() - MAX_CACHE_SIZE;
+    auto it = metadataCache_.begin();
+    for (size_t i = 0; i < toErase && it != metadataCache_.end(); ++i) {
+      it = metadataCache_.erase(it);
+    }
+  }
+}
+
+bool MusicController::extractMetadata(const std::string &filePath,
+                                      MusicMetadata &metadata) {
+  MusicMetadata *cached = getMetadataFromCache(filePath);
+  if (cached) {
+    metadata = *cached;
+    return true;
+  }
+  if (!fs::exists(filePath))
+    return false;
+  try {
+    TagLib::FileRef f(filePath.c_str());
+    if (!f.isNull() && f.tag()) {
+      TagLib::Tag *tag = f.tag();
+      metadata.title = fixTagLibString(tag->title());
+      metadata.artist = fixTagLibString(tag->artist());
+      metadata.album = fixTagLibString(tag->album());
+      metadata.genre = fixTagLibString(tag->genre());
+      if (f.audioProperties())
+        metadata.duration = f.audioProperties()->lengthInSeconds();
+      else
+        metadata.duration = 0;
+      metadata.track = tag->track();
+      metadata.year = tag->year();
+      addMetadataToCache(filePath, metadata);
+      return true;
+    }
+  } catch (const std::exception &e) {
+    std::cout << "Error extracting metadata: " << e.what() << '\n';
+  }
+  std::string filename = fs::path(filePath).stem().string();
+  static const std::regex trackPrefix(R"(^\s*\d{1,2}[\.\-\s]+\s*)");
+  filename = std::regex_replace(filename, trackPrefix, "");
+  if (filename.find_last_of('.') != std::string::npos) {
+    filename = filename.substr(0, filename.find_last_of('.'));
+  }
+  metadata.title = filename;
+  metadata.artist = "Unknown";
+  metadata.album = "Unknown";
+  addMetadataToCache(filePath, metadata);
+  return true;
+}
+
+// Остальные методы MusicController без изменений, только добавьте вызовы
+// addMetadataToCache в refreshFileMetadata и updateFileTags после успешного
+// обновления
+
+void MusicController::refreshFileMetadata(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path")) {
+    response["status"] = "error";
+    response["message"] = "Parameter 'path' is required in JSON body";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string filePath = (*json)["path"].asString();
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  try {
+    if (!fs::exists(decodedPath)) {
+      response["status"] = "error";
+      response["message"] = "File does not exist";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k404NotFound);
+      callback(resp);
+      return;
+    }
+    MusicMetadata metadata;
+    if (extractMetadata(decodedPath, metadata)) {
+      if (db_->addFile(decodedPath, metadata)) {
+        LOG_INFO << "Refreshed metadata for: " << decodedPath;
+        std::vector<char> albumArt;
+        if (extractAlbumArt(decodedPath, albumArt)) {
+          db_->saveAlbumArt(decodedPath, albumArt);
+        }
+        {
+          std::lock_guard<std::mutex> lock(cacheMutex_);
+          metadataCache_.erase(decodedPath);
+        }
+        addMetadataToCache(decodedPath, metadata);
+        response["status"] = "success";
+        response["message"] = "Metadata refreshed";
+        Json::Value dataObj;
+        dataObj["path"] = decodedPath;
+        dataObj["title"] = metadata.title;
+        dataObj["artist"] = metadata.artist;
+        dataObj["album"] = metadata.album;
+        dataObj["track"] = metadata.track;
+        response["data"] = dataObj;
+      } else {
+        response["status"] = "error";
+        response["message"] = "Failed to save metadata to database";
+      }
+    } else {
+      response["status"] = "error";
+      response["message"] = "Failed to extract metadata from file";
+    }
+  } catch (const std::exception &e) {
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
+}
+
+void MusicController::updateFileTags(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  auto json = req->getJsonObject();
+  std::cout << "[DEBUG] updateFileTags called" << std::endl;
+  if (!json) {
+    std::cout << "[DEBUG] No JSON body" << std::endl;
+    response["status"] = "error";
+    response["message"] = "Invalid JSON body";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  if (!json->isMember("path")) {
+    std::cout << "[DEBUG] No path parameter" << std::endl;
+    response["status"] = "error";
+    response["message"] = "Parameter 'path' is required";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string filePath = (*json)["path"].asString();
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  std::cout << "[DEBUG] Path: " << decodedPath << std::endl;
+  try {
+    if (!fs::exists(decodedPath)) {
+      std::cout << "[DEBUG] File does not exist" << std::endl;
+      response["status"] = "error";
+      response["message"] = "File does not exist: " + decodedPath;
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k404NotFound);
+      callback(resp);
+      return;
+    }
+    MusicMetadata newMetadata;
+    if (json->isMember("title")) {
+      newMetadata.title = (*json)["title"].asString();
+      std::cout << "[DEBUG] Title from JSON: " << newMetadata.title
+                << std::endl;
+    }
+    if (json->isMember("artist")) {
+      newMetadata.artist = (*json)["artist"].asString();
+      std::cout << "[DEBUG] Artist from JSON: " << newMetadata.artist
+                << std::endl;
+    }
+    if (json->isMember("album")) {
+      newMetadata.album = (*json)["album"].asString();
+      std::cout << "[DEBUG] Album from JSON: " << newMetadata.album
+                << std::endl;
+    }
+    if (json->isMember("genre")) {
+      newMetadata.genre = (*json)["genre"].asString();
+    }
+    if (json->isMember("track")) {
+      newMetadata.track = (*json)["track"].asInt();
+      std::cout << "[DEBUG] Track from JSON: " << newMetadata.track
+                << std::endl;
+    }
+    if (json->isMember("year")) {
+      newMetadata.year = (*json)["year"].asInt();
+      std::cout << "[DEBUG] Year from JSON: " << newMetadata.year << std::endl;
+    }
+    bool tagsUpdated = updateFileTagsInternal(decodedPath, newMetadata);
+    if (!tagsUpdated) {
+      std::cout << "[DEBUG] updateFileTagsInternal returned false" << std::endl;
+      response["status"] = "error";
+      response["message"] =
+          "Failed to update tags in file. Only FLAC files are supported.";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k500InternalServerError);
+      callback(resp);
+      return;
+    }
+    MusicMetadata updatedMetadata;
+    if (extractMetadata(decodedPath, updatedMetadata)) {
+      db_->addFile(decodedPath, updatedMetadata);
+      {
+        std::lock_guard<std::mutex> lock(cacheMutex_);
+        metadataCache_.erase(decodedPath);
+      }
+      addMetadataToCache(decodedPath, updatedMetadata);
+      if (json->isMember("album")) {
+        std::vector<char> albumArt;
+        if (extractAlbumArt(decodedPath, albumArt)) {
+          db_->saveAlbumArt(decodedPath, albumArt);
+        }
+      }
+    }
+    response["status"] = "success";
+    response["message"] = "Tags updated successfully";
+    Json::Value dataObj;
+    dataObj["path"] = decodedPath;
+    dataObj["title"] = newMetadata.title;
+    dataObj["artist"] = newMetadata.artist;
+    dataObj["album"] = newMetadata.album;
+    dataObj["track"] = newMetadata.track;
+    dataObj["year"] = newMetadata.year;
+    dataObj["genre"] = newMetadata.genre;
+    response["data"] = dataObj;
+  } catch (const std::exception &e) {
+    std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
+    response["status"] = "error";
+    response["message"] = e.what();
+  }
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  resp->setStatusCode(drogon::k200OK);
+  callback(resp);
 }
 
 void MusicController::listFiles(
@@ -278,41 +545,6 @@ std::string MusicController::fixTagLibString(const TagLib::String &str) {
     }
   }
   return result;
-}
-
-bool MusicController::extractMetadata(const std::string &filePath,
-                                      MusicMetadata &metadata) {
-  if (!fs::exists(filePath))
-    return false;
-  try {
-    TagLib::FileRef f(filePath.c_str());
-    if (!f.isNull() && f.tag()) {
-      TagLib::Tag *tag = f.tag();
-      metadata.title = fixTagLibString(tag->title());
-      metadata.artist = fixTagLibString(tag->artist());
-      metadata.album = fixTagLibString(tag->album());
-      metadata.genre = fixTagLibString(tag->genre());
-      if (f.audioProperties())
-        metadata.duration = f.audioProperties()->lengthInSeconds();
-      else
-        metadata.duration = 0;
-      metadata.track = tag->track();
-      metadata.year = tag->year();
-      return true;
-    }
-  } catch (const std::exception &e) {
-    std::cout << "Error extracting metadata: " << e.what() << '\n';
-  }
-  std::string filename = fs::path(filePath).stem().string();
-  static const std::regex trackPrefix(R"(^\s*\d{1,2}[\.\-\s]+\s*)");
-  filename = std::regex_replace(filename, trackPrefix, "");
-  if (filename.find_last_of('.') != std::string::npos) {
-    filename = filename.substr(0, filename.find_last_of('.'));
-  }
-  metadata.title = filename;
-  metadata.artist = "Unknown";
-  metadata.album = "Unknown";
-  return true;
 }
 
 bool MusicController::extractAlbumArt(const std::string &filePath,
@@ -597,64 +829,6 @@ void MusicController::getFileMetadata(
   callback(resp);
 }
 
-void MusicController::refreshFileMetadata(
-    const drogon::HttpRequestPtr &req,
-    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  Json::Value response;
-  auto json = req->getJsonObject();
-  if (!json || !json->isMember("path")) {
-    response["status"] = "error";
-    response["message"] = "Parameter 'path' is required in JSON body";
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(drogon::k400BadRequest);
-    callback(resp);
-    return;
-  }
-  std::string filePath = (*json)["path"].asString();
-  std::string decodedPath = drogon::utils::urlDecode(filePath);
-  try {
-    if (!fs::exists(decodedPath)) {
-      response["status"] = "error";
-      response["message"] = "File does not exist";
-      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-      resp->setStatusCode(drogon::k404NotFound);
-      callback(resp);
-      return;
-    }
-    MusicMetadata metadata;
-    if (extractMetadata(decodedPath, metadata)) {
-      if (db_->addFile(decodedPath, metadata)) {
-        LOG_INFO << "Refreshed metadata for: " << decodedPath;
-        std::vector<char> albumArt;
-        if (extractAlbumArt(decodedPath, albumArt)) {
-          db_->saveAlbumArt(decodedPath, albumArt);
-        }
-        response["status"] = "success";
-        response["message"] = "Metadata refreshed";
-        Json::Value dataObj;
-        dataObj["path"] = decodedPath;
-        dataObj["title"] = metadata.title;
-        dataObj["artist"] = metadata.artist;
-        dataObj["album"] = metadata.album;
-        dataObj["track"] = metadata.track;
-        response["data"] = dataObj;
-      } else {
-        response["status"] = "error";
-        response["message"] = "Failed to save metadata to database";
-      }
-    } else {
-      response["status"] = "error";
-      response["message"] = "Failed to extract metadata from file";
-    }
-  } catch (const std::exception &e) {
-    response["status"] = "error";
-    response["message"] = e.what();
-  }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
-}
-
 void MusicController::getDatabaseStats(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
@@ -898,113 +1072,6 @@ bool MusicController::updateFileTagsInternal(const std::string &filePath,
     std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
     return false;
   }
-}
-
-void MusicController::updateFileTags(
-    const drogon::HttpRequestPtr &req,
-    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  Json::Value response;
-  auto json = req->getJsonObject();
-  std::cout << "[DEBUG] updateFileTags called" << std::endl;
-  if (!json) {
-    std::cout << "[DEBUG] No JSON body" << std::endl;
-    response["status"] = "error";
-    response["message"] = "Invalid JSON body";
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(drogon::k400BadRequest);
-    callback(resp);
-    return;
-  }
-  if (!json->isMember("path")) {
-    std::cout << "[DEBUG] No path parameter" << std::endl;
-    response["status"] = "error";
-    response["message"] = "Parameter 'path' is required";
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(drogon::k400BadRequest);
-    callback(resp);
-    return;
-  }
-  std::string filePath = (*json)["path"].asString();
-  std::string decodedPath = drogon::utils::urlDecode(filePath);
-  std::cout << "[DEBUG] Path: " << decodedPath << std::endl;
-  try {
-    if (!fs::exists(decodedPath)) {
-      std::cout << "[DEBUG] File does not exist" << std::endl;
-      response["status"] = "error";
-      response["message"] = "File does not exist: " + decodedPath;
-      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-      resp->setStatusCode(drogon::k404NotFound);
-      callback(resp);
-      return;
-    }
-    MusicMetadata newMetadata;
-    if (json->isMember("title")) {
-      newMetadata.title = (*json)["title"].asString();
-      std::cout << "[DEBUG] Title from JSON: " << newMetadata.title
-                << std::endl;
-    }
-    if (json->isMember("artist")) {
-      newMetadata.artist = (*json)["artist"].asString();
-      std::cout << "[DEBUG] Artist from JSON: " << newMetadata.artist
-                << std::endl;
-    }
-    if (json->isMember("album")) {
-      newMetadata.album = (*json)["album"].asString();
-      std::cout << "[DEBUG] Album from JSON: " << newMetadata.album
-                << std::endl;
-    }
-    if (json->isMember("genre")) {
-      newMetadata.genre = (*json)["genre"].asString();
-    }
-    if (json->isMember("track")) {
-      newMetadata.track = (*json)["track"].asInt();
-      std::cout << "[DEBUG] Track from JSON: " << newMetadata.track
-                << std::endl;
-    }
-    if (json->isMember("year")) {
-      newMetadata.year = (*json)["year"].asInt();
-      std::cout << "[DEBUG] Year from JSON: " << newMetadata.year << std::endl;
-    }
-    bool tagsUpdated = updateFileTagsInternal(decodedPath, newMetadata);
-    if (!tagsUpdated) {
-      std::cout << "[DEBUG] updateFileTagsInternal returned false" << std::endl;
-      response["status"] = "error";
-      response["message"] =
-          "Failed to update tags in file. Only FLAC files are supported.";
-      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-      resp->setStatusCode(drogon::k500InternalServerError);
-      callback(resp);
-      return;
-    }
-    MusicMetadata updatedMetadata;
-    if (extractMetadata(decodedPath, updatedMetadata)) {
-      db_->addFile(decodedPath, updatedMetadata);
-      if (json->isMember("album")) {
-        std::vector<char> albumArt;
-        if (extractAlbumArt(decodedPath, albumArt)) {
-          db_->saveAlbumArt(decodedPath, albumArt);
-        }
-      }
-    }
-    response["status"] = "success";
-    response["message"] = "Tags updated successfully";
-    Json::Value dataObj;
-    dataObj["path"] = decodedPath;
-    dataObj["title"] = newMetadata.title;
-    dataObj["artist"] = newMetadata.artist;
-    dataObj["album"] = newMetadata.album;
-    dataObj["track"] = newMetadata.track;
-    dataObj["year"] = newMetadata.year;
-    dataObj["genre"] = newMetadata.genre;
-    response["data"] = dataObj;
-  } catch (const std::exception &e) {
-    std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
-    response["status"] = "error";
-    response["message"] = e.what();
-  }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
 }
 
 void MusicController::deleteAlbum(
