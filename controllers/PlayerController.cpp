@@ -1,5 +1,8 @@
 #include "PlayerController.h"
 #include "player/Player.h"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 std::shared_ptr<PlayerService> PlayerController::playerService_ = nullptr;
 
@@ -301,6 +304,19 @@ void PlayerController::handleGetPlaybackState(
     return;
   }
   Json::Value state = playerService_->getPlaybackState();
+  if (state.isMember("currentTrack") &&
+      !state["currentTrack"].asString().empty()) {
+    std::string trackPath = state["currentTrack"].asString();
+    size_t lastSlash = trackPath.find_last_of('/');
+    std::string filename = (lastSlash != std::string::npos)
+                               ? trackPath.substr(lastSlash + 1)
+                               : trackPath;
+    size_t extPos = filename.find_last_of('.');
+    if (extPos != std::string::npos) {
+      filename = filename.substr(0, extPos);
+    }
+    state["currentTrackName"] = filename;
+  }
   auto resp =
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", state));
   callback(resp);
