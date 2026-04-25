@@ -26,6 +26,7 @@ public:
   ADD_METHOD_TO(VideoController::seekMpv, "/api/mpv/seek", Post);
   ADD_METHOD_TO(VideoController::getMpvProperty, "/api/mpv/property/{name}",
                 Get);
+  ADD_METHOD_TO(VideoController::closeVideo, "/api/video/close", Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
@@ -54,6 +55,8 @@ public:
   void getMpvProperty(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback,
                       const std::string &propertyName);
+  void closeVideo(const HttpRequestPtr &req,
+                  std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;
@@ -62,5 +65,5 @@ private:
   Json::Value getFileInfo(const fs::path &path);
   bool isVideoFile(const std::string &filename);
   std::string formatFileSize(uintmax_t size);
-  std::string activeSocket_;
+  static std::string activeSocket_;
 };

@@ -12,6 +12,7 @@
 
 std::shared_ptr<PlayerService> VideoController::playerService_ = nullptr;
 extern Profiler *g_profiler;
+std::string VideoController::activeSocket_ = "";
 
 void VideoController::setPlayerService(std::shared_ptr<PlayerService> service) {
   playerService_ = service;
@@ -135,8 +136,10 @@ void VideoController::listFiles(
 void VideoController::openVideo(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+  std::cout << "=== openVideo called ===" << std::endl;
   auto json = req->getJsonObject();
   if (!json || !json->isMember("path")) {
+    std::cout << "ERROR: No path in request" << std::endl;
     Json::Value response;
     response["success"] = false;
     response["error"] = "No path provided";
@@ -146,7 +149,9 @@ void VideoController::openVideo(
     return;
   }
   std::string path = (*json)["path"].asString();
+  std::cout << "Path: " << path << std::endl;
   if (path.find("/mnt/video") != 0) {
+    std::cout << "ERROR: Access denied - path not in /mnt/video" << std::endl;
     Json::Value response;
     response["success"] = false;
     response["error"] = "Access denied";
@@ -156,6 +161,7 @@ void VideoController::openVideo(
     return;
   }
   if (!fs::exists(path)) {
+    std::cout << "ERROR: File not found" << std::endl;
     Json::Value response;
     response["success"] = false;
     response["error"] = "File not found";
@@ -167,10 +173,13 @@ void VideoController::openVideo(
   static int socketCounter = 0;
   activeSocket_ = "/tmp/mpv-socket-" + std::to_string(getpid()) + "-" +
                   std::to_string(socketCounter++);
+  std::cout << "Created socket: " << activeSocket_ << std::endl;
   std::string cmd =
       "mpv --fs --vo=gpu-next --hwdec=auto-safe --input-ipc-server=" +
       activeSocket_ + " \"" + path + "\" > /dev/null 2>&1 &";
+  std::cout << "Executing: " << cmd << std::endl;
   int result = system(cmd.c_str());
+  std::cout << "system() result: " << result << std::endl;
   Json::Value response;
   response["success"] = (result == 0);
   response["socket"] = activeSocket_;
@@ -704,6 +713,29 @@ void VideoController::getMpvProperty(
   response["success"] = true;
   response["property"] = propertyName;
   response["value"] = result_str;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void VideoController::closeVideo(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  std::cout << "=== closeVideo: activeSocket_ = '" << activeSocket_ << "'"
+            << std::endl;
+  if (!activeSocket_.empty()) {
+    std::string quitCmd = "echo '{\"command\": [\"quit\"]}' | socat - " +
+                          activeSocket_ + " 2>/dev/null";
+    std::cout << "Quit command: " << quitCmd << std::endl;
+    int ret = system(quitCmd.c_str());
+    std::cout << "Quit result: " << ret << std::endl;
+    activeSocket_.clear();
+    response["success"] = true;
+    response["message"] = "Video closed and socket cleared";
+  } else {
+    response["success"] = true;
+    response["message"] = "No active video to close";
+  }
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
