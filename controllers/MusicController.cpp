@@ -1,5 +1,3 @@
-// MusicController.cpp - добавьте методы кэша и измените extractMetadata
-
 #include "controllers/MusicController.h"
 #include "services/AlbumArtExtractor.h"
 #include "tagger/TagEditor.h"
@@ -87,8 +85,6 @@ bool MusicController::extractMetadata(const std::string &filePath,
   MusicMetadata *cached = getMetadataFromCache(filePath);
   if (cached) {
     metadata = *cached;
-    LOG_INFO << "Using cached metadata for: " << filePath
-             << " title: " << metadata.title;
     return true;
   }
   if (!fs::exists(filePath)) {
@@ -103,9 +99,6 @@ bool MusicController::extractMetadata(const std::string &filePath,
       std::string title = fixTagLibString(tag->title());
       std::string artist = fixTagLibString(tag->artist());
       std::string album = fixTagLibString(tag->album());
-      LOG_INFO << "Raw tags from " << filePath << ": title='" << title << "'"
-               << ", artist='" << artist << "'"
-               << ", album='" << album << "'";
       if (title.empty()) {
         std::string filename = fs::path(filePath).stem().string();
         std::regex trackPrefix(R"(^\s*\d{1,3}[\.\-\s]+\s*)");
@@ -113,7 +106,6 @@ bool MusicController::extractMetadata(const std::string &filePath,
         if (title.find_last_of('.') != std::string::npos) {
           title = title.substr(0, title.find_last_of('.'));
         }
-        LOG_INFO << "Title extracted from filename: '" << title << "'";
       }
       metadata.title = title.empty() ? "Unknown" : title;
       metadata.artist = artist.empty() ? "Unknown" : artist;
@@ -126,8 +118,6 @@ bool MusicController::extractMetadata(const std::string &filePath,
       }
       metadata.track = tag->track();
       metadata.year = tag->year();
-      LOG_INFO << "Final metadata: title='" << metadata.title << "', artist='"
-               << metadata.artist << "'";
       success = true;
     }
   } catch (const std::exception &e) {
@@ -219,9 +209,7 @@ void MusicController::updateFileTags(
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value response;
   auto json = req->getJsonObject();
-  std::cout << "[DEBUG] updateFileTags called" << std::endl;
   if (!json) {
-    std::cout << "[DEBUG] No JSON body" << std::endl;
     response["status"] = "error";
     response["message"] = "Invalid JSON body";
     auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -230,7 +218,6 @@ void MusicController::updateFileTags(
     return;
   }
   if (!json->isMember("path")) {
-    std::cout << "[DEBUG] No path parameter" << std::endl;
     response["status"] = "error";
     response["message"] = "Parameter 'path' is required";
     auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -240,10 +227,8 @@ void MusicController::updateFileTags(
   }
   std::string filePath = (*json)["path"].asString();
   std::string decodedPath = drogon::utils::urlDecode(filePath);
-  std::cout << "[DEBUG] Path: " << decodedPath << std::endl;
   try {
     if (!fs::exists(decodedPath)) {
-      std::cout << "[DEBUG] File does not exist" << std::endl;
       response["status"] = "error";
       response["message"] = "File does not exist: " + decodedPath;
       auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -254,34 +239,24 @@ void MusicController::updateFileTags(
     MusicMetadata newMetadata;
     if (json->isMember("title")) {
       newMetadata.title = (*json)["title"].asString();
-      std::cout << "[DEBUG] Title from JSON: " << newMetadata.title
-                << std::endl;
     }
     if (json->isMember("artist")) {
       newMetadata.artist = (*json)["artist"].asString();
-      std::cout << "[DEBUG] Artist from JSON: " << newMetadata.artist
-                << std::endl;
     }
     if (json->isMember("album")) {
       newMetadata.album = (*json)["album"].asString();
-      std::cout << "[DEBUG] Album from JSON: " << newMetadata.album
-                << std::endl;
     }
     if (json->isMember("genre")) {
       newMetadata.genre = (*json)["genre"].asString();
     }
     if (json->isMember("track")) {
       newMetadata.track = (*json)["track"].asInt();
-      std::cout << "[DEBUG] Track from JSON: " << newMetadata.track
-                << std::endl;
     }
     if (json->isMember("year")) {
       newMetadata.year = (*json)["year"].asInt();
-      std::cout << "[DEBUG] Year from JSON: " << newMetadata.year << std::endl;
     }
     bool tagsUpdated = updateFileTagsInternal(decodedPath, newMetadata);
     if (!tagsUpdated) {
-      std::cout << "[DEBUG] updateFileTagsInternal returned false" << std::endl;
       response["status"] = "error";
       response["message"] =
           "Failed to update tags in file. Only FLAC files are supported.";
@@ -317,7 +292,6 @@ void MusicController::updateFileTags(
     dataObj["genre"] = newMetadata.genre;
     response["data"] = dataObj;
   } catch (const std::exception &e) {
-    std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
     response["status"] = "error";
     response["message"] = e.what();
   }
@@ -377,13 +351,36 @@ void MusicController::getArtists(
     }
     response["status"] = "success";
     response["artists"] = artistsJson;
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
+    std::string jsonStr = Json::writeString(builder, response);
+    bool clientSupportsGzip = false;
+    auto acceptEncoding = req->getHeader("accept-encoding");
+    if (acceptEncoding.find("gzip") != std::string::npos) {
+      clientSupportsGzip = true;
+    }
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k200OK);
+    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    if (clientSupportsGzip && jsonStr.size() > 1024) {
+      std::string compressed =
+          drogon::utils::gzipCompress(jsonStr.data(), jsonStr.size());
+      if (!compressed.empty() && compressed.size() < jsonStr.size()) {
+        resp->addHeader("Content-Encoding", "gzip");
+        resp->setBody(std::move(compressed));
+      } else {
+        resp->setBody(std::move(jsonStr));
+      }
+    } else {
+      resp->setBody(std::move(jsonStr));
+    }
+    callback(resp);
   } catch (const std::exception &e) {
     response["status"] = "error";
     response["message"] = e.what();
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
   }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
 }
 
 void MusicController::getAlbums(
@@ -403,13 +400,107 @@ void MusicController::getAlbums(
     }
     response["status"] = "success";
     response["albums"] = albumsJson;
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
+    std::string jsonStr = Json::writeString(builder, response);
+    bool clientSupportsGzip = false;
+    auto acceptEncoding = req->getHeader("accept-encoding");
+    if (acceptEncoding.find("gzip") != std::string::npos) {
+      clientSupportsGzip = true;
+    }
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k200OK);
+    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    if (clientSupportsGzip && jsonStr.size() > 1024) {
+      std::string compressed =
+          drogon::utils::gzipCompress(jsonStr.data(), jsonStr.size());
+      if (!compressed.empty() && compressed.size() < jsonStr.size()) {
+        resp->addHeader("Content-Encoding", "gzip");
+        resp->setBody(std::move(compressed));
+      } else {
+        resp->setBody(std::move(jsonStr));
+      }
+    } else {
+      resp->setBody(std::move(jsonStr));
+    }
+    callback(resp);
   } catch (const std::exception &e) {
     response["status"] = "error";
     response["message"] = e.what();
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
   }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
+}
+
+void MusicController::getAlbumsPaginated(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  try {
+    std::string artistFilter = req->getParameter("artist");
+    int page = req->getParameter("page").empty()
+                   ? 1
+                   : std::stoi(req->getParameter("page"));
+    int pageSize = req->getParameter("pageSize").empty()
+                       ? DEFAULT_PAGE_SIZE
+                       : std::stoi(req->getParameter("pageSize"));
+    if (pageSize > MAX_PAGE_SIZE)
+      pageSize = MAX_PAGE_SIZE;
+    if (page < 1)
+      page = 1;
+    int offset = (page - 1) * pageSize;
+    auto allAlbums = db_->getAlbums(artistFilter);
+    int totalCount = allAlbums.size();
+    int totalPages = (totalCount + pageSize - 1) / pageSize;
+    Json::Value albumsJson(Json::arrayValue);
+    int start = offset;
+    int end = std::min(offset + pageSize, totalCount);
+    for (int i = start; i < end; ++i) {
+      const auto &[album, artist, year] = allAlbums[i];
+      Json::Value albumObj;
+      albumObj["album"] = album;
+      albumObj["artist"] = artist;
+      albumObj["year"] = year;
+      albumsJson.append(albumObj);
+    }
+    response["status"] = "success";
+    response["albums"] = albumsJson;
+    response["pagination"]["currentPage"] = page;
+    response["pagination"]["pageSize"] = pageSize;
+    response["pagination"]["totalCount"] = totalCount;
+    response["pagination"]["totalPages"] = totalPages;
+    response["pagination"]["hasNext"] = page < totalPages;
+    response["pagination"]["hasPrev"] = page > 1;
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
+    std::string jsonStr = Json::writeString(builder, response);
+    bool clientSupportsGzip = false;
+    auto acceptEncoding = req->getHeader("accept-encoding");
+    if (acceptEncoding.find("gzip") != std::string::npos) {
+      clientSupportsGzip = true;
+    }
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k200OK);
+    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    if (clientSupportsGzip && jsonStr.size() > 1024) {
+      std::string compressed =
+          drogon::utils::gzipCompress(jsonStr.data(), jsonStr.size());
+      if (!compressed.empty() && compressed.size() < jsonStr.size()) {
+        resp->addHeader("Content-Encoding", "gzip");
+        resp->setBody(std::move(compressed));
+      } else {
+        resp->setBody(std::move(jsonStr));
+      }
+    } else {
+      resp->setBody(std::move(jsonStr));
+    }
+    callback(resp);
+  } catch (const std::exception &e) {
+    response["status"] = "error";
+    response["message"] = e.what();
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+  }
 }
 
 void MusicController::getAlbumArt(
@@ -629,13 +720,36 @@ void MusicController::getTracksByArtist(
     response["status"] = "success";
     response["tracks"] = tracksJson;
     response["count"] = static_cast<int>(tracks.size());
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
+    std::string jsonStr = Json::writeString(builder, response);
+    bool clientSupportsGzip = false;
+    auto acceptEncoding = req->getHeader("accept-encoding");
+    if (acceptEncoding.find("gzip") != std::string::npos) {
+      clientSupportsGzip = true;
+    }
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k200OK);
+    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    if (clientSupportsGzip && jsonStr.size() > 1024) {
+      std::string compressed =
+          drogon::utils::gzipCompress(jsonStr.data(), jsonStr.size());
+      if (!compressed.empty() && compressed.size() < jsonStr.size()) {
+        resp->addHeader("Content-Encoding", "gzip");
+        resp->setBody(std::move(compressed));
+      } else {
+        resp->setBody(std::move(jsonStr));
+      }
+    } else {
+      resp->setBody(std::move(jsonStr));
+    }
+    callback(resp);
   } catch (const std::exception &e) {
     response["status"] = "error";
     response["message"] = e.what();
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
   }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
 }
 
 void MusicController::getTracksByAlbum(
@@ -663,13 +777,36 @@ void MusicController::getTracksByAlbum(
     response["status"] = "success";
     response["tracks"] = tracksJson;
     response["count"] = static_cast<int>(tracks.size());
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
+    std::string jsonStr = Json::writeString(builder, response);
+    bool clientSupportsGzip = false;
+    auto acceptEncoding = req->getHeader("accept-encoding");
+    if (acceptEncoding.find("gzip") != std::string::npos) {
+      clientSupportsGzip = true;
+    }
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k200OK);
+    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    if (clientSupportsGzip && jsonStr.size() > 1024) {
+      std::string compressed =
+          drogon::utils::gzipCompress(jsonStr.data(), jsonStr.size());
+      if (!compressed.empty() && compressed.size() < jsonStr.size()) {
+        resp->addHeader("Content-Encoding", "gzip");
+        resp->setBody(std::move(compressed));
+      } else {
+        resp->setBody(std::move(jsonStr));
+      }
+    } else {
+      resp->setBody(std::move(jsonStr));
+    }
+    callback(resp);
   } catch (const std::exception &e) {
     response["status"] = "error";
     response["message"] = e.what();
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
   }
-  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-  resp->setStatusCode(drogon::k200OK);
-  callback(resp);
 }
 
 void MusicController::getAlbumArtByAlbum(
@@ -678,24 +815,18 @@ void MusicController::getAlbumArtByAlbum(
     const std::string &album) {
   std::string decodedAlbum = drogon::utils::urlDecode(album);
   std::string artistFilter = req->getParameter("artist");
-  std::cout << "Looking for album art: " << decodedAlbum
-            << " artist: " << artistFilter << '\n';
   std::string filePath = db_->getFilePathByAlbum(decodedAlbum, artistFilter);
   if (filePath.empty()) {
-    std::cout << "No file path found for album: " << decodedAlbum << '\n';
     auto resp = drogon::HttpResponse::newNotFoundResponse();
     callback(resp);
     return;
   }
-  std::cout << "Found file path: " << filePath << '\n';
   auto albumArt = db_->getAlbumArt(filePath);
   if (albumArt.data.empty()) {
-    std::cout << "No album art data for: " << filePath << '\n';
     auto resp = drogon::HttpResponse::newNotFoundResponse();
     callback(resp);
     return;
   }
-  LOG_INFO << "Album art size: " << albumArt.data.size();
   auto resp = drogon::HttpResponse::newHttpResponse();
   std::string mimeType = albumArt.mimeType;
   if (mimeType.empty()) {
@@ -1045,54 +1176,39 @@ bool MusicController::extractMetadataWithTagEditor(const std::string &filePath,
 
 bool MusicController::updateFileTagsInternal(const std::string &filePath,
                                              const MusicMetadata &metadata) {
-  std::cout << "[DEBUG] updateFileTagsInternal called for: " << filePath
-            << std::endl;
   std::string ext = fs::path(filePath).extension().string();
-  std::cout << "[DEBUG] File extension: '" << ext << "'" << std::endl;
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  std::cout << "[DEBUG] Normalized extension: '" << ext << "'" << std::endl;
   if (ext != ".flac") {
-    std::cout << "[DEBUG] Not a FLAC file, returning false" << std::endl;
     return false;
   }
   try {
     TagEditor editor(filePath);
     if (!editor.load()) {
-      std::cout << "[DEBUG] Failed to load file with TagEditor" << std::endl;
       return false;
     }
-    std::cout << "[DEBUG] TagEditor loaded successfully" << std::endl;
     if (!metadata.title.empty()) {
       editor.setTitle(metadata.title);
-      std::cout << "[DEBUG] Set title to: " << metadata.title << std::endl;
     }
     if (!metadata.artist.empty()) {
       editor.setArtist(metadata.artist);
-      std::cout << "[DEBUG] Set artist to: " << metadata.artist << std::endl;
     }
     if (!metadata.album.empty()) {
       editor.setAlbum(metadata.album);
-      std::cout << "[DEBUG] Set album to: " << metadata.album << std::endl;
     }
     if (!metadata.genre.empty()) {
       editor.setGenre(metadata.genre);
     }
     if (metadata.track > 0) {
       editor.setTrackNumber(metadata.track);
-      std::cout << "[DEBUG] Set track to: " << metadata.track << std::endl;
     }
     if (metadata.year > 0) {
       editor.setDate(std::to_string(metadata.year));
-      std::cout << "[DEBUG] Set year to: " << metadata.year << std::endl;
     }
     if (!editor.save()) {
-      std::cout << "[DEBUG] Failed to save tags" << std::endl;
       return false;
     }
-    std::cout << "[DEBUG] Tags saved successfully" << std::endl;
     return true;
   } catch (const std::exception &e) {
-    std::cout << "[DEBUG] Exception: " << e.what() << std::endl;
     return false;
   }
 }
@@ -1157,7 +1273,6 @@ void MusicController::deleteAlbum(
 void MusicController::getRescanStatus(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::cout << "getRescanStatus called\n";
   Json::Value response;
   std::lock_guard<std::mutex> lock(rescanStatusMutex_);
   response["status"] = "success";

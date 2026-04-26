@@ -43,6 +43,6 @@ int main(int argc, char *argv[]) {
   VideoController::setPlayerService(playerService);
   profiler.applyToDrogon(drogon::app());
   profiler.printStartupInfo();
-  drogon::app().run();
+  drogon::app().enableGzip(true).setThreadNum(4).run();
   return 0;
 }

@@ -18,6 +18,8 @@ public:
   ADD_METHOD_TO(MusicController::listFiles, "/api/music/list", drogon::Get);
   ADD_METHOD_TO(MusicController::getArtists, "/api/music/artists", drogon::Get);
   ADD_METHOD_TO(MusicController::getAlbums, "/api/music/albums", drogon::Get);
+  ADD_METHOD_TO(MusicController::getAlbumsPaginated,
+                "/api/music/albums/paginated", drogon::Get);
   ADD_METHOD_TO(MusicController::getAlbumArt, "/api/music/albumart/{path}",
                 drogon::Get);
   ADD_METHOD_TO(MusicController::getAlbumArtByAlbum,
@@ -62,6 +64,9 @@ public:
   void
   getAlbums(const drogon::HttpRequestPtr &req,
             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void getAlbumsPaginated(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void
   getAlbumArt(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -126,6 +131,8 @@ private:
   std::unordered_map<std::string, CachedMetadata> metadataCache_;
   std::mutex cacheMutex_;
   static constexpr size_t MAX_CACHE_SIZE = 500;
+  static constexpr int DEFAULT_PAGE_SIZE = 20;
+  static constexpr int MAX_PAGE_SIZE = 50;
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
   bool extractMetadataWithTagEditor(const std::string &filePath,
                                     MusicMetadata &metadata);
