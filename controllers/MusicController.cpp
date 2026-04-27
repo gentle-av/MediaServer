@@ -96,21 +96,25 @@ bool MusicController::extractMetadata(const std::string &filePath,
     TagLib::FileRef f(filePath.c_str());
     if (!f.isNull() && f.tag()) {
       TagLib::Tag *tag = f.tag();
-      std::string title = fixTagLibString(tag->title());
-      std::string artist = fixTagLibString(tag->artist());
-      std::string album = fixTagLibString(tag->album());
-      if (title.empty()) {
+      metadata.title = fixTagLibString(tag->title());
+      metadata.artist = fixTagLibString(tag->artist());
+      metadata.album = fixTagLibString(tag->album());
+      metadata.genre = fixTagLibString(tag->genre());
+      if (metadata.title.empty()) {
         std::string filename = fs::path(filePath).stem().string();
         std::regex trackPrefix(R"(^\s*\d{1,3}[\.\-\s]+\s*)");
-        title = std::regex_replace(filename, trackPrefix, "");
-        if (title.find_last_of('.') != std::string::npos) {
-          title = title.substr(0, title.find_last_of('.'));
+        metadata.title = std::regex_replace(filename, trackPrefix, "");
+        if (metadata.title.find_last_of('.') != std::string::npos) {
+          metadata.title =
+              metadata.title.substr(0, metadata.title.find_last_of('.'));
         }
       }
-      metadata.title = title.empty() ? "Unknown" : title;
-      metadata.artist = artist.empty() ? "Unknown" : artist;
-      metadata.album = album.empty() ? "Unknown" : album;
-      metadata.genre = fixTagLibString(tag->genre());
+      if (metadata.title.empty())
+        metadata.title = "Unknown";
+      if (metadata.artist.empty())
+        metadata.artist = "Unknown";
+      if (metadata.album.empty())
+        metadata.album = "Unknown";
       if (f.audioProperties()) {
         metadata.duration = f.audioProperties()->lengthInSeconds();
       } else {
@@ -119,6 +123,10 @@ bool MusicController::extractMetadata(const std::string &filePath,
       metadata.track = tag->track();
       metadata.year = tag->year();
       success = true;
+      LOG_INFO << "Extracted: " << filePath << " | " << metadata.artist << " - "
+               << metadata.title;
+    } else {
+      LOG_ERROR << "Cannot read tags from: " << filePath;
     }
   } catch (const std::exception &e) {
     LOG_ERROR << "Error extracting metadata: " << e.what();
@@ -614,51 +622,7 @@ void MusicController::removeMissingFiles() {
 }
 
 std::string MusicController::fixTagLibString(const TagLib::String &str) {
-  std::string utf8 = str.to8Bit(true);
-  bool needsConversion = false;
-  for (unsigned char c : utf8) {
-    if (c >= 0x80 && c <= 0xFF) {
-      needsConversion = true;
-      break;
-    }
-  }
-  if (!needsConversion) {
-    return utf8;
-  }
-  std::string result;
-  for (unsigned char c : utf8) {
-    if (c < 0x80) {
-      result += c;
-    } else if (c == 0xD8) {
-      result += "\xC3\x98";
-    } else if (c == 0xF8) {
-      result += "\xC3\xB8";
-    } else if (c == 0xE5) {
-      result += "\xC3\xA5";
-    } else if (c == 0xC5) {
-      result += "\xC3\x85";
-    } else if (c == 0xF6) {
-      result += "\xC3\xB6";
-    } else if (c == 0xD6) {
-      result += "\xC3\x96";
-    } else if (c == 0xE4) {
-      result += "\xC3\xA4";
-    } else if (c == 0xC4) {
-      result += "\xC3\x84";
-    } else {
-      wchar_t wc = static_cast<wchar_t>(c);
-      if (wc <= 0xFF) {
-        if (wc >= 0xC0 && wc <= 0xFF) {
-          result += static_cast<char>(0xC0 | (wc >> 6));
-          result += static_cast<char>(0x80 | (wc & 0x3F));
-        } else {
-          result += static_cast<char>(0xC3);
-          result += static_cast<char>(0x80 | (wc - 0x80));
-        }
-      }
-    }
-  }
-  return result;
+  return str.to8Bit(true);
 }
 
 bool MusicController::extractAlbumArt(const std::string &filePath,
