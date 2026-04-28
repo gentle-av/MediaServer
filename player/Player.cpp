@@ -49,19 +49,25 @@ Player::Player() : mpv_(nullptr), running_(true) {
     std::cerr << "[Player] Failed to create mpv handle" << std::endl;
     return;
   }
-  mpv_set_option_string(mpv_, "ao", "pulse");
-  mpv_set_option_string(mpv_, "cache", "yes");
-  mpv_set_option_string(mpv_, "cache-secs", "30");
-  mpv_set_option_string(mpv_, "cache-pause", "no");
-  mpv_set_option_string(mpv_, "cache-pause-initial", "no");
-  mpv_set_option_string(mpv_, "demuxer-max-bytes", "500M");
-  mpv_set_option_string(mpv_, "demuxer-max-back-bytes", "200M");
-  mpv_set_option_string(mpv_, "demuxer-readahead-secs", "30");
-  mpv_set_option_string(mpv_, "demuxer-thread", "yes");
-  mpv_set_option_string(mpv_, "audio-buffer", "2.0");
-  mpv_set_option_string(mpv_, "audio-exclusive", "no");
-  mpv_set_option_string(mpv_, "audio-pitch-correction", "yes");
+  mpv_set_option_string(mpv_, "ao", "alsa");
+  mpv_set_option_string(mpv_, "audio-buffer", "5.0");
+  mpv_set_option_string(mpv_, "audio-exclusive", "yes");
+  mpv_set_option_string(mpv_, "audio-wait-open", "2000");
   mpv_set_option_string(mpv_, "audio-stream-silence", "yes");
+  mpv_set_option_string(mpv_, "audio-pitch-correction", "yes");
+  mpv_set_option_string(mpv_, "cache", "yes");
+  mpv_set_option_string(mpv_, "cache-secs", "60");
+  mpv_set_option_string(mpv_, "cache-pause", "yes");
+  mpv_set_option_string(mpv_, "cache-pause-initial", "yes");
+  mpv_set_option_string(mpv_, "demuxer-max-bytes", "1G");
+  mpv_set_option_string(mpv_, "demuxer-max-back-bytes", "500M");
+  mpv_set_option_string(mpv_, "demuxer-readahead-secs", "60");
+  mpv_set_option_string(mpv_, "demuxer-thread", "yes");
+  mpv_set_option_string(mpv_, "prefetch-playlist", "yes");
+  mpv_set_option_string(mpv_, "vd-lavc-threads", "0"); // авто
+  mpv_set_option_string(mpv_, "ad-lavc-threads", "2");
+  mpv_set_option_string(mpv_, "hr-seek", "yes");
+  mpv_set_option_string(mpv_, "hr-seek-demuxer-offset", "1.0");
   mpv_set_option_string(mpv_, "video", "no");
   mpv_set_option_string(mpv_, "vo", "null");
   mpv_set_option_string(mpv_, "osc", "no");
@@ -69,7 +75,6 @@ Player::Player() : mpv_(nullptr), running_(true) {
   mpv_set_option_string(mpv_, "gapless-audio", "yes");
   mpv_set_option_string(mpv_, "keep-open", "no");
   mpv_set_option_string(mpv_, "volume", "100");
-  mpv_set_option_string(mpv_, "prefetch-playlist", "yes");
   mpv_request_log_messages(mpv_, "info");
   mpv_set_wakeup_callback(mpv_, onMpvWakeup, this);
   int init_result = mpv_initialize(mpv_);
@@ -89,7 +94,6 @@ Player::~Player() {
     mpv_terminate_destroy(mpv_);
   }
 }
-
 void Player::onMpvWakeup(void *ctx) {
   static_cast<Player *>(ctx)->processEvents();
 }
@@ -148,8 +152,17 @@ void Player::executeCommand(std::function<void()> cmd) {
 
 void Player::playFile(const std::string &filePath) {
   executeCommand([this, filePath]() {
-    const char *cmd[] = {"loadfile", filePath.c_str(), "replace", NULL};
-    mpv_command(mpv_, cmd);
+    bool isFlac = (filePath.size() >= 4 &&
+                   filePath.substr(filePath.size() - 4) == "flac");
+    if (isFlac) {
+      const char *cmd[] = {"loadfile", filePath.c_str(), "replace", NULL};
+      mpv_command(mpv_, cmd);
+      double buffer = 2.0;
+      mpv_set_property(mpv_, "audio-buffer", MPV_FORMAT_DOUBLE, &buffer);
+    } else {
+      const char *cmd[] = {"loadfile", filePath.c_str(), "replace", NULL};
+      mpv_command(mpv_, cmd);
+    }
   });
 }
 
