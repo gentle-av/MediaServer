@@ -51,13 +51,17 @@ Player::Player() : mpv_(nullptr), running_(true) {
   }
   mpv_set_option_string(mpv_, "ao", "pulse");
   mpv_set_option_string(mpv_, "cache", "yes");
-  mpv_set_option_string(mpv_, "cache-secs", "10"); // Было 2
-  mpv_set_option_string(mpv_, "demuxer-max-bytes", "100M");
-  mpv_set_option_string(mpv_, "demuxer-max-back-bytes", "50M");
-  mpv_set_option_string(mpv_, "demuxer-readahead-secs", "10");
-  mpv_set_option_string(mpv_, "audio-buffer", "1.0");   // 1 секунда буфера
-  mpv_set_option_string(mpv_, "audio-exclusive", "no"); // НЕ эксклюзивный!
+  mpv_set_option_string(mpv_, "cache-secs", "30");
+  mpv_set_option_string(mpv_, "cache-pause", "no");
+  mpv_set_option_string(mpv_, "cache-pause-initial", "no");
+  mpv_set_option_string(mpv_, "demuxer-max-bytes", "500M");
+  mpv_set_option_string(mpv_, "demuxer-max-back-bytes", "200M");
+  mpv_set_option_string(mpv_, "demuxer-readahead-secs", "30");
+  mpv_set_option_string(mpv_, "demuxer-thread", "yes");
+  mpv_set_option_string(mpv_, "audio-buffer", "2.0");
+  mpv_set_option_string(mpv_, "audio-exclusive", "no");
   mpv_set_option_string(mpv_, "audio-pitch-correction", "yes");
+  mpv_set_option_string(mpv_, "audio-stream-silence", "yes");
   mpv_set_option_string(mpv_, "video", "no");
   mpv_set_option_string(mpv_, "vo", "null");
   mpv_set_option_string(mpv_, "osc", "no");
@@ -65,7 +69,7 @@ Player::Player() : mpv_(nullptr), running_(true) {
   mpv_set_option_string(mpv_, "gapless-audio", "yes");
   mpv_set_option_string(mpv_, "keep-open", "no");
   mpv_set_option_string(mpv_, "volume", "100");
-  mpv_set_option_string(mpv_, "rtc", "no");
+  mpv_set_option_string(mpv_, "prefetch-playlist", "yes");
   mpv_request_log_messages(mpv_, "info");
   mpv_set_wakeup_callback(mpv_, onMpvWakeup, this);
   int init_result = mpv_initialize(mpv_);
@@ -73,12 +77,9 @@ Player::Player() : mpv_(nullptr), running_(true) {
     std::cerr << "[Player] mpv_initialize failed: " << init_result << std::endl;
   }
   eventThread_ = std::thread(&Player::eventLoop, this);
-  std::cout << "[Player] Constructor completed with optimized settings"
-            << std::endl;
 }
 
 Player::~Player() {
-  std::cout << "[Player] Destructor" << std::endl;
   running_ = false;
   commandCv_.notify_all();
   if (eventThread_.joinable()) {
@@ -99,34 +100,22 @@ void Player::processEvents() {
     if (event->event_id == MPV_EVENT_NONE) {
       break;
     }
-    std::cout << "[Player] Event: " << event->event_id << " ("
-              << mpv_event_name(event->event_id) << ")" << std::endl;
-
     if (event->event_id == MPV_EVENT_END_FILE) {
       mpv_event_end_file *end_file = (mpv_event_end_file *)event->data;
-      std::cout << "[Player] Track ended, reason: " << end_file->reason
-                << " (1=EOF, 2=STOP, 3=QUIT, 4=ERROR)" << std::endl;
       if (onTrackEnd_) {
-        std::cout << "[Player] Calling onTrackEnd_ callback" << std::endl;
         onTrackEnd_();
       }
     } else if (event->event_id == MPV_EVENT_FILE_LOADED) {
-      std::cout << "[Player] File loaded" << std::endl;
       if (onTrackLoaded_) {
-        std::cout << "[Player] Calling onTrackLoaded_ callback" << std::endl;
         onTrackLoaded_();
       }
     } else if (event->event_id == MPV_EVENT_IDLE) {
-      std::cout << "[Player] IDLE state - playback finished" << std::endl;
       if (onTrackEnd_ && playlistEnded_) {
         onTrackEnd_();
       }
       playlistEnded_ = true;
     } else if (event->event_id == MPV_EVENT_START_FILE) {
-      std::cout << "[Player] Start file" << std::endl;
       playlistEnded_ = false;
-    } else if (event->event_id == MPV_EVENT_PLAYBACK_RESTART) {
-      std::cout << "[Player] Playback restart" << std::endl;
     }
   }
 }
@@ -134,14 +123,17 @@ void Player::processEvents() {
 void Player::eventLoop() {
   while (running_) {
     std::unique_lock<std::mutex> lock(mutex_);
-    commandCv_.wait(lock,
-                    [this] { return !commandQueue_.empty() || !running_; });
+    commandCv_.wait_for(lock, std::chrono::milliseconds(10),
+                        [this] { return !commandQueue_.empty() || !running_; });
+    std::queue<std::function<void()>> commands;
     while (!commandQueue_.empty()) {
-      auto cmd = commandQueue_.front();
+      commands.push(std::move(commandQueue_.front()));
       commandQueue_.pop();
-      lock.unlock();
-      cmd();
-      lock.lock();
+    }
+    lock.unlock();
+    while (!commands.empty()) {
+      commands.front()();
+      commands.pop();
     }
   }
 }
@@ -156,17 +148,13 @@ void Player::executeCommand(std::function<void()> cmd) {
 
 void Player::playFile(const std::string &filePath) {
   executeCommand([this, filePath]() {
-    std::cout << "[Player] playFile: " << filePath << std::endl;
     const char *cmd[] = {"loadfile", filePath.c_str(), "replace", NULL};
-    int result = mpv_command(mpv_, cmd);
-    std::cout << "[Player] playFile: mpv_command result=" << result
-              << std::endl;
+    mpv_command(mpv_, cmd);
   });
 }
 
 void Player::stop() {
   executeCommand([this]() {
-    std::cout << "[Player] stop" << std::endl;
     const char *cmd[] = {"stop", NULL};
     mpv_command(mpv_, cmd);
   });
@@ -174,19 +162,13 @@ void Player::stop() {
 
 void Player::play() {
   executeCommand([this]() {
-    std::cout << "[Player] play: BEFORE set_property" << std::endl;
     int pause = 0;
-    int result = mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
-    std::cout << "[Player] play: set_property result=" << result << std::endl;
-    int checkPause = 1;
-    mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &checkPause);
-    std::cout << "[Player] play: after set, pause=" << checkPause << std::endl;
+    mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
   });
 }
 
 void Player::pause() {
   executeCommand([this]() {
-    std::cout << "[Player] pause" << std::endl;
     int pause = 1;
     mpv_set_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
   });
@@ -194,7 +176,6 @@ void Player::pause() {
 
 void Player::seekTo(double position) {
   executeCommand([this, position]() {
-    std::cout << "[Player] seekTo: " << position << std::endl;
     const char *cmd[] = {"seek", std::to_string(position).c_str(), "absolute",
                          NULL};
     mpv_command(mpv_, cmd);
@@ -225,14 +206,19 @@ double Player::getDuration() {
   return duration;
 }
 
+double Player::getAudioBufferFill() {
+  if (!mpv_)
+    return 0.0;
+  double fill = 0.0;
+  mpv_get_property(mpv_, "audio-buffer", MPV_FORMAT_DOUBLE, &fill);
+  return fill;
+}
+
 bool Player::isPlaying() {
   if (!mpv_)
     return false;
   int pause = 1;
-  int result = mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
-  if (result < 0) {
-    return false;
-  }
+  mpv_get_property(mpv_, "pause", MPV_FORMAT_FLAG, &pause);
   double timePos = 0;
   mpv_get_property(mpv_, "time-pos", MPV_FORMAT_DOUBLE, &timePos);
   const char *filename = mpv_get_property_string(mpv_, "filename");

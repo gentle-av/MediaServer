@@ -1,13 +1,14 @@
 #include "services/PlayerService.h"
 #include "player/Player.h"
+#include <chrono>
 #include <filesystem>
 #include <iostream>
+#include <thread>
 
 void PlayerService::onTrackLoaded() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] onTrackLoaded, manualSwitch="
-            << manualSwitch_.load() << std::endl;
   if (internalPlayer_ && manualSwitch_.load()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     internalPlayer_->play();
   }
   manualSwitch_ = false;
@@ -15,52 +16,30 @@ void PlayerService::onTrackLoaded() {
 }
 
 void PlayerService::onTrackEnd() {
-  std::cout << "[PlayerService] onTrackEnd: ENTERED FUNCTION" << std::endl;
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] onTrackEnd: currentIndex=" << currentIndex_
-            << ", playlistSize=" << playlist_.size()
-            << ", isSwitching=" << isSwitching_.load()
-            << ", manualSwitch=" << manualSwitch_.load() << std::endl;
   if (isSwitching_ || manualSwitch_.load()) {
-    std::cout << "[PlayerService] onTrackEnd: switching or manual in progress, "
-                 "ignoring"
-              << std::endl;
     return;
   }
   if (currentIndex_ < 0) {
-    std::cout << "[PlayerService] onTrackEnd: invalid index" << std::endl;
     return;
   }
   if (currentIndex_ + 1 >= (int)playlist_.size()) {
-    std::cout << "[PlayerService] End of playlist" << std::endl;
     currentIndex_ = -1;
     return;
   }
   isSwitching_ = true;
   currentIndex_++;
-  std::cout << "[PlayerService] onTrackEnd: playing next track index="
-            << currentIndex_ << ", path=" << playlist_[currentIndex_]
-            << std::endl;
   if (internalPlayer_) {
     internalPlayer_->playFile(playlist_[currentIndex_]);
-  } else {
-    std::cout << "[PlayerService] onTrackEnd: internalPlayer_ is NULL!"
-              << std::endl;
   }
   isSwitching_ = false;
-  std::cout << "[PlayerService] onTrackEnd: EXITING" << std::endl;
 }
 
 void PlayerService::playTrack(int index) {
-  std::cout << "[PlayerService] playTrack: index=" << index
-            << ", currentIndex=" << currentIndex_ << std::endl;
   if (index < 0 || index >= (int)playlist_.size()) {
-    std::cout << "[PlayerService] playTrack: invalid index" << std::endl;
     return;
   }
   if (!std::filesystem::exists(playlist_[index])) {
-    std::cout << "[PlayerService] playTrack: file not found: "
-              << playlist_[index] << std::endl;
     return;
   }
   if (internalPlayer_) {
@@ -74,16 +53,10 @@ void PlayerService::playTrack(int index) {
 
 void PlayerService::next() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] next, currentIndex=" << currentIndex_
-            << ", playlistSize=" << playlist_.size()
-            << ", isSwitching=" << isSwitching_.load() << std::endl;
   if (isSwitching_) {
-    std::cout << "[PlayerService] next: already switching, ignoring"
-              << std::endl;
     return;
   }
   if (currentIndex_ + 1 >= (int)playlist_.size()) {
-    std::cout << "[PlayerService] next: at end of playlist" << std::endl;
     return;
   }
   isSwitching_ = true;
@@ -99,11 +72,7 @@ void PlayerService::next() {
 
 void PlayerService::previous() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] previous, currentIndex=" << currentIndex_
-            << ", isSwitching=" << isSwitching_.load() << std::endl;
   if (isSwitching_) {
-    std::cout << "[PlayerService] previous: already switching, ignoring"
-              << std::endl;
     return;
   }
   if (currentIndex_ - 1 >= 0) {
@@ -112,18 +81,11 @@ void PlayerService::previous() {
       internalPlayer_->stop();
     }
     playTrack(currentIndex_ - 1);
-  } else {
-    std::cout << "[PlayerService] previous: at start of playlist" << std::endl;
   }
 }
 
 void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] setPlaylist, size=" << tracks.size()
-            << std::endl;
-  for (auto &track : tracks) {
-    std::cout << "loaded: " << track << '\n';
-  }
   playlist_ = tracks;
   currentIndex_ = -1;
   manualSwitch_ = false;
@@ -135,9 +97,7 @@ void PlayerService::setPlaylist(const std::vector<std::string> &tracks) {
 }
 
 void PlayerService::playIndex(int index) {
-  std::cout << "[PlayerService] playIndex: " << index << std::endl;
   if (index < 0 || index >= (int)playlist_.size()) {
-    std::cout << "[PlayerService] playIndex: invalid index" << std::endl;
     return;
   }
   {
@@ -160,19 +120,15 @@ void PlayerService::playIndex(int index) {
 
 PlayerService::PlayerService(int port)
     : currentIndex_(-1), isSwitching_(false), manualSwitch_(false) {
-  std::cout << "[PlayerService] Constructor" << std::endl;
   internalPlayer_ = std::make_shared<Player>();
   internalPlayer_->setOnTrackEnd([this]() { onTrackEnd(); });
   internalPlayer_->setOnTrackLoaded([this]() { onTrackLoaded(); });
 }
 
-PlayerService::~PlayerService() {
-  std::cout << "[PlayerService] Destructor" << std::endl;
-}
+PlayerService::~PlayerService() {}
 
 void PlayerService::play() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] play" << std::endl;
   if (internalPlayer_) {
     internalPlayer_->play();
   }
@@ -180,7 +136,6 @@ void PlayerService::play() {
 
 void PlayerService::pause() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] pause" << std::endl;
   if (internalPlayer_) {
     internalPlayer_->pause();
   }
@@ -188,7 +143,6 @@ void PlayerService::pause() {
 
 void PlayerService::stop() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] stop" << std::endl;
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
@@ -202,7 +156,6 @@ void PlayerService::addToPlaylist(const std::string &track) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (std::filesystem::exists(track)) {
     playlist_.push_back(track);
-    std::cout << "[PlayerService] addToPlaylist: " << track << std::endl;
   }
 }
 
@@ -210,19 +163,14 @@ void PlayerService::addAfterCurrent(const std::string &track) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (std::filesystem::exists(track) && currentIndex_ >= 0) {
     playlist_.insert(playlist_.begin() + currentIndex_ + 1, track);
-    std::cout << "[PlayerService] addAfterCurrent: " << track << std::endl;
   }
 }
 
 void PlayerService::replacePlaylist(const std::vector<std::string> &tracks) {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] replacePlaylist, size=" << tracks.size()
-            << std::endl;
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
-  for (auto &track : tracks)
-    std::cout << "loaded: " << track << '\n';
   playlist_ = tracks;
   currentIndex_ = -1;
   manualSwitch_ = false;
@@ -242,7 +190,6 @@ void PlayerService::replacePlaylistWithTrack(const std::string &track) {
 
 void PlayerService::clear() {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] clear" << std::endl;
   if (internalPlayer_) {
     internalPlayer_->stop();
   }
@@ -254,7 +201,6 @@ void PlayerService::clear() {
 
 void PlayerService::removeFromPlaylist(int index) {
   std::lock_guard<std::mutex> lock(mutex_);
-  std::cout << "[PlayerService] removeFromPlaylist: " << index << std::endl;
   if (index < 0 || index >= (int)playlist_.size()) {
     return;
   }
@@ -316,7 +262,6 @@ Json::Value PlayerService::getCurrentTrack() {
     data["track"] = "";
     data["path"] = "";
   }
-
   return data;
 }
 
@@ -339,27 +284,17 @@ void PlayerService::setInternalPlayer(std::shared_ptr<Player> player) {
 }
 
 std::string PlayerService::getTrackTitle(const std::string &trackPath) {
-  std::cout << "[PlayerService] getTrackTitle: path=" << trackPath << std::endl;
-  std::cout << "[PlayerService] musicDb_ is " << (musicDb_ ? "set" : "NULL")
-            << std::endl;
   if (musicDb_) {
     MusicMetadata metadata;
     if (musicDb_->getMetadata(trackPath, metadata)) {
-      std::cout << "[PlayerService] Found metadata: title='" << metadata.title
-                << "', artist='" << metadata.artist << "'" << std::endl;
       if (!metadata.title.empty() && metadata.title != "Unknown") {
         return metadata.title;
       }
-    } else {
-      std::cout << "[PlayerService] No metadata found in database for: "
-                << trackPath << std::endl;
     }
   }
   std::filesystem::path path(trackPath);
   std::string filename = path.stem().string();
   std::regex trackPrefix(R"(^\d{1,2}[\.\-\s]+\s*)");
   std::string cleanTitle = std::regex_replace(filename, trackPrefix, "");
-  std::cout << "[PlayerService] Using fallback filename: " << cleanTitle
-            << std::endl;
   return cleanTitle.empty() ? filename : cleanTitle;
 }

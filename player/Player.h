@@ -23,6 +23,7 @@ public:
   void setOnTrackLoaded(std::function<void()> callback);
   double getCurrentTime();
   double getDuration();
+  double getAudioBufferFill();
   bool isPlaying();
 
 private:

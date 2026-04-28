@@ -14,7 +14,6 @@ class PlayerService {
 public:
   PlayerService(int port = 6680);
   ~PlayerService();
-
   void play();
   void pause();
   void stop();
@@ -33,7 +32,6 @@ public:
   Json::Value getCurrentTrack();
   Json::Value getCurrentTime();
   void setMusicDatabase(std::shared_ptr<MusicDatabase> db) { musicDb_ = db; }
-
   void setInternalPlayer(std::shared_ptr<Player> player);
   bool isAvailable() const { return internalPlayer_ != nullptr; }
   bool useInternalPlayer() const { return internalPlayer_ != nullptr; }
@@ -48,7 +46,6 @@ private:
   std::atomic<bool> isSwitching_;
   std::atomic<bool> manualSwitch_;
   std::shared_ptr<MusicDatabase> musicDb_;
-
   void onTrackEnd();
   void onTrackLoaded();
   void playTrack(int index);
