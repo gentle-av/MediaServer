@@ -1,6 +1,7 @@
 #include "SimplePlayerController.h"
 #include "services/AlsaMixer.h"
 #include <chrono>
+#include <regex>
 #include <thread>
 #include <unistd.h>
 
@@ -24,6 +25,7 @@ void SimplePlayerController::handleNewSetPlaylist(
       callback(resp);
       return;
     }
+    sendCommand(R"({"command": ["stop"]})");
     playlist_.clear();
     for (const auto &track : json["tracks"]) {
       if (track.isString()) {
@@ -53,32 +55,21 @@ void SimplePlayerController::handleNewSetPlaylist(
 void SimplePlayerController::startAutoAdvance() {
   std::thread([this]() {
     while (true) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(300));
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
       if (!isProcessAlive()) {
         continue;
       }
       if (currentIndex_ < 0 || currentIndex_ >= (int)playlist_.size()) {
         continue;
       }
-      std::string resp =
-          sendCommand("{\"command\": [\"get_property\", \"eof-reached\"]}");
-      bool eofReached = resp.find("\"data\":true") != std::string::npos;
-      if (eofReached) {
-        if (currentIndex_ + 1 < (int)playlist_.size()) {
-          currentIndex_++;
-          std::string loadCmd = "{\"command\": [\"loadfile\", \"" +
-                                playlist_[currentIndex_] + "\", \"replace\"]}";
-          sendCommand(loadCmd);
-          sendCommand("{\"command\": [\"set_property\", \"pause\", false]}");
-          std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        }
-        continue;
-      }
       std::string timeResp =
           sendCommand("{\"command\": [\"get_property\", \"time-pos\"]}");
       std::string durationResp =
           sendCommand("{\"command\": [\"get_property\", \"duration\"]}");
+      std::string eofResp =
+          sendCommand("{\"command\": [\"get_property\", \"eof-reached\"]}");
       double currentTime = 0, duration = 0;
+      bool eofReached = eofResp.find("\"data\":true") != std::string::npos;
       size_t pos = timeResp.find("\"data\"");
       if (pos != std::string::npos) {
         size_t start = timeResp.find(":", pos);
@@ -93,7 +84,7 @@ void SimplePlayerController::startAutoAdvance() {
           duration = std::stod(durationResp.substr(start + 1));
         }
       }
-      if (duration > 0 && (duration - currentTime) < 0.5 &&
+      if ((eofReached || (duration > 0 && (duration - currentTime) < 0.5)) &&
           currentIndex_ + 1 < (int)playlist_.size()) {
         currentIndex_++;
         std::string loadCmd = "{\"command\": [\"loadfile\", \"" +
@@ -108,17 +99,34 @@ void SimplePlayerController::startAutoAdvance() {
 void SimplePlayerController::handleGetVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::string cmd =
-      "amixer get Master 2>/dev/null | grep -oP '\\d+(?=%)' | head -1";
-  std::array<char, 128> buffer;
+  std::string cmd = "amixer get Master 2>/dev/null";
+  std::array<char, 256> buffer;
   std::string result;
   FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Failed to execute amixer"));
+    callback(resp);
+    return;
+  }
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+    result += buffer.data();
+  }
+  pclose(pipe);
+  std::cout << "[DEBUG] amixer output:\n" << result << std::endl;
   int volume = -1;
-  if (pipe) {
-    if (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-      volume = std::stoi(std::string(buffer.data()));
+  std::regex volumeRegex(R"((\d+)%)");
+  std::smatch match;
+  if (std::regex_search(result, match, volumeRegex)) {
+    volume = std::stoi(match[1].str());
+    std::cout << "[DEBUG] Parsed volume: " << volume << "%" << std::endl;
+  } else {
+    std::regex altRegex(R"(Playback\s+\d+\s+\[(\d+)%\])");
+    if (std::regex_search(result, match, altRegex)) {
+      volume = std::stoi(match[1].str());
+      std::cout << "[DEBUG] Parsed volume (alt): " << volume << "%"
+                << std::endl;
     }
-    pclose(pipe);
   }
   if (volume < 0) {
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
@@ -151,8 +159,13 @@ void SimplePlayerController::handleSetVolume(
       callback(resp);
       return;
     }
+    int amixerValue = 135 + (volume * (255 - 135) / 100);
+    if (amixerValue < 135)
+      amixerValue = 135;
+    if (amixerValue > 255)
+      amixerValue = 255;
     std::string cmd =
-        "amixer set Master " + std::to_string(volume) + "% 2>/dev/null";
+        "amixer set Master " + std::to_string(amixerValue) + " 2>/dev/null";
     int ret = system(cmd.c_str());
     if (ret != 0) {
       auto resp = drogon::HttpResponse::newHttpJsonResponse(
@@ -187,19 +200,34 @@ void SimplePlayerController::handleIncreaseVolume(
         return;
       }
     }
-    std::string getCmd =
-        "amixer get Master 2>/dev/null | grep -oP '\\d+(?=%)' | head -1";
-    std::array<char, 128> buffer;
+    std::string getCmd = "amixer get Master 2>/dev/null";
+    std::array<char, 256> buffer;
+    std::string result;
     FILE *pipe = popen(getCmd.c_str(), "r");
-    int currentPercent = 0;
-    if (pipe && fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-      currentPercent = std::stoi(std::string(buffer.data()));
+    if (!pipe) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Failed to get current volume"));
+      callback(resp);
+      return;
     }
-    if (pipe)
-      pclose(pipe);
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result += buffer.data();
+    }
+    pclose(pipe);
+    int currentPercent = 0;
+    std::regex volumeRegex(R"((\d+)%)");
+    std::smatch match;
+    if (std::regex_search(result, match, volumeRegex)) {
+      currentPercent = std::stoi(match[1].str());
+    }
     int newPercent = std::min(100, currentPercent + delta);
+    int amixerValue = 135 + (newPercent * (255 - 135) / 100);
+    if (amixerValue < 135)
+      amixerValue = 135;
+    if (amixerValue > 255)
+      amixerValue = 255;
     std::string cmd =
-        "amixer set Master " + std::to_string(newPercent) + "% 2>/dev/null";
+        "amixer set Master " + std::to_string(amixerValue) + " 2>/dev/null";
     int ret = system(cmd.c_str());
     if (ret != 0) {
       auto resp = drogon::HttpResponse::newHttpJsonResponse(
@@ -239,19 +267,34 @@ void SimplePlayerController::handleDecreaseVolume(
         return;
       }
     }
-    std::string getCmd =
-        "amixer get Master 2>/dev/null | grep -oP '\\d+(?=%)' | head -1";
-    std::array<char, 128> buffer;
+    std::string getCmd = "amixer get Master 2>/dev/null";
+    std::array<char, 256> buffer;
+    std::string result;
     FILE *pipe = popen(getCmd.c_str(), "r");
-    int currentPercent = 0;
-    if (pipe && fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-      currentPercent = std::stoi(std::string(buffer.data()));
+    if (!pipe) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Failed to get current volume"));
+      callback(resp);
+      return;
     }
-    if (pipe)
-      pclose(pipe);
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      result += buffer.data();
+    }
+    pclose(pipe);
+    int currentPercent = 0;
+    std::regex volumeRegex(R"((\d+)%)");
+    std::smatch match;
+    if (std::regex_search(result, match, volumeRegex)) {
+      currentPercent = std::stoi(match[1].str());
+    }
     int newPercent = std::max(0, currentPercent - delta);
+    int amixerValue = 135 + (newPercent * (255 - 135) / 100);
+    if (amixerValue < 135)
+      amixerValue = 135;
+    if (amixerValue > 255)
+      amixerValue = 255;
     std::string cmd =
-        "amixer set Master " + std::to_string(newPercent) + "% 2>/dev/null";
+        "amixer set Master " + std::to_string(amixerValue) + " 2>/dev/null";
     int ret = system(cmd.c_str());
     if (ret != 0) {
       auto resp = drogon::HttpResponse::newHttpJsonResponse(
@@ -357,11 +400,17 @@ void SimplePlayerController::handleNewGetPlaybackState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value state;
+  std::cout << "[DEBUG] GetPlaybackState called - currentIndex: "
+            << currentIndex_ << ", playlist size: " << playlist_.size()
+            << std::endl;
   if (!isProcessAlive()) {
+    std::cout << "[DEBUG] Process not alive" << std::endl;
     state["isPlaying"] = false;
     state["currentTrack"] = "";
     state["currentIndex"] = currentIndex_;
     state["totalTracks"] = (int)playlist_.size();
+    state["currentTime"] = 0;
+    state["duration"] = 0;
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "", state));
     callback(resp);
@@ -390,47 +439,44 @@ void SimplePlayerController::handleNewGetPlaybackState(
       duration = std::stod(durationResp.substr(start + 1));
     }
   }
-  std::string eofResp =
-      sendCommand(R"({"command": ["get_property", "eof-reached"]})");
-  bool eofReached = eofResp.find("\"data\":true") != std::string::npos;
-  if (eofReached && currentIndex_ + 1 < (int)playlist_.size()) {
-    currentIndex_++;
-    std::string loadCmd = R"({"command": ["loadfile", ")" +
-                          playlist_[currentIndex_] + R"(", "replace"]})";
-    sendCommand(loadCmd);
-    sendCommand(R"({"command": ["set_property", "pause", false]})");
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    state["currentTrack"] = playlist_[currentIndex_];
-    state["currentIndex"] = currentIndex_;
-    state["isPlaying"] = true;
-    state["totalTracks"] = (int)playlist_.size();
-    state["currentTime"] = 0;
-    state["duration"] = 0;
-  } else if (duration > 0 && (duration - currentTime) < 0.5 &&
-             currentIndex_ + 1 < (int)playlist_.size()) {
-    currentIndex_++;
-    std::string loadCmd = R"({"command": ["loadfile", ")" +
-                          playlist_[currentIndex_] + R"(", "replace"]})";
-    sendCommand(loadCmd);
-    sendCommand(R"({"command": ["set_property", "pause", false]})");
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    state["currentTrack"] = playlist_[currentIndex_];
-    state["currentIndex"] = currentIndex_;
-    state["isPlaying"] = true;
-    state["totalTracks"] = (int)playlist_.size();
-    state["currentTime"] = 0;
-    state["duration"] = 0;
-  } else {
-    state["isPlaying"] = !isPaused && currentTime > 0;
-    state["currentTrack"] =
-        (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size())
-            ? playlist_[currentIndex_]
-            : "";
-    state["currentIndex"] = currentIndex_;
-    state["totalTracks"] = (int)playlist_.size();
-    state["currentTime"] = currentTime;
-    state["duration"] = duration;
+  std::cout << "[DEBUG] Playback state - isPaused: " << isPaused
+            << ", currentTime: " << currentTime << ", duration: " << duration
+            << std::endl;
+  bool isPlaying = !isPaused && currentTime > 0;
+  if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size() &&
+      duration == 0 && currentTime == 0 && playlist_.size() > 0) {
+    duration = 300;
   }
+  if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size() &&
+      duration > 0 && (duration - currentTime) < 0.5) {
+    if (currentIndex_ + 1 < (int)playlist_.size()) {
+      currentIndex_++;
+      std::string loadCmd = R"({"command": ["loadfile", ")" +
+                            playlist_[currentIndex_] + R"(", "replace"]})";
+      sendCommand(loadCmd);
+      sendCommand(R"({"command": ["set_property", "pause", false]})");
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      state["currentTrack"] = playlist_[currentIndex_];
+      state["currentIndex"] = currentIndex_;
+      state["isPlaying"] = true;
+      state["totalTracks"] = (int)playlist_.size();
+      state["currentTime"] = 0;
+      state["duration"] = 0;
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(true, "", state));
+      callback(resp);
+      return;
+    }
+  }
+  state["isPlaying"] = isPlaying;
+  state["currentTrack"] =
+      (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size())
+          ? playlist_[currentIndex_]
+          : "";
+  state["currentIndex"] = currentIndex_;
+  state["totalTracks"] = (int)playlist_.size();
+  state["currentTime"] = currentTime;
+  state["duration"] = duration;
   auto resp =
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", state));
   callback(resp);
@@ -510,6 +556,7 @@ void SimplePlayerController::handleNewNext(
     std::string cmd = R"({"command": ["loadfile", ")" +
                       playlist_[currentIndex_] + R"(", "replace"]})";
     sendCommand(cmd);
+    sendCommand(R"({"command": ["set_property", "pause", false]})");
   }
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Next track"));
@@ -524,6 +571,7 @@ void SimplePlayerController::handleNewPrevious(
     std::string cmd = R"({"command": ["loadfile", ")" +
                       playlist_[currentIndex_] + R"(", "replace"]})";
     sendCommand(cmd);
+    sendCommand(R"({"command": ["set_property", "pause", false]})");
   }
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Previous track"));
