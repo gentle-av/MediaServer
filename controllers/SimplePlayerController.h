@@ -35,6 +35,16 @@ public:
                 drogon::Post);
   ADD_METHOD_TO(SimplePlayerController::handleNewPlayFile, "/api/new/playFile",
                 drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleGetVolume, "/api/simple/volume",
+                drogon::Get);
+  ADD_METHOD_TO(SimplePlayerController::handleSetVolume, "/api/simple/volume",
+                drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleIncreaseVolume,
+                "/api/simple/volume/increase", drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleDecreaseVolume,
+                "/api/simple/volume/decrease", drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleToggleMute,
+                "/api/simple/volume/mute", drogon::Post);
   METHOD_LIST_END
 
   SimplePlayerController();
@@ -77,6 +87,21 @@ public:
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void handleNewPlayFile(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleGetVolume(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleSetVolume(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleIncreaseVolume(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleDecreaseVolume(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleToggleMute(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 

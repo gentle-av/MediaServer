@@ -3,6 +3,215 @@
 #include <thread>
 #include <unistd.h>
 
+void SimplePlayerController::handleGetVolume(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::string cmd =
+      "amixer get Master 2>/dev/null | grep -oP '\\d+(?=%)' | head -1";
+  std::array<char, 128> buffer;
+  std::string result;
+  FILE *pipe = popen(cmd.c_str(), "r");
+  int volume = -1;
+  if (pipe) {
+    if (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      volume = std::stoi(std::string(buffer.data()));
+    }
+    pclose(pipe);
+  }
+  if (volume < 0) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Failed to get volume"));
+    callback(resp);
+    return;
+  }
+  Json::Value data;
+  data["volume"] = volume;
+  auto resp =
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data));
+  callback(resp);
+}
+
+void SimplePlayerController::handleSetVolume(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("volume") || !json["volume"].isInt()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing volume parameter (0-100)"));
+      callback(resp);
+      return;
+    }
+    int volume = json["volume"].asInt();
+    if (volume < 0 || volume > 100) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Volume must be between 0 and 100"));
+      callback(resp);
+      return;
+    }
+    std::string cmd =
+        "amixer set Master " + std::to_string(volume) + "% 2>/dev/null";
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Failed to set volume"));
+      callback(resp);
+      return;
+    }
+    Json::Value data;
+    data["volume"] = volume;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(jsonResponse(
+        true, "Volume set to " + std::to_string(volume) + "%", data));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void SimplePlayerController::handleIncreaseVolume(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  try {
+    Json::Value json = parseBody(req);
+    int delta = 5;
+    if (json.isMember("delta") && json["delta"].isInt()) {
+      delta = json["delta"].asInt();
+      if (delta <= 0) {
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(
+            jsonResponse(false, "Delta must be positive"));
+        callback(resp);
+        return;
+      }
+    }
+    // Получаем текущий процент
+    std::string getCmd =
+        "amixer get Master 2>/dev/null | grep -oP '\\d+(?=%)' | head -1";
+    std::array<char, 128> buffer;
+    FILE *pipe = popen(getCmd.c_str(), "r");
+    int currentPercent = 0;
+    if (pipe && fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      currentPercent = std::stoi(std::string(buffer.data()));
+    }
+    if (pipe)
+      pclose(pipe);
+
+    int newPercent = std::min(100, currentPercent + delta);
+    // Устанавливаем новый процент
+    std::string cmd =
+        "amixer set Master " + std::to_string(newPercent) + "% 2>/dev/null";
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Failed to increase volume"));
+      callback(resp);
+      return;
+    }
+    Json::Value data;
+    data["volume"] = newPercent;
+    data["delta"] = delta;
+    data["old_volume"] = currentPercent;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true,
+                     "Volume increased from " + std::to_string(currentPercent) +
+                         "% to " + std::to_string(newPercent) + "%",
+                     data));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void SimplePlayerController::handleDecreaseVolume(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  try {
+    Json::Value json = parseBody(req);
+    int delta = 5;
+    if (json.isMember("delta") && json["delta"].isInt()) {
+      delta = json["delta"].asInt();
+      if (delta <= 0) {
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(
+            jsonResponse(false, "Delta must be positive"));
+        callback(resp);
+        return;
+      }
+    }
+    // Получаем текущий процент
+    std::string getCmd =
+        "amixer get Master 2>/dev/null | grep -oP '\\d+(?=%)' | head -1";
+    std::array<char, 128> buffer;
+    FILE *pipe = popen(getCmd.c_str(), "r");
+    int currentPercent = 0;
+    if (pipe && fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+      currentPercent = std::stoi(std::string(buffer.data()));
+    }
+    if (pipe)
+      pclose(pipe);
+
+    int newPercent = std::max(0, currentPercent - delta);
+    // Устанавливаем новый процент
+    std::string cmd =
+        "amixer set Master " + std::to_string(newPercent) + "% 2>/dev/null";
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Failed to decrease volume"));
+      callback(resp);
+      return;
+    }
+    Json::Value data;
+    data["volume"] = newPercent;
+    data["delta"] = delta;
+    data["old_volume"] = currentPercent;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true,
+                     "Volume decreased from " + std::to_string(currentPercent) +
+                         "% to " + std::to_string(newPercent) + "%",
+                     data));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
+}
+
+void SimplePlayerController::handleToggleMute(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::string cmd = "amixer set Master toggle 2>/dev/null";
+  int ret = system(cmd.c_str());
+  if (ret != 0) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Failed to toggle mute"));
+    callback(resp);
+    return;
+  }
+  // Получаем состояние mute
+  std::string getCmd = "amixer get Master 2>/dev/null | grep -oP "
+                       "'(?<=\\[)(on|off)(?=\\])' | head -1";
+  std::array<char, 128> buffer;
+  FILE *pipe = popen(getCmd.c_str(), "r");
+  std::string muted;
+  if (pipe && fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+    muted = std::string(buffer.data());
+    muted.erase(muted.find_last_not_of(" \n\r\t") + 1);
+  }
+  if (pipe)
+    pclose(pipe);
+
+  Json::Value data;
+  bool isMuted = (muted == "off");
+  data["muted"] = isMuted;
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(
+      jsonResponse(true, isMuted ? "Muted" : "Unmuted", data));
+  callback(resp);
+}
+
 void SimplePlayerController::launchMpv() {
   unlink(socketPath_.c_str());
   std::string cmd = "mpv --input-ipc-server=" + socketPath_ +
@@ -162,6 +371,7 @@ SimplePlayerController::SimplePlayerController() : currentIndex_(-1) {
   socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
                 std::to_string(instanceCounter_++);
   launchMpv();
+  system("amixer set Master 25% 2>/dev/null");
 }
 
 SimplePlayerController::~SimplePlayerController() { killMpv(); }
