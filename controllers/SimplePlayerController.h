@@ -129,6 +129,7 @@ private:
   void killMpv();
   bool isProcessAlive();
   void updatePlaylistFromMpv();
+  void startAutoAdvance();
 
   std::string socketPath_;
   std::vector<std::string> playlist_;
