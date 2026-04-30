@@ -9,9 +9,42 @@
 #include <thread>
 #include <unistd.h>
 
+const std::vector<std::string> AlsaMixer::availableOutputs_ = {"speakers",
+                                                               "headphones"};
+
+bool AlsaMixer::switchToSpeakers() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::vector<std::pair<std::string, std::string>> commands = {
+      {"sset 'Analog Output'", "Speakers"}, {"sset 'Line'", "Line"}};
+  for (const auto &cmd : commands) {
+    std::string fullCmd = cmd.first + " " + cmd.second;
+    if (executeAmixer(fullCmd)) {
+      currentOutput_ = "speakers";
+      return true;
+    }
+  }
+  return false;
+}
+
+bool AlsaMixer::switchToHeadphones() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::vector<std::string> commands = {"sset 'Analog Output' Headphones",
+                                       "sset 'Headphones Impedance' 1"};
+  for (const auto &cmd : commands) {
+    if (executeAmixer(cmd)) {
+      currentOutput_ = "headphones";
+      return true;
+    }
+  }
+  return false;
+}
+
 AlsaMixer::AlsaMixer()
-    : controlName_("Master"), currentVolume_(0), muted_(false) {}
+    : controlName_("Master"), currentVolume_(0), muted_(false),
+      currentOutput_("speakers") {}
+
 AlsaMixer::~AlsaMixer() {}
+
 AlsaMixer &AlsaMixer::getInstance() {
   static AlsaMixer instance;
   return instance;
@@ -93,7 +126,6 @@ bool AlsaMixer::setVolume(int percent) {
       "sset " + controlName_ + " " + std::to_string(percent) + "%";
   if (executeAmixer(cmd)) {
     currentVolume_ = percent;
-    std::cout << "[AlsaMixer] Volume set to " << percent << "%" << std::endl;
     return true;
   }
   return false;
@@ -106,8 +138,6 @@ bool AlsaMixer::increaseVolume(int delta) {
   std::string cmd = "sset " + controlName_ + " " + std::to_string(delta) + "%+";
   if (executeAmixer(cmd)) {
     currentVolume_ = getVolume();
-    std::cout << "[AlsaMixer] Volume increased by " << delta << "%, now "
-              << currentVolume_ << "%" << std::endl;
     return true;
   }
   return false;
@@ -120,8 +150,6 @@ bool AlsaMixer::decreaseVolume(int delta) {
   std::string cmd = "sset " + controlName_ + " " + std::to_string(delta) + "%-";
   if (executeAmixer(cmd)) {
     currentVolume_ = getVolume();
-    std::cout << "[AlsaMixer] Volume decreased by " << delta << "%, now "
-              << currentVolume_ << "%" << std::endl;
     return true;
   }
   return false;
@@ -132,8 +160,6 @@ bool AlsaMixer::toggleMute() {
   std::string cmd = "sset " + controlName_ + " toggle";
   if (executeAmixer(cmd)) {
     muted_ = !muted_;
-    std::cout << "[AlsaMixer] Mute toggled: " << (muted_ ? "muted" : "unmuted")
-              << std::endl;
     return true;
   }
   return false;
@@ -158,3 +184,12 @@ bool AlsaMixer::isMuted() {
 }
 
 std::string AlsaMixer::getControlName() { return controlName_; }
+
+std::string AlsaMixer::getCurrentOutput() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return currentOutput_;
+}
+
+std::vector<std::string> AlsaMixer::getAvailableOutputs() {
+  return availableOutputs_;
+}

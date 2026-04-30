@@ -1,4 +1,5 @@
 #include "SimplePlayerController.h"
+#include "services/AlsaMixer.h"
 #include <chrono>
 #include <thread>
 #include <unistd.h>
@@ -585,4 +586,51 @@ void SimplePlayerController::handleNewSeek(
         jsonResponse(false, e.what()));
     callback(resp);
   }
+}
+
+void SimplePlayerController::handleSwitchToSpeakers(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (AlsaMixer::getInstance().switchToSpeakers()) {
+    Json::Value data;
+    data["output"] = "speakers";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Switched to speakers", data));
+    callback(resp);
+  } else {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Failed to switch to speakers"));
+    callback(resp);
+  }
+}
+
+void SimplePlayerController::handleSwitchToHeadphones(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  if (AlsaMixer::getInstance().switchToHeadphones()) {
+    Json::Value data;
+    data["output"] = "headphones";
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Switched to headphones", data));
+    callback(resp);
+  } else {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Failed to switch to headphones"));
+    callback(resp);
+  }
+}
+
+void SimplePlayerController::handleGetAudioOutput(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value data;
+  data["current"] = AlsaMixer::getInstance().getCurrentOutput();
+  Json::Value available(Json::arrayValue);
+  for (const auto &output : AlsaMixer::getInstance().getAvailableOutputs()) {
+    available.append(output);
+  }
+  data["available"] = available;
+  auto resp =
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data));
+  callback(resp);
 }

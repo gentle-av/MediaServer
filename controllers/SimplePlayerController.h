@@ -45,6 +45,12 @@ public:
                 "/api/simple/volume/decrease", drogon::Post);
   ADD_METHOD_TO(SimplePlayerController::handleToggleMute,
                 "/api/simple/volume/mute", drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleSwitchToSpeakers,
+                "/api/audio/output/speakers", drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleSwitchToHeadphones,
+                "/api/audio/output/headphones", drogon::Post);
+  ADD_METHOD_TO(SimplePlayerController::handleGetAudioOutput,
+                "/api/audio/output", drogon::Get);
   METHOD_LIST_END
 
   SimplePlayerController();
@@ -102,6 +108,15 @@ public:
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void handleToggleMute(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleSwitchToSpeakers(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleSwitchToHeadphones(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleGetAudioOutput(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
