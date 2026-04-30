@@ -20,17 +20,15 @@ add_executable(MediaServer
     main.cpp
     controllers/VideoController.cpp
     controllers/MusicController.cpp
-    controllers/PlayerController.cpp
     controllers/SimplePlayerController.cpp
     services/AlbumArtExtractor.cpp
     services/MusicMetadataExtractor.cpp
-    services/PlayerService.cpp
     services/ThumbnailCache.cpp
     services/ThumbnailExtractor.cpp
+    services/AlsaMixer.cpp
     database/MusicDatabase.cpp
     profilers/Profiler.cpp
     tagger/TagEditor.cpp
-    player/Player.cpp
 )
 
 target_link_libraries(MediaServer
@@ -40,6 +38,7 @@ target_link_libraries(MediaServer
     ${MPV_LIBRARIES}
     ${LIBCURL_LIBRARIES}
     ${FFMPEGTHUMBNAILER_LIBRARIES}
+    asound
     pthread
     dl
 )

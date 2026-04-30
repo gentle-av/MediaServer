@@ -7,7 +7,6 @@
 #include <string>
 
 class Profiler;
-class PlayerService;
 
 namespace fs = std::filesystem;
 using namespace drogon;
@@ -30,7 +29,6 @@ public:
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
-  static void setPlayerService(std::shared_ptr<PlayerService> service);
 
   void getIndex(const HttpRequestPtr &req,
                 std::function<void(const HttpResponsePtr &)> &&callback);
@@ -60,7 +58,6 @@ public:
 
 private:
   Profiler *profiler_ = nullptr;
-  static std::shared_ptr<PlayerService> playerService_;
   std::string getMimeType(const std::string &extension);
   Json::Value getFileInfo(const fs::path &path);
   bool isVideoFile(const std::string &filename);

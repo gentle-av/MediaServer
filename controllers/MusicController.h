@@ -1,7 +1,7 @@
 #pragma once
 
+#include "controllers/SimplePlayerController.h"
 #include "database/MusicDatabase.h"
-#include "services/PlayerService.h"
 #include <chrono>
 #include <drogon/drogon.h>
 #include <mutex>
@@ -45,7 +45,8 @@ public:
   METHOD_LIST_END
 
   MusicController();
-  static void setPlayerService(std::shared_ptr<PlayerService> service);
+  static void
+  setPlayerController(std::shared_ptr<SimplePlayerController> controller);
 
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
@@ -108,7 +109,7 @@ public:
 private:
   std::unique_ptr<MusicDatabase> db_;
   std::string musicDir_;
-  static std::shared_ptr<PlayerService> playerService_;
+  static std::shared_ptr<SimplePlayerController> playerController_;
   struct RescanStatus {
     bool inProgress = false;
     int totalFiles = 0;

@@ -1,6 +1,5 @@
 #include "VideoController.h"
 #include "profilers/Profiler.h"
-#include "services/PlayerService.h"
 #include "services/ThumbnailExtractor.h"
 #include <algorithm>
 #include <cstdlib>
@@ -10,13 +9,8 @@
 #include <unistd.h>
 #include <vector>
 
-std::shared_ptr<PlayerService> VideoController::playerService_ = nullptr;
 extern Profiler *g_profiler;
 std::string VideoController::activeSocket_ = "";
-
-void VideoController::setPlayerService(std::shared_ptr<PlayerService> service) {
-  playerService_ = service;
-}
 
 void VideoController::getIndex(
     const HttpRequestPtr &req,
