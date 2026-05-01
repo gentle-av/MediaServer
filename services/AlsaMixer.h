@@ -27,6 +27,8 @@ private:
   bool executeAmixer(const std::string &command);
   int parseVolumeFromOutput(const std::string &output);
   std::string getCurrentOutputInternal();
+  void detectCurrentOutput();
+
   std::mutex mutex_;
   std::string controlName_;
   int currentVolume_;

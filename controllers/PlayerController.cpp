@@ -132,7 +132,7 @@ PlayerController::PlayerController() : currentIndex_(-1) {
   socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
                 std::to_string(instanceCounter_++);
   launchMpv();
-  system("amixer set Master 25% 2>/dev/null");
+  system("amixer set Master 45% 2>/dev/null");
   startAutoAdvance();
 }
 
@@ -419,7 +419,11 @@ void PlayerController::handleGetAudioOutput(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value data;
-  data["current"] = AlsaMixer::getInstance().getCurrentOutput();
+  std::string currentOutput = AlsaMixer::getInstance().getCurrentOutput();
+  if (currentOutput.empty()) {
+    currentOutput = "speakers";
+  }
+  data["current"] = currentOutput;
   Json::Value available(Json::arrayValue);
   for (const auto &output : AlsaMixer::getInstance().getAvailableOutputs())
     available.append(output);
@@ -455,12 +459,12 @@ void PlayerController::handleClear(
 void PlayerController::handleGetCurrentTime(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  Json::Value response;
+  Json::Value data;
   if (!isProcessAlive()) {
-    response["data"]["currentTime"] = 0;
-    response["data"]["duration"] = 0;
+    data["currentTime"] = 0;
+    data["duration"] = 0;
     callback(drogon::HttpResponse::newHttpJsonResponse(
-        jsonResponse(true, "", response)));
+        jsonResponse(true, "", data)));
     return;
   }
   std::string timeResp =
@@ -475,19 +479,21 @@ void PlayerController::handleGetCurrentTime(
     std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
     if (reader->parse(timeResp.c_str(), timeResp.c_str() + timeResp.size(),
                       &timeJson, &errors) &&
-        timeJson.isMember("data") && timeJson["data"].isNumeric())
+        timeJson.isMember("data") && timeJson["data"].isNumeric()) {
       currentTime = timeJson["data"].asDouble();
+    }
     if (reader->parse(durationResp.c_str(),
                       durationResp.c_str() + durationResp.size(), &durationJson,
                       &errors) &&
-        durationJson.isMember("data") && durationJson["data"].isNumeric())
+        durationJson.isMember("data") && durationJson["data"].isNumeric()) {
       duration = durationJson["data"].asDouble();
+    }
   } catch (...) {
   }
-  response["data"]["currentTime"] = currentTime;
-  response["data"]["duration"] = duration;
-  callback(drogon::HttpResponse::newHttpJsonResponse(
-      jsonResponse(true, "", response)));
+  data["currentTime"] = currentTime;
+  data["duration"] = duration > 0 ? duration : 0;
+  callback(
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data)));
 }
 
 void PlayerController::handleSeek(

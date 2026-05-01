@@ -20,6 +20,7 @@ bool AlsaMixer::switchToSpeakers() {
     std::string fullCmd = cmd.first + " " + cmd.second;
     if (executeAmixer(fullCmd)) {
       currentOutput_ = "speakers";
+      detectCurrentOutput();
       return true;
     }
   }
@@ -33,6 +34,7 @@ bool AlsaMixer::switchToHeadphones() {
   for (const auto &cmd : commands) {
     if (executeAmixer(cmd)) {
       currentOutput_ = "headphones";
+      detectCurrentOutput();
       return true;
     }
   }
@@ -41,7 +43,9 @@ bool AlsaMixer::switchToHeadphones() {
 
 AlsaMixer::AlsaMixer()
     : controlName_("Master"), currentVolume_(0), muted_(false),
-      currentOutput_("speakers") {}
+      currentOutput_("speakers") {
+  detectCurrentOutput();
+}
 
 AlsaMixer::~AlsaMixer() {}
 
@@ -187,9 +191,41 @@ std::string AlsaMixer::getControlName() { return controlName_; }
 
 std::string AlsaMixer::getCurrentOutput() {
   std::lock_guard<std::mutex> lock(mutex_);
+  detectCurrentOutput();
   return currentOutput_;
 }
 
 std::vector<std::string> AlsaMixer::getAvailableOutputs() {
   return availableOutputs_;
+}
+
+void AlsaMixer::detectCurrentOutput() {
+  std::array<char, 256> buffer;
+  std::string result;
+  FILE *pipe = popen(
+      "amixer -c 0 get Headphone 2>/dev/null | grep -o 'on\\|off' | head -1",
+      "r");
+  if (pipe) {
+    while (fgets(buffer.data(), buffer.size(), pipe))
+      result += buffer.data();
+    pclose(pipe);
+  }
+  if (!result.empty() && result.find("on") != std::string::npos) {
+    currentOutput_ = "headphones";
+    return;
+  }
+  pipe = popen(
+      "amixer -c 0 get Speaker 2>/dev/null | grep -o 'on\\|off' | head -1",
+      "r");
+  if (pipe) {
+    result.clear();
+    while (fgets(buffer.data(), buffer.size(), pipe))
+      result += buffer.data();
+    pclose(pipe);
+    if (!result.empty() && result.find("on") != std::string::npos) {
+      currentOutput_ = "speakers";
+      return;
+    }
+  }
+  currentOutput_ = "speakers";
 }
