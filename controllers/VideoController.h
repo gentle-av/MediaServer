@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 
 class Profiler;
 
@@ -26,10 +27,10 @@ public:
   ADD_METHOD_TO(VideoController::getMpvProperty, "/api/mpv/property/{name}",
                 Get);
   ADD_METHOD_TO(VideoController::closeVideo, "/api/video/close", Post);
+  ADD_METHOD_TO(VideoController::forceStopVideo, "/api/video/forceStop", Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
-
   void getIndex(const HttpRequestPtr &req,
                 std::function<void(const HttpResponsePtr &)> &&callback);
   void serveStatic(const HttpRequestPtr &req,
@@ -55,6 +56,8 @@ public:
                       const std::string &propertyName);
   void closeVideo(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
+  void forceStopVideo(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;
@@ -62,5 +65,6 @@ private:
   Json::Value getFileInfo(const fs::path &path);
   bool isVideoFile(const std::string &filename);
   std::string formatFileSize(uintmax_t size);
+  void forceStop();
   static std::string activeSocket_;
 };

@@ -127,61 +127,6 @@ void VideoController::listFiles(
   callback(resp);
 }
 
-void VideoController::openVideo(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  std::cout << "=== openVideo called ===" << std::endl;
-  auto json = req->getJsonObject();
-  if (!json || !json->isMember("path")) {
-    std::cout << "ERROR: No path in request" << std::endl;
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "No path provided";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(k400BadRequest);
-    callback(resp);
-    return;
-  }
-  std::string path = (*json)["path"].asString();
-  std::cout << "Path: " << path << std::endl;
-  if (path.find("/mnt/video") != 0) {
-    std::cout << "ERROR: Access denied - path not in /mnt/video" << std::endl;
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "Access denied";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(k403Forbidden);
-    callback(resp);
-    return;
-  }
-  if (!fs::exists(path)) {
-    std::cout << "ERROR: File not found" << std::endl;
-    Json::Value response;
-    response["success"] = false;
-    response["error"] = "File not found";
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    resp->setStatusCode(k404NotFound);
-    callback(resp);
-    return;
-  }
-  static int socketCounter = 0;
-  activeSocket_ = "/tmp/mpv-socket-" + std::to_string(getpid()) + "-" +
-                  std::to_string(socketCounter++);
-  std::cout << "Created socket: " << activeSocket_ << std::endl;
-  std::string cmd =
-      "mpv --fs --vo=gpu-next --hwdec=auto-safe --input-ipc-server=" +
-      activeSocket_ + " \"" + path + "\" > /dev/null 2>&1 &";
-  std::cout << "Executing: " << cmd << std::endl;
-  int result = system(cmd.c_str());
-  std::cout << "system() result: " << result << std::endl;
-  Json::Value response;
-  response["success"] = (result == 0);
-  response["socket"] = activeSocket_;
-  response["message"] = (result == 0) ? "Video playing" : "Failed to start mpv";
-  auto resp = HttpResponse::newHttpJsonResponse(response);
-  callback(resp);
-}
-
 void VideoController::moveToTrash(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -730,6 +675,82 @@ void VideoController::closeVideo(
     response["success"] = true;
     response["message"] = "No active video to close";
   }
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void VideoController::forceStop() {
+  std::cout << "=== forceStop called ===" << std::endl;
+  system("pkill -f 'mpv.*--input-ipc-server' 2>/dev/null");
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  if (!activeSocket_.empty()) {
+    std::string quitCmd = "echo '{\"command\": [\"quit\"]}' | socat - " +
+                          activeSocket_ + " 2>/dev/null";
+    system(quitCmd.c_str());
+    activeSocket_.clear();
+  }
+}
+
+void VideoController::forceStopVideo(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  std::cout << "=== forceStopVideo called ===" << std::endl;
+  forceStop();
+  Json::Value response;
+  response["success"] = true;
+  response["message"] = "Video force stopped";
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void VideoController::openVideo(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  std::cout << "=== openVideo called ===" << std::endl;
+  system("pkill -f 'mpv.*--input-ipc-server' 2>/dev/null");
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  forceStop();
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No path provided";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string path = (*json)["path"].asString();
+  if (path.find("/mnt/video") != 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Access denied";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k403Forbidden);
+    callback(resp);
+    return;
+  }
+  if (!fs::exists(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "File not found";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k404NotFound);
+    callback(resp);
+    return;
+  }
+  static int socketCounter = 0;
+  activeSocket_ = "/tmp/mpv-socket-" + std::to_string(getpid()) + "-" +
+                  std::to_string(socketCounter++);
+  std::string cmd =
+      "mpv --fs --vo=gpu-next --hwdec=auto-safe --input-ipc-server=" +
+      activeSocket_ + " \"" + path + "\" > /dev/null 2>&1 &";
+  int result = system(cmd.c_str());
+  Json::Value response;
+  response["success"] = (result == 0);
+  response["socket"] = activeSocket_;
+  response["message"] = (result == 0) ? "Video playing" : "Failed to start mpv";
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

@@ -9,31 +9,27 @@
 class PlayerController : public drogon::HttpController<PlayerController> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(PlayerController::handleNewPlay, "/api/audio/play",
+  ADD_METHOD_TO(PlayerController::handlePlay, "/api/audio/play", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handlePause, "/api/audio/pause",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewPause, "/api/audio/pause",
+  ADD_METHOD_TO(PlayerController::handleStop, "/api/audio/stop", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleNext, "/api/audio/next", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handlePrevious, "/api/audio/previous",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewStop, "/api/audio/stop",
+  ADD_METHOD_TO(PlayerController::handleSetPlaylist, "/api/audio/setPlaylist",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewNext, "/api/audio/next",
+  ADD_METHOD_TO(PlayerController::handleAddToPlaylist, "/api/audio/add",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewPrevious, "/api/audio/previous",
+  ADD_METHOD_TO(PlayerController::handleClear, "/api/audio/clear",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewSetPlaylist,
-                "/api/audio/setPlaylist", drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewAddToPlaylist, "/api/audio/add",
-                drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewClear, "/api/audio/clear",
-                drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewGetPlaylist,
-                "/api/audio/getPlaylist", drogon::Get);
-  ADD_METHOD_TO(PlayerController::handleNewGetPlaybackState,
+  ADD_METHOD_TO(PlayerController::handleGetPlaylist, "/api/audio/getPlaylist",
+                drogon::Get);
+  ADD_METHOD_TO(PlayerController::handlePlaybackState,
                 "/api/audio/playbackState", drogon::Get);
-  ADD_METHOD_TO(PlayerController::handleNewGetCurrentTime,
+  ADD_METHOD_TO(PlayerController::handleGetCurrentTime,
                 "/api/audio/currentTime", drogon::Get);
-  ADD_METHOD_TO(PlayerController::handleNewSeek, "/api/audio/seek",
-                drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleNewPlayFile, "/api/audio/playFile",
+  ADD_METHOD_TO(PlayerController::handleSeek, "/api/audio/seek", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handlePlayFile, "/api/audio/playFile",
                 drogon::Post);
   ADD_METHOD_TO(PlayerController::handleGetVolume, "/api/audio/volume",
                 drogon::Get);
@@ -51,50 +47,52 @@ public:
                 "/api/audio/output/headphones", drogon::Post);
   ADD_METHOD_TO(PlayerController::handleGetAudioOutput, "/api/audio/output",
                 drogon::Get);
-  ADD_METHOD_TO(PlayerController::handleNewPlayIndex, "/api/audio/playIndex",
+  ADD_METHOD_TO(PlayerController::handlePlayIndex, "/api/audio/playIndex",
+                drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleForceStop, "/api/audio/forceStop",
                 drogon::Post);
   METHOD_LIST_END
 
   PlayerController();
   ~PlayerController();
 
-  void handleNewPlay(
+  void
+  handlePlay(const drogon::HttpRequestPtr &req,
+             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void
+  handlePause(const drogon::HttpRequestPtr &req,
+              std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void
+  handleStop(const drogon::HttpRequestPtr &req,
+             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void
+  handleNext(const drogon::HttpRequestPtr &req,
+             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handlePrevious(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewPause(
+  void handleSetPlaylist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewStop(
+  void handleAddToPlaylist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewNext(
+  void
+  handleClear(const drogon::HttpRequestPtr &req,
+              std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleGetPlaylist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewPrevious(
+  void handlePlaybackState(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewSetPlaylist(
+  void handleGetCurrentTime(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewAddToPlaylist(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewClear(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewGetPlaylist(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewGetPlaybackState(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewGetCurrentTime(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewSeek(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewPlayFile(
+  void
+  handleSeek(const drogon::HttpRequestPtr &req,
+             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handlePlayFile(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void handleGetVolume(
@@ -121,7 +119,10 @@ public:
   void handleGetAudioOutput(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void handleNewPlayIndex(
+  void handlePlayIndex(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleForceStop(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
@@ -131,11 +132,11 @@ private:
                            const Json::Value &data = Json::Value());
   std::string sendCommand(const std::string &jsonCmd);
   void launchMpv();
-  void killMpv();
   bool isProcessAlive();
-  void updatePlaylistFromMpv();
+  void stopMpv();
+  void loadTrack(int index);
+  std::string escapePath(const std::string &path);
   void startAutoAdvance();
-
   std::string socketPath_;
   std::vector<std::string> playlist_;
   int currentIndex_;

@@ -56,10 +56,10 @@ void MusicController::openMusium(
       Json::Value setPlaylistReq;
       setPlaylistReq["tracks"] = playlistJson;
       auto mockReq = drogon::HttpRequest::newHttpJsonRequest(setPlaylistReq);
-      playerController_->handleNewSetPlaylist(
+      playerController_->handleSetPlaylist(
           mockReq, [](const drogon::HttpResponsePtr &) {});
-      playerController_->handleNewPlay(mockReq,
-                                       [](const drogon::HttpResponsePtr &) {});
+      playerController_->handlePlay(mockReq,
+                                    [](const drogon::HttpResponsePtr &) {});
       response["status"] = "success";
       response["message"] = "Musium launched via PlayerController";
       response["tracks_count"] = static_cast<int>(tracks.size());
