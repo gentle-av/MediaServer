@@ -1,3 +1,4 @@
+// PlayerController.cpp
 #include "PlayerController.h"
 #include "services/AlsaMixer.h"
 #include <chrono>
@@ -9,7 +10,7 @@ void PlayerController::launchMpv() {
   unlink(socketPath_.c_str());
   std::string cmd = "mpv --input-ipc-server=" + socketPath_ +
                     " --idle --no-video --ao=alsa" +
-                    " --no-terminal > /dev/null 2>&1 &";
+                    " --no-terminal --really-quiet > /dev/null 2>&1 &";
   system(cmd.c_str());
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
@@ -74,14 +75,31 @@ void PlayerController::startAutoAdvance() {
       if (pos != std::string::npos) {
         size_t start = timeResp.find(":", pos);
         if (start != std::string::npos) {
-          currentTime = std::stod(timeResp.substr(start + 1));
+          try {
+            currentTime = std::stod(timeResp.substr(start + 1));
+          } catch (...) {
+            currentTime = 0;
+          }
         }
       }
       pos = durationResp.find("\"data\"");
       if (pos != std::string::npos) {
         size_t start = durationResp.find(":", pos);
         if (start != std::string::npos) {
-          duration = std::stod(durationResp.substr(start + 1));
+          try {
+            duration = std::stod(durationResp.substr(start + 1));
+          } catch (...) {
+            duration = 0;
+          }
+        }
+      }
+      if (duration == 0 && currentTime == 0 && currentIndex_ >= 0 &&
+          currentIndex_ < (int)playlist_.size()) {
+        std::string filename = playlist_[currentIndex_];
+        std::string ext = filename.substr(filename.find_last_of("."));
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" || ext == ".wav") {
+          duration = 300;
         }
       }
       if ((eofReached || (duration > 0 && (duration - currentTime) < 0.5)) &&
@@ -113,19 +131,15 @@ void PlayerController::handleGetVolume(
     result += buffer.data();
   }
   pclose(pipe);
-  std::cout << "[DEBUG] amixer output:\n" << result << std::endl;
   int volume = -1;
   std::regex volumeRegex(R"((\d+)%)");
   std::smatch match;
   if (std::regex_search(result, match, volumeRegex)) {
     volume = std::stoi(match[1].str());
-    std::cout << "[DEBUG] Parsed volume: " << volume << "%" << std::endl;
   } else {
     std::regex altRegex(R"(Playback\s+\d+\s+\[(\d+)%\])");
     if (std::regex_search(result, match, altRegex)) {
       volume = std::stoi(match[1].str());
-      std::cout << "[DEBUG] Parsed volume (alt): " << volume << "%"
-                << std::endl;
     }
   }
   if (volume < 0) {
@@ -400,11 +414,7 @@ void PlayerController::handleNewGetPlaybackState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value state;
-  std::cout << "[DEBUG] GetPlaybackState called - currentIndex: "
-            << currentIndex_ << ", playlist size: " << playlist_.size()
-            << std::endl;
   if (!isProcessAlive()) {
-    std::cout << "[DEBUG] Process not alive" << std::endl;
     state["isPlaying"] = false;
     state["currentTrack"] = "";
     state["currentIndex"] = currentIndex_;
@@ -426,7 +436,11 @@ void PlayerController::handleNewGetPlaybackState(
   if (pos != std::string::npos) {
     size_t start = timeResp.find(":", pos);
     if (start != std::string::npos) {
-      currentTime = std::stod(timeResp.substr(start + 1));
+      try {
+        currentTime = std::stod(timeResp.substr(start + 1));
+      } catch (...) {
+        currentTime = 0;
+      }
     }
   }
   std::string durationResp =
@@ -436,37 +450,45 @@ void PlayerController::handleNewGetPlaybackState(
   if (pos != std::string::npos) {
     size_t start = durationResp.find(":", pos);
     if (start != std::string::npos) {
-      duration = std::stod(durationResp.substr(start + 1));
+      try {
+        duration = std::stod(durationResp.substr(start + 1));
+      } catch (...) {
+        duration = 0;
+      }
     }
   }
-  std::cout << "[DEBUG] Playback state - isPaused: " << isPaused
-            << ", currentTime: " << currentTime << ", duration: " << duration
-            << std::endl;
-  bool isPlaying = !isPaused && currentTime > 0;
+  bool isPlaying = !isPaused && (currentTime > 0 || duration > 0);
   if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size() &&
-      duration == 0 && currentTime == 0 && playlist_.size() > 0) {
-    duration = 300;
-  }
-  if (currentIndex_ >= 0 && currentIndex_ < (int)playlist_.size() &&
-      duration > 0 && (duration - currentTime) < 0.5) {
-    if (currentIndex_ + 1 < (int)playlist_.size()) {
-      currentIndex_++;
-      std::string loadCmd = R"({"command": ["loadfile", ")" +
-                            playlist_[currentIndex_] + R"(", "replace"]})";
-      sendCommand(loadCmd);
-      sendCommand(R"({"command": ["set_property", "pause", false]})");
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      state["currentTrack"] = playlist_[currentIndex_];
-      state["currentIndex"] = currentIndex_;
-      state["isPlaying"] = true;
-      state["totalTracks"] = (int)playlist_.size();
-      state["currentTime"] = 0;
-      state["duration"] = 0;
-      auto resp = drogon::HttpResponse::newHttpJsonResponse(
-          jsonResponse(true, "", state));
-      callback(resp);
-      return;
+      duration == 0 && playlist_.size() > 0) {
+    std::string filename = playlist_[currentIndex_];
+    std::string ext = filename.substr(filename.find_last_of("."));
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if (ext == ".mp3" || ext == ".flac" || ext == ".m4a" || ext == ".wav") {
+      duration = 300;
     }
+  }
+  std::string eofResp =
+      sendCommand(R"({"command": ["get_property", "eof-reached"]})");
+  bool eofReached = eofResp.find("\"data\":true") != std::string::npos;
+  if ((eofReached || (duration > 0 && duration > 0 && currentTime > 0 &&
+                      (duration - currentTime) < 0.5)) &&
+      currentIndex_ + 1 < (int)playlist_.size()) {
+    currentIndex_++;
+    std::string loadCmd = R"({"command": ["loadfile", ")" +
+                          playlist_[currentIndex_] + R"(", "replace"]})";
+    sendCommand(loadCmd);
+    sendCommand(R"({"command": ["set_property", "pause", false]})");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    state["currentTrack"] = playlist_[currentIndex_];
+    state["currentIndex"] = currentIndex_;
+    state["isPlaying"] = true;
+    state["totalTracks"] = (int)playlist_.size();
+    state["currentTime"] = 0;
+    state["duration"] = 0;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "", state));
+    callback(resp);
+    return;
   }
   state["isPlaying"] = isPlaying;
   state["currentTrack"] =
