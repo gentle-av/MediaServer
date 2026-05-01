@@ -15,8 +15,7 @@
 
 namespace fs = std::filesystem;
 
-std::shared_ptr<SimplePlayerController> MusicController::playerController_ =
-    nullptr;
+std::shared_ptr<PlayerController> MusicController::playerController_ = nullptr;
 MusicController::RescanStatus MusicController::rescanStatus_;
 std::mutex MusicController::rescanStatusMutex_;
 
@@ -62,11 +61,11 @@ void MusicController::openMusium(
       playerController_->handleNewPlay(mockReq,
                                        [](const drogon::HttpResponsePtr &) {});
       response["status"] = "success";
-      response["message"] = "Musium launched via SimplePlayerController";
+      response["message"] = "Musium launched via PlayerController";
       response["tracks_count"] = static_cast<int>(tracks.size());
     } else {
       response["status"] = "error";
-      response["message"] = "SimplePlayerController not available";
+      response["message"] = "PlayerController not available";
     }
   } catch (const std::exception &e) {
     LOG_ERROR << "Error launching Musium: " << e.what();

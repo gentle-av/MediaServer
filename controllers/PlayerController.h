@@ -5,56 +5,55 @@
 #include <string>
 #include <vector>
 
-class SimplePlayerController
-    : public drogon::HttpController<SimplePlayerController> {
+class PlayerController : public drogon::HttpController<PlayerController> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(SimplePlayerController::handleNewPlay, "/api/new/play",
+  ADD_METHOD_TO(PlayerController::handleNewPlay, "/api/audio/play",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewPause, "/api/new/pause",
+  ADD_METHOD_TO(PlayerController::handleNewPause, "/api/audio/pause",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewStop, "/api/new/stop",
+  ADD_METHOD_TO(PlayerController::handleNewStop, "/api/audio/stop",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewNext, "/api/new/next",
+  ADD_METHOD_TO(PlayerController::handleNewNext, "/api/audio/next",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewPrevious, "/api/new/previous",
+  ADD_METHOD_TO(PlayerController::handleNewPrevious, "/api/audio/previous",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewSetPlaylist,
-                "/api/new/setPlaylist", drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewAddToPlaylist, "/api/new/add",
+  ADD_METHOD_TO(PlayerController::handleNewSetPlaylist,
+                "/api/audio/setPlaylist", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleNewAddToPlaylist, "/api/audio/add",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewClear, "/api/new/clear",
+  ADD_METHOD_TO(PlayerController::handleNewClear, "/api/audio/clear",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewGetPlaylist,
-                "/api/new/getPlaylist", drogon::Get);
-  ADD_METHOD_TO(SimplePlayerController::handleNewGetPlaybackState,
-                "/api/new/playbackState", drogon::Get);
-  ADD_METHOD_TO(SimplePlayerController::handleNewGetCurrentTime,
-                "/api/new/currentTime", drogon::Get);
-  ADD_METHOD_TO(SimplePlayerController::handleNewSeek, "/api/new/seek",
+  ADD_METHOD_TO(PlayerController::handleNewGetPlaylist,
+                "/api/audio/getPlaylist", drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleNewGetPlaybackState,
+                "/api/audio/playbackState", drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleNewGetCurrentTime,
+                "/api/audio/currentTime", drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleNewSeek, "/api/audio/seek",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleNewPlayFile, "/api/new/playFile",
+  ADD_METHOD_TO(PlayerController::handleNewPlayFile, "/api/audio/playFile",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleGetVolume, "/api/simple/volume",
+  ADD_METHOD_TO(PlayerController::handleGetVolume, "/api/audio/volume",
                 drogon::Get);
-  ADD_METHOD_TO(SimplePlayerController::handleSetVolume, "/api/simple/volume",
+  ADD_METHOD_TO(PlayerController::handleSetVolume, "/api/audio/volume",
                 drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleIncreaseVolume,
-                "/api/simple/volume/increase", drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleDecreaseVolume,
-                "/api/simple/volume/decrease", drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleToggleMute,
-                "/api/simple/volume/mute", drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleSwitchToSpeakers,
+  ADD_METHOD_TO(PlayerController::handleIncreaseVolume,
+                "/api/audio/volume/increase", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleDecreaseVolume,
+                "/api/audio/volume/decrease", drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleToggleMute, "/api/audio/volume/mute",
+                drogon::Post);
+  ADD_METHOD_TO(PlayerController::handleSwitchToSpeakers,
                 "/api/audio/output/speakers", drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleSwitchToHeadphones,
+  ADD_METHOD_TO(PlayerController::handleSwitchToHeadphones,
                 "/api/audio/output/headphones", drogon::Post);
-  ADD_METHOD_TO(SimplePlayerController::handleGetAudioOutput,
-                "/api/audio/output", drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleGetAudioOutput, "/api/audio/output",
+                drogon::Get);
   METHOD_LIST_END
 
-  SimplePlayerController();
-  ~SimplePlayerController();
+  PlayerController();
+  ~PlayerController();
 
   void handleNewPlay(
       const drogon::HttpRequestPtr &req,

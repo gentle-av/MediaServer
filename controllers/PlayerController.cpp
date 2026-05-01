@@ -1,11 +1,11 @@
-#include "SimplePlayerController.h"
+#include "PlayerController.h"
 #include "services/AlsaMixer.h"
 #include <chrono>
 #include <regex>
 #include <thread>
 #include <unistd.h>
 
-void SimplePlayerController::launchMpv() {
+void PlayerController::launchMpv() {
   unlink(socketPath_.c_str());
   std::string cmd = "mpv --input-ipc-server=" + socketPath_ +
                     " --idle --no-video --ao=alsa" +
@@ -14,7 +14,7 @@ void SimplePlayerController::launchMpv() {
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
-void SimplePlayerController::handleNewSetPlaylist(
+void PlayerController::handleNewSetPlaylist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -52,7 +52,7 @@ void SimplePlayerController::handleNewSetPlaylist(
   }
 }
 
-void SimplePlayerController::startAutoAdvance() {
+void PlayerController::startAutoAdvance() {
   std::thread([this]() {
     while (true) {
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -96,7 +96,7 @@ void SimplePlayerController::startAutoAdvance() {
   }).detach();
 }
 
-void SimplePlayerController::handleGetVolume(
+void PlayerController::handleGetVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   std::string cmd = "amixer get Master 2>/dev/null";
@@ -141,7 +141,7 @@ void SimplePlayerController::handleGetVolume(
   callback(resp);
 }
 
-void SimplePlayerController::handleSetVolume(
+void PlayerController::handleSetVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -185,7 +185,7 @@ void SimplePlayerController::handleSetVolume(
   }
 }
 
-void SimplePlayerController::handleIncreaseVolume(
+void PlayerController::handleIncreaseVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -252,7 +252,7 @@ void SimplePlayerController::handleIncreaseVolume(
   }
 }
 
-void SimplePlayerController::handleDecreaseVolume(
+void PlayerController::handleDecreaseVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -319,7 +319,7 @@ void SimplePlayerController::handleDecreaseVolume(
   }
 }
 
-void SimplePlayerController::handleToggleMute(
+void PlayerController::handleToggleMute(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   std::string cmd = "amixer set Master toggle 2>/dev/null";
@@ -349,7 +349,7 @@ void SimplePlayerController::handleToggleMute(
   callback(resp);
 }
 
-std::string SimplePlayerController::sendCommand(const std::string &jsonCmd) {
+std::string PlayerController::sendCommand(const std::string &jsonCmd) {
   if (socketPath_.empty()) {
     return "";
   }
@@ -369,7 +369,7 @@ std::string SimplePlayerController::sendCommand(const std::string &jsonCmd) {
   return result;
 }
 
-bool SimplePlayerController::isProcessAlive() {
+bool PlayerController::isProcessAlive() {
   if (socketPath_.empty())
     return false;
   if (access(socketPath_.c_str(), F_OK) != 0)
@@ -387,7 +387,7 @@ bool SimplePlayerController::isProcessAlive() {
   return !result.empty();
 }
 
-void SimplePlayerController::handleNewPlay(
+void PlayerController::handleNewPlay(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   sendCommand(R"({"command": ["set_property", "pause", false]})");
@@ -396,7 +396,7 @@ void SimplePlayerController::handleNewPlay(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewGetPlaybackState(
+void PlayerController::handleNewGetPlaybackState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value state;
@@ -482,9 +482,9 @@ void SimplePlayerController::handleNewGetPlaybackState(
   callback(resp);
 }
 
-int SimplePlayerController::instanceCounter_ = 0;
+int PlayerController::instanceCounter_ = 0;
 
-SimplePlayerController::SimplePlayerController() : currentIndex_(-1) {
+PlayerController::PlayerController() : currentIndex_(-1) {
   socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
                 std::to_string(instanceCounter_++);
   launchMpv();
@@ -492,9 +492,9 @@ SimplePlayerController::SimplePlayerController() : currentIndex_(-1) {
   startAutoAdvance();
 }
 
-SimplePlayerController::~SimplePlayerController() { killMpv(); }
+PlayerController::~PlayerController() { killMpv(); }
 
-void SimplePlayerController::killMpv() {
+void PlayerController::killMpv() {
   if (!socketPath_.empty()) {
     sendCommand(R"({"command": ["quit"]})");
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -502,8 +502,7 @@ void SimplePlayerController::killMpv() {
   }
 }
 
-Json::Value
-SimplePlayerController::parseBody(const drogon::HttpRequestPtr &req) {
+Json::Value PlayerController::parseBody(const drogon::HttpRequestPtr &req) {
   auto body = req->getBody();
   Json::Value result;
   if (body.empty())
@@ -517,9 +516,9 @@ SimplePlayerController::parseBody(const drogon::HttpRequestPtr &req) {
   return result;
 }
 
-Json::Value SimplePlayerController::jsonResponse(bool success,
-                                                 const std::string &message,
-                                                 const Json::Value &data) {
+Json::Value PlayerController::jsonResponse(bool success,
+                                           const std::string &message,
+                                           const Json::Value &data) {
   Json::Value resp;
   resp["success"] = success;
   if (!message.empty())
@@ -529,7 +528,7 @@ Json::Value SimplePlayerController::jsonResponse(bool success,
   return resp;
 }
 
-void SimplePlayerController::handleNewPause(
+void PlayerController::handleNewPause(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   sendCommand(R"({"command": ["set_property", "pause", true]})");
@@ -538,7 +537,7 @@ void SimplePlayerController::handleNewPause(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewStop(
+void PlayerController::handleNewStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   sendCommand(R"({"command": ["stop"]})");
@@ -548,7 +547,7 @@ void SimplePlayerController::handleNewStop(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewNext(
+void PlayerController::handleNewNext(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   if (currentIndex_ + 1 < (int)playlist_.size()) {
@@ -563,7 +562,7 @@ void SimplePlayerController::handleNewNext(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewPrevious(
+void PlayerController::handleNewPrevious(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   if (currentIndex_ - 1 >= 0) {
@@ -578,7 +577,7 @@ void SimplePlayerController::handleNewPrevious(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewAddToPlaylist(
+void PlayerController::handleNewAddToPlaylist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -600,7 +599,7 @@ void SimplePlayerController::handleNewAddToPlaylist(
   }
 }
 
-void SimplePlayerController::handleNewPlayFile(
+void PlayerController::handleNewPlayFile(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -627,7 +626,7 @@ void SimplePlayerController::handleNewPlayFile(
   }
 }
 
-void SimplePlayerController::handleNewClear(
+void PlayerController::handleNewClear(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   sendCommand(R"({"command": ["stop"]})");
@@ -638,7 +637,7 @@ void SimplePlayerController::handleNewClear(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewGetPlaylist(
+void PlayerController::handleNewGetPlaylist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value playlist(Json::arrayValue);
@@ -650,7 +649,7 @@ void SimplePlayerController::handleNewGetPlaylist(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewGetCurrentTime(
+void PlayerController::handleNewGetCurrentTime(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value time;
@@ -680,7 +679,7 @@ void SimplePlayerController::handleNewGetCurrentTime(
   callback(resp);
 }
 
-void SimplePlayerController::handleNewSeek(
+void PlayerController::handleNewSeek(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
@@ -707,7 +706,7 @@ void SimplePlayerController::handleNewSeek(
   }
 }
 
-void SimplePlayerController::handleSwitchToSpeakers(
+void PlayerController::handleSwitchToSpeakers(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   if (AlsaMixer::getInstance().switchToSpeakers()) {
@@ -723,7 +722,7 @@ void SimplePlayerController::handleSwitchToSpeakers(
   }
 }
 
-void SimplePlayerController::handleSwitchToHeadphones(
+void PlayerController::handleSwitchToHeadphones(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   if (AlsaMixer::getInstance().switchToHeadphones()) {
@@ -739,7 +738,7 @@ void SimplePlayerController::handleSwitchToHeadphones(
   }
 }
 
-void SimplePlayerController::handleGetAudioOutput(
+void PlayerController::handleGetAudioOutput(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   Json::Value data;
