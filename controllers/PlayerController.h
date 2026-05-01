@@ -1,6 +1,7 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include <drogon/HttpTypes.h>
 #include <json/json.h>
 #include <string>
 #include <vector>
@@ -50,6 +51,8 @@ public:
                 "/api/audio/output/headphones", drogon::Post);
   ADD_METHOD_TO(PlayerController::handleGetAudioOutput, "/api/audio/output",
                 drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleNewPlayIndex, "/api/audio/playIndex",
+                drogon::Post);
   METHOD_LIST_END
 
   PlayerController();
@@ -116,6 +119,9 @@ public:
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void handleGetAudioOutput(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void handleNewPlayIndex(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 

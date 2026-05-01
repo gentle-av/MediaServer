@@ -652,30 +652,47 @@ void PlayerController::handleNewGetPlaylist(
 void PlayerController::handleNewGetCurrentTime(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  Json::Value time;
+  Json::Value response;
+  if (!isProcessAlive()) {
+    response["success"] = true;
+    response["data"]["currentTime"] = 0;
+    response["data"]["duration"] = 0;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
   std::string timeResp =
       sendCommand(R"({"command": ["get_property", "time-pos"]})");
   std::string durationResp =
       sendCommand(R"({"command": ["get_property", "duration"]})");
-  double currentTime = 0, duration = 0;
-  size_t pos = timeResp.find("\"data\"");
-  if (pos != std::string::npos) {
-    size_t start = timeResp.find(":", pos);
-    if (start != std::string::npos) {
-      currentTime = std::stod(timeResp.substr(start + 1));
+  double currentTime = 0;
+  double duration = 0;
+  try {
+    Json::Value timeJson;
+    Json::CharReaderBuilder builder;
+    std::string errors;
+    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+    if (reader->parse(timeResp.c_str(), timeResp.c_str() + timeResp.size(),
+                      &timeJson, &errors)) {
+      if (timeJson.isMember("data") && timeJson["data"].isNumeric()) {
+        currentTime = timeJson["data"].asDouble();
+      }
     }
-  }
-  pos = durationResp.find("\"data\"");
-  if (pos != std::string::npos) {
-    size_t start = durationResp.find(":", pos);
-    if (start != std::string::npos) {
-      duration = std::stod(durationResp.substr(start + 1));
+    Json::Value durationJson;
+    if (reader->parse(durationResp.c_str(),
+                      durationResp.c_str() + durationResp.size(), &durationJson,
+                      &errors)) {
+      if (durationJson.isMember("data") && durationJson["data"].isNumeric()) {
+        duration = durationJson["data"].asDouble();
+      }
     }
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Failed to parse mpv response: " << e.what();
   }
-  time["currentTime"] = currentTime;
-  time["duration"] = duration;
-  auto resp =
-      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", time));
+  response["success"] = true;
+  response["data"]["currentTime"] = currentTime;
+  response["data"]["duration"] = duration;
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
 
@@ -751,4 +768,37 @@ void PlayerController::handleGetAudioOutput(
   auto resp =
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data));
   callback(resp);
+}
+
+void PlayerController::handleNewPlayIndex(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  try {
+    Json::Value json = parseBody(req);
+    if (!json.isMember("index") || !json["index"].isInt()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Missing index parameter"));
+      callback(resp);
+      return;
+    }
+    int index = json["index"].asInt();
+    if (index < 0 || index >= (int)playlist_.size()) {
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          jsonResponse(false, "Index out of range"));
+      callback(resp);
+      return;
+    }
+    currentIndex_ = index;
+    std::string cmd = "{\"command\": [\"loadfile\", \"" +
+                      playlist_[currentIndex_] + "\", \"replace\"]}";
+    sendCommand(cmd);
+    sendCommand("{\"command\": [\"set_property\", \"pause\", false]}");
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "Playing track at index " + std::to_string(index)));
+    callback(resp);
+  } catch (const std::exception &e) {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, e.what()));
+    callback(resp);
+  }
 }
