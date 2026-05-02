@@ -21,6 +21,7 @@ add_executable(MediaServer
     controllers/VideoController.cpp
     controllers/MusicController.cpp
     controllers/PlayerController.cpp
+    controllers/PowerController.cpp
     services/AlbumArtExtractor.cpp
     services/MusicMetadataExtractor.cpp
     services/ThumbnailCache.cpp
