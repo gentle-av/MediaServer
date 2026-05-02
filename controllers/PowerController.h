@@ -3,7 +3,6 @@
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
-#include <memory>
 #include <string>
 
 class PowerController : public drogon::HttpController<PowerController> {
@@ -56,7 +55,7 @@ public:
 private:
   Json::Value jsonResponse(bool success, const std::string &message = "",
                            const Json::Value &data = Json::Value());
-  std::string execCommand(const std::string &cmd);
+  std::string execCommand(const std::string &cmd, int timeoutSec = 5);
   bool isProcessAlive(const std::string &processName);
   static constexpr const char *DEFAULT_TV_ADDRESS = "192.168.50.13";
 };

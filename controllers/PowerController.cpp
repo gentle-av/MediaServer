@@ -1,4 +1,5 @@
 #include "PowerController.h"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -31,10 +32,13 @@ Json::Value PowerController::jsonResponse(bool success,
   return resp;
 }
 
-std::string PowerController::execCommand(const std::string &cmd) {
+std::string PowerController::execCommand(const std::string &cmd,
+                                         int timeoutSec) {
+  std::string cmdWithTimeout =
+      "timeout " + std::to_string(timeoutSec) + " " + cmd;
   std::array<char, 256> buffer;
   std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
+  FILE *pipe = popen(cmdWithTimeout.c_str(), "r");
   if (!pipe) {
     LOG_ERROR << "Failed to execute command: " << cmd;
     return "";
@@ -48,7 +52,7 @@ std::string PowerController::execCommand(const std::string &cmd) {
 
 bool PowerController::isProcessAlive(const std::string &processName) {
   std::string cmd = "pgrep -f '" + processName + "' 2>/dev/null";
-  std::string result = execCommand(cmd);
+  std::string result = execCommand(cmd, 2);
   return !result.empty();
 }
 
@@ -56,7 +60,7 @@ void PowerController::adbKillServer(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   LOG_INFO << "adbKillServer called";
-  execCommand("adb kill-server 2>/dev/null");
+  execCommand("adb kill-server 2>/dev/null", 5);
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "ADB server killed"));
   callback(resp);
@@ -66,7 +70,7 @@ void PowerController::adbStartServer(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   LOG_INFO << "adbStartServer called";
-  execCommand("adb start-server 2>/dev/null");
+  execCommand("adb start-server 2>/dev/null", 5);
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "ADB server started"));
@@ -83,7 +87,7 @@ void PowerController::adbConnect(
     address = (*json)["address"].asString();
   }
   std::string cmd = "adb connect " + address + " 2>&1";
-  std::string result = execCommand(cmd);
+  std::string result = execCommand(cmd, 5);
   bool success = result.find("connected") != std::string::npos ||
                  result.find("already connected") != std::string::npos;
   Json::Value data;
@@ -108,7 +112,7 @@ void PowerController::adbKeyEvent(
   int keycode = (*json)["keycode"].asInt();
   std::string cmd =
       "adb shell input keyevent " + std::to_string(keycode) + " 2>&1";
-  std::string result = execCommand(cmd);
+  std::string result = execCommand(cmd, 5);
   bool success = result.empty() || result.find("error") == std::string::npos;
   Json::Value data;
   data["keycode"] = keycode;
@@ -121,7 +125,7 @@ void PowerController::adbGetState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   LOG_INFO << "adbGetState called";
-  std::string result = execCommand("adb get-state 2>&1");
+  std::string result = execCommand("adb get-state 2>&1", 5);
   bool connected = result.find("device") != std::string::npos;
   Json::Value data;
   data["state"] = result;
@@ -166,17 +170,12 @@ void PowerController::getPowerStatus(
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   LOG_INFO << "getPowerStatus called";
   Json::Value data;
-  execCommand("adb start-server 2>/dev/null");
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
-  execCommand("adb connect " + std::string(DEFAULT_TV_ADDRESS) +
-              " 2>/dev/null");
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-  std::string result = execCommand("adb get-state 2>&1");
+  execCommand("adb start-server 2>/dev/null", 2);
+  std::string result = execCommand("adb get-state 2>/dev/null", 2);
   bool tvConnected = result.find("device") != std::string::npos;
   data["tv_connected"] = tvConnected;
   data["tv_address"] = DEFAULT_TV_ADDRESS;
-  bool mpvAlive = isProcessAlive("mpv.*--input-ipc-server");
-  data["media_player_running"] = mpvAlive;
+  data["media_player_running"] = isProcessAlive("mpv.*--input-ipc-server");
   auto resp =
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data));
   callback(resp);
@@ -186,39 +185,73 @@ void PowerController::getTVPowerState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   LOG_INFO << "getTVPowerState called";
-
-  execCommand("adb start-server 2>/dev/null");
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  execCommand("adb connect " + std::string(DEFAULT_TV_ADDRESS) +
-              " 2>/dev/null");
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-  std::string result = execCommand(
-      "adb shell dumpsys power 2>/dev/null | grep -E "
-      "'mHoldingDisplaySuspendBlocker|Display Power|mWakefulness' | head -5");
-
-  bool screenOn = false;
-  std::string wakefulness = "Unknown";
-
-  if (result.find("mWakefulness=Awake") != std::string::npos) {
-    wakefulness = "Awake";
-    screenOn = true;
-  } else if (result.find("mWakefulness=Asleep") != std::string::npos) {
-    wakefulness = "Asleep";
-    screenOn = false;
-  } else if (result.find("mHoldingDisplaySuspendBlocker=true") !=
-             std::string::npos) {
-    screenOn = true;
-  }
-
-  Json::Value data;
-  data["tv_address"] = DEFAULT_TV_ADDRESS;
-  data["connected"] = true;
-  data["screen_on"] = screenOn;
-  data["wakefulness"] = wakefulness;
-  data["raw"] = result;
-
-  auto resp =
-      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data));
-  callback(resp);
+  auto self = std::shared_ptr<PowerController>(this, [](PowerController *) {});
+  std::thread([self, callback]() {
+    Json::Value data;
+    data["tv_address"] = DEFAULT_TV_ADDRESS;
+    system("timeout 2 adb start-server 2>/dev/null");
+    std::string stateResult = "";
+    FILE *pipe = popen("timeout 3 adb get-state 2>/dev/null", "r");
+    if (pipe) {
+      char buffer[128];
+      while (fgets(buffer, sizeof(buffer), pipe)) {
+        stateResult += buffer;
+      }
+      pclose(pipe);
+    }
+    bool connected = stateResult.find("device") != std::string::npos;
+    data["connected"] = connected;
+    data["state"] = stateResult.empty() ? "unknown" : stateResult;
+    if (!connected) {
+      data["screen_on"] = false;
+      data["wakefulness"] = "disconnected";
+      data["error"] = "ADB not connected to TV";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(
+          self->jsonResponse(true, "", data));
+      callback(resp);
+      return;
+    }
+    std::string powerResult = "";
+    pipe = popen("timeout 5 adb shell dumpsys power 2>/dev/null | grep -E "
+                 "'mWakefulness|Display Power' | head -3",
+                 "r");
+    if (pipe) {
+      char buffer[256];
+      while (fgets(buffer, sizeof(buffer), pipe)) {
+        powerResult += buffer;
+      }
+      pclose(pipe);
+    }
+    bool screenOn = false;
+    std::string wakefulness = "Unknown";
+    if (powerResult.find("mWakefulness=Awake") != std::string::npos) {
+      wakefulness = "Awake";
+      screenOn = true;
+    } else if (powerResult.find("mWakefulness=Asleep") != std::string::npos) {
+      wakefulness = "Asleep";
+      screenOn = false;
+    } else if (powerResult.find("mWakefulness=Dozing") != std::string::npos) {
+      wakefulness = "Dozing";
+      screenOn = false;
+    } else if (powerResult.find("Display Power: state=ON") !=
+               std::string::npos) {
+      screenOn = true;
+    } else if (powerResult.find("Display Power: state=OFF") !=
+               std::string::npos) {
+      screenOn = false;
+    }
+    data["screen_on"] = screenOn;
+    data["wakefulness"] = wakefulness;
+    data["raw"] = powerResult.empty() ? "No data received" : powerResult;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(
+        self->jsonResponse(true, "", data));
+    callback(resp);
+  }).detach();
+  Json::Value loadingData;
+  loadingData["tv_address"] = DEFAULT_TV_ADDRESS;
+  loadingData["loading"] = true;
+  loadingData["message"] = "Checking TV status...";
+  auto loadingResp = drogon::HttpResponse::newHttpJsonResponse(
+      jsonResponse(true, "Loading", loadingData));
+  callback(loadingResp);
 }

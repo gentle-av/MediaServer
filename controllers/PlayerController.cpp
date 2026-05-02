@@ -18,8 +18,13 @@ void PlayerController::launchMpv() {
 }
 
 void PlayerController::stopMpv() {
+  std::cout << "[DEBUG] stopMpv: called, socketPath=" << socketPath_
+            << std::endl;
   if (!socketPath_.empty()) {
-    sendCommand(R"({"command": ["quit"]})");
+    std::string quitCmd = "timeout 2 sh -c 'echo \"{\\\"command\\\": "
+                          "[\\\"quit\\\"]}\" | socat - " +
+                          socketPath_ + " 2>/dev/null'";
+    system(quitCmd.c_str());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     system(("pkill -f 'mpv.*" + socketPath_ + "' 2>/dev/null").c_str());
     system(("rm -f " + socketPath_ + " 2>/dev/null").c_str());
@@ -28,10 +33,19 @@ void PlayerController::stopMpv() {
   playlist_.clear();
   currentIndex_ = -1;
   isPlaying_ = false;
+  std::cout << "[DEBUG] stopMpv: completed" << std::endl;
+}
+
+PlayerController::~PlayerController() {
+  std::cout << "[DEBUG] PlayerController Destructor called" << std::endl;
+  stopAutoAdvance_ = true;
+  if (autoAdvanceThread_ && autoAdvanceThread_->joinable()) {
+    autoAdvanceThread_->join();
+  }
   if (idleTimerThread_ && idleTimerThread_->joinable()) {
     idleTimerThread_->join();
-    idleTimerThread_.reset();
   }
+  stopMpv();
 }
 
 void PlayerController::scheduleStop() {
@@ -41,22 +55,26 @@ void PlayerController::scheduleStop() {
     idleTimerThread_.reset();
   }
   idleTimerThread_ = std::make_unique<std::thread>([this]() {
+    std::cout << "[DEBUG] idleTimerThread: started" << std::endl;
     for (int i = 0; i < 180; i++) {
       std::this_thread::sleep_for(std::chrono::seconds(1));
       if (isPlaying_ || !playlist_.empty() || currentIndex_ != -1 ||
           stopAutoAdvance_) {
+        std::cout << "[DEBUG] idleTimerThread: cancelled" << std::endl;
         return;
       }
     }
     if (!isPlaying_ && playlist_.empty() && currentIndex_ == -1 &&
         !stopAutoAdvance_) {
-      stopMpv();
+      std::cout << "[DEBUG] idleTimerThread: stopping MPV due to inactivity"
+                << std::endl;
       if (autoAdvanceThread_ && autoAdvanceThread_->joinable()) {
         stopAutoAdvance_ = true;
         autoAdvanceThread_->join();
         autoAdvanceThread_.reset();
         stopAutoAdvance_ = false;
       }
+      stopMpv();
     }
   });
 }
@@ -85,6 +103,7 @@ void PlayerController::startMpvIfNeeded() {
     if (!autoAdvanceThread_) {
       stopAutoAdvance_ = false;
       autoAdvanceThread_ = std::make_unique<std::thread>([this]() {
+        std::cout << "[DEBUG] autoAdvanceThread: started" << std::endl;
         while (!stopAutoAdvance_) {
           std::this_thread::sleep_for(std::chrono::milliseconds(500));
           if (stopAutoAdvance_ || !isProcessAlive() || currentIndex_ < 0 ||
@@ -126,6 +145,7 @@ void PlayerController::startMpvIfNeeded() {
             loadTrack(currentIndex_ + 1);
           }
         }
+        std::cout << "[DEBUG] autoAdvanceThread: stopped" << std::endl;
       });
     }
     resetIdleTimer();
@@ -155,7 +175,9 @@ void PlayerController::loadTrack(int index) {
 }
 
 std::string PlayerController::sendCommand(const std::string &jsonCmd) {
-  if (socketPath_.empty() || !isProcessAlive())
+  if (socketPath_.empty())
+    return "";
+  if (!isProcessAlive())
     return "";
   std::string cmd = "echo '" + jsonCmd + "' | socat - " + socketPath_ + " 2>&1";
   std::array<char, 512> buffer;
@@ -172,7 +194,7 @@ std::string PlayerController::sendCommand(const std::string &jsonCmd) {
 bool PlayerController::isProcessAlive() {
   if (socketPath_.empty() || access(socketPath_.c_str(), F_OK) != 0)
     return false;
-  std::string cmd = "pgrep -f 'mpv.*" + socketPath_ + "'";
+  std::string cmd = "timeout 1 pgrep -f 'mpv.*" + socketPath_ + "' 2>/dev/null";
   std::array<char, 128> buffer;
   std::string result;
   FILE *pipe = popen(cmd.c_str(), "r");
@@ -187,18 +209,8 @@ bool PlayerController::isProcessAlive() {
 int PlayerController::instanceCounter_ = 0;
 
 PlayerController::PlayerController() : currentIndex_(-1) {
+  std::cout << "[DEBUG] PlayerController Constructor called" << std::endl;
   system("amixer set Master 45% 2>/dev/null");
-}
-
-PlayerController::~PlayerController() {
-  stopAutoAdvance_ = true;
-  if (autoAdvanceThread_ && autoAdvanceThread_->joinable()) {
-    autoAdvanceThread_->join();
-  }
-  if (idleTimerThread_ && idleTimerThread_->joinable()) {
-    idleTimerThread_->join();
-  }
-  stopMpv();
 }
 
 Json::Value PlayerController::parseBody(const drogon::HttpRequestPtr &req) {
@@ -228,6 +240,7 @@ Json::Value PlayerController::jsonResponse(bool success,
 void PlayerController::handlePlay(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "[DEBUG] handlePlay: called" << std::endl;
   startMpvIfNeeded();
   sendCommand(R"({"command": ["set_property", "pause", false]})");
   isPlaying_ = true;
@@ -239,6 +252,7 @@ void PlayerController::handlePlay(
 void PlayerController::handlePause(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "[DEBUG] handlePause: called" << std::endl;
   startMpvIfNeeded();
   sendCommand(R"({"command": ["set_property", "pause", true]})");
   isPlaying_ = false;
@@ -250,6 +264,7 @@ void PlayerController::handlePause(
 void PlayerController::handleStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "[DEBUG] handleStop: called" << std::endl;
   startMpvIfNeeded();
   sendCommand(R"({"command": ["stop"]})");
   currentIndex_ = -1;
@@ -284,6 +299,7 @@ void PlayerController::handlePrevious(
 void PlayerController::handleSetPlaylist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "[DEBUG] handleSetPlaylist: START" << std::endl;
   try {
     Json::Value json = parseBody(req);
     if (!json.isMember("tracks") || !json["tracks"].isArray()) {
@@ -297,7 +313,7 @@ void PlayerController::handleSetPlaylist(
       if (track.isString()) {
         std::string decodedPath = drogon::utils::urlDecode(track.asString());
         playlist_.push_back(decodedPath);
-        std::cout << "[PlayerController] Added track: " << decodedPath
+        std::cout << "[DEBUG] handleSetPlaylist: Added track: " << decodedPath
                   << std::endl;
       }
     }
@@ -309,7 +325,9 @@ void PlayerController::handleSetPlaylist(
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "Playlist set"));
     callback(resp);
+    std::cout << "[DEBUG] handleSetPlaylist: END" << std::endl;
   } catch (const std::exception &e) {
+    std::cout << "[ERROR] handleSetPlaylist: " << e.what() << std::endl;
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(false, e.what()));
     callback(resp);
@@ -391,7 +409,7 @@ void PlayerController::handleForceStop(
 void PlayerController::handleGetVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::string cmd = "amixer get Master 2>/dev/null";
+  std::string cmd = "timeout 2 amixer get Master 2>/dev/null";
   std::array<char, 256> buffer;
   std::string result;
   FILE *pipe = popen(cmd.c_str(), "r");
@@ -436,7 +454,8 @@ void PlayerController::handleSetVolume(
       return;
     }
     int amixerValue = 135 + (volume * (255 - 135) / 100);
-    system(("amixer set Master " + std::to_string(amixerValue) + " 2>/dev/null")
+    system(("timeout 2 amixer set Master " + std::to_string(amixerValue) +
+            " 2>/dev/null")
                .c_str());
     Json::Value data;
     data["volume"] = volume;
@@ -451,7 +470,7 @@ void PlayerController::handleSetVolume(
 void PlayerController::handleToggleMute(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  system("amixer set Master toggle 2>/dev/null");
+  system("timeout 2 amixer set Master toggle 2>/dev/null");
   Json::Value data;
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Toggled mute", data)));
@@ -631,7 +650,7 @@ void PlayerController::handlePlayIndex(
 void PlayerController::handleIncreaseVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  system("amixer set Master 5%+ 2>/dev/null");
+  system("timeout 2 amixer set Master 5%+ 2>/dev/null");
   Json::Value data;
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Volume increased", data));
@@ -641,7 +660,7 @@ void PlayerController::handleIncreaseVolume(
 void PlayerController::handleDecreaseVolume(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  system("amixer set Master 5%- 2>/dev/null");
+  system("timeout 2 amixer set Master 5%- 2>/dev/null");
   Json::Value data;
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Volume decreased", data));

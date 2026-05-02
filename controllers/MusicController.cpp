@@ -22,10 +22,14 @@ std::mutex MusicController::rescanStatusMutex_;
 void MusicController::openMusium(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "[MusicController] openMusium: START" << std::endl;
   Json::Value response;
   try {
     auto json = req->getJsonObject();
+    std::cout << "[MusicController] openMusium: json received" << std::endl;
     if (!json || !json->isMember("tracks") || !(*json)["tracks"].isArray()) {
+      std::cout << "[MusicController] openMusium: ERROR - Missing tracks array"
+                << std::endl;
       response["status"] = "error";
       response["message"] = "Missing tracks array parameter";
       auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -39,7 +43,11 @@ void MusicController::openMusium(
         tracks.push_back(track.asString());
       }
     }
+    std::cout << "[MusicController] openMusium: tracks count=" << tracks.size()
+              << std::endl;
     if (tracks.empty()) {
+      std::cout << "[MusicController] openMusium: ERROR - No tracks provided"
+                << std::endl;
       response["status"] = "error";
       response["message"] = "No tracks provided";
       auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -48,6 +56,8 @@ void MusicController::openMusium(
       return;
     }
     LOG_INFO << "Opening Musium with " << tracks.size() << " tracks";
+    std::cout << "[MusicController] openMusium: playerController_="
+              << playerController_.get() << std::endl;
     if (playerController_) {
       Json::Value playlistJson;
       for (const auto &track : tracks) {
@@ -56,18 +66,32 @@ void MusicController::openMusium(
       Json::Value setPlaylistReq;
       setPlaylistReq["tracks"] = playlistJson;
       auto mockReq = drogon::HttpRequest::newHttpJsonRequest(setPlaylistReq);
+
+      std::cout << "[MusicController] openMusium: calling handleSetPlaylist"
+                << std::endl;
       playerController_->handleSetPlaylist(
-          mockReq, [](const drogon::HttpResponsePtr &) {});
+          mockReq, [](const drogon::HttpResponsePtr &resp) {
+            std::cout
+                << "[MusicController] handleSetPlaylist callback: received"
+                << std::endl;
+          });
+      std::cout << "[MusicController] openMusium: calling handlePlay"
+                << std::endl;
       playerController_->handlePlay(mockReq,
                                     [](const drogon::HttpResponsePtr &) {});
       response["status"] = "success";
       response["message"] = "Musium launched via PlayerController";
       response["tracks_count"] = static_cast<int>(tracks.size());
     } else {
+      std::cout << "[MusicController] openMusium: ERROR - PlayerController not "
+                   "available"
+                << std::endl;
       response["status"] = "error";
       response["message"] = "PlayerController not available";
     }
   } catch (const std::exception &e) {
+    std::cout << "[MusicController] openMusium: exception: " << e.what()
+              << std::endl;
     LOG_ERROR << "Error launching Musium: " << e.what();
     response["status"] = "error";
     response["message"] = e.what();
@@ -75,6 +99,7 @@ void MusicController::openMusium(
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   resp->setStatusCode(drogon::k200OK);
   callback(resp);
+  std::cout << "[MusicController] openMusium: END" << std::endl;
 }
 
 MusicController::MusicController() {
@@ -662,7 +687,7 @@ void MusicController::scanNewFiles() {
         }
       }
     }
-  });
+  }).detach();
 }
 
 void MusicController::removeMissingFiles() {

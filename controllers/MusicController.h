@@ -45,7 +45,12 @@ public:
   METHOD_LIST_END
 
   MusicController();
-  static void setPlayerController(std::shared_ptr<PlayerController> controller);
+  static void
+  setPlayerController(std::shared_ptr<PlayerController> controller) {
+    std::cout << "[MusicController] setPlayerController called, controller="
+              << controller.get() << std::endl;
+    playerController_ = controller;
+  }
 
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
