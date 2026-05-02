@@ -1,4 +1,3 @@
-// PlayerController.cpp
 #include "PlayerController.h"
 #include "services/AlsaMixer.h"
 #include <chrono>
@@ -28,6 +27,109 @@ void PlayerController::stopMpv() {
   }
   playlist_.clear();
   currentIndex_ = -1;
+  isPlaying_ = false;
+  if (idleTimerThread_ && idleTimerThread_->joinable()) {
+    idleTimerThread_->join();
+    idleTimerThread_.reset();
+  }
+}
+
+void PlayerController::scheduleStop() {
+  std::lock_guard<std::mutex> lock(timerMutex_);
+  if (idleTimerThread_ && idleTimerThread_->joinable()) {
+    idleTimerThread_->join();
+    idleTimerThread_.reset();
+  }
+  idleTimerThread_ = std::make_unique<std::thread>([this]() {
+    for (int i = 0; i < 180; i++) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      if (isPlaying_ || !playlist_.empty() || currentIndex_ != -1 ||
+          stopAutoAdvance_) {
+        return;
+      }
+    }
+    if (!isPlaying_ && playlist_.empty() && currentIndex_ == -1 &&
+        !stopAutoAdvance_) {
+      stopMpv();
+      if (autoAdvanceThread_ && autoAdvanceThread_->joinable()) {
+        stopAutoAdvance_ = true;
+        autoAdvanceThread_->join();
+        autoAdvanceThread_.reset();
+        stopAutoAdvance_ = false;
+      }
+    }
+  });
+}
+
+void PlayerController::resetIdleTimer() {
+  if (!isProcessAlive()) {
+    return;
+  }
+  scheduleStop();
+}
+
+void PlayerController::ensureMpvRunning() {
+  if (isProcessAlive()) {
+    resetIdleTimer();
+  }
+}
+
+void PlayerController::startMpvIfNeeded() {
+  if (!isProcessAlive()) {
+    if (!socketPath_.empty()) {
+      socketPath_.clear();
+    }
+    socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
+                  std::to_string(instanceCounter_++);
+    launchMpv();
+    if (!autoAdvanceThread_) {
+      stopAutoAdvance_ = false;
+      autoAdvanceThread_ = std::make_unique<std::thread>([this]() {
+        while (!stopAutoAdvance_) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+          if (stopAutoAdvance_ || !isProcessAlive() || currentIndex_ < 0 ||
+              currentIndex_ >= (int)playlist_.size())
+            continue;
+          std::string eofResp =
+              sendCommand("{\"command\": [\"get_property\", \"eof-reached\"]}");
+          bool eofReached = eofResp.find("\"data\":true") != std::string::npos;
+          if (!eofReached) {
+            std::string timeResp =
+                sendCommand("{\"command\": [\"get_property\", \"time-pos\"]}");
+            std::string durationResp =
+                sendCommand("{\"command\": [\"get_property\", \"duration\"]}");
+            double currentTime = 0, duration = 0;
+            size_t pos = timeResp.find("\"data\"");
+            if (pos != std::string::npos) {
+              size_t start = timeResp.find(":", pos);
+              if (start != std::string::npos)
+                try {
+                  currentTime = std::stod(timeResp.substr(start + 1));
+                } catch (...) {
+                }
+            }
+            pos = durationResp.find("\"data\"");
+            if (pos != std::string::npos) {
+              size_t start = durationResp.find(":", pos);
+              if (start != std::string::npos)
+                try {
+                  duration = std::stod(durationResp.substr(start + 1));
+                } catch (...) {
+                }
+            }
+            if (duration == 0)
+              duration = 300;
+            if (duration > 0 && (duration - currentTime) < 0.5)
+              eofReached = true;
+          }
+          if (eofReached && currentIndex_ + 1 < (int)playlist_.size()) {
+            loadTrack(currentIndex_ + 1);
+          }
+        }
+      });
+    }
+    resetIdleTimer();
+  }
 }
 
 std::string PlayerController::escapePath(const std::string &path) {
@@ -44,56 +146,12 @@ void PlayerController::loadTrack(int index) {
   if (index < 0 || index >= (int)playlist_.size())
     return;
   currentIndex_ = index;
+  isPlaying_ = true;
   std::string cmd = "{\"command\": [\"loadfile\", \"" +
                     escapePath(playlist_[index]) + "\", \"replace\"]}";
   sendCommand(cmd);
   sendCommand("{\"command\": [\"set_property\", \"pause\", false]}");
-}
-
-void PlayerController::startAutoAdvance() {
-  std::thread([this]() {
-    while (true) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-      if (!isProcessAlive() || currentIndex_ < 0 ||
-          currentIndex_ >= (int)playlist_.size())
-        continue;
-      std::string eofResp =
-          sendCommand("{\"command\": [\"get_property\", \"eof-reached\"]}");
-      bool eofReached = eofResp.find("\"data\":true") != std::string::npos;
-      if (!eofReached) {
-        std::string timeResp =
-            sendCommand("{\"command\": [\"get_property\", \"time-pos\"]}");
-        std::string durationResp =
-            sendCommand("{\"command\": [\"get_property\", \"duration\"]}");
-        double currentTime = 0, duration = 0;
-        size_t pos = timeResp.find("\"data\"");
-        if (pos != std::string::npos) {
-          size_t start = timeResp.find(":", pos);
-          if (start != std::string::npos)
-            try {
-              currentTime = std::stod(timeResp.substr(start + 1));
-            } catch (...) {
-            }
-        }
-        pos = durationResp.find("\"data\"");
-        if (pos != std::string::npos) {
-          size_t start = durationResp.find(":", pos);
-          if (start != std::string::npos)
-            try {
-              duration = std::stod(durationResp.substr(start + 1));
-            } catch (...) {
-            }
-        }
-        if (duration == 0)
-          duration = 300;
-        if (duration > 0 && (duration - currentTime) < 0.5)
-          eofReached = true;
-      }
-      if (eofReached && currentIndex_ + 1 < (int)playlist_.size()) {
-        loadTrack(currentIndex_ + 1);
-      }
-    }
-  }).detach();
+  resetIdleTimer();
 }
 
 std::string PlayerController::sendCommand(const std::string &jsonCmd) {
@@ -129,14 +187,19 @@ bool PlayerController::isProcessAlive() {
 int PlayerController::instanceCounter_ = 0;
 
 PlayerController::PlayerController() : currentIndex_(-1) {
-  socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
-                std::to_string(instanceCounter_++);
-  launchMpv();
   system("amixer set Master 45% 2>/dev/null");
-  startAutoAdvance();
 }
 
-PlayerController::~PlayerController() { stopMpv(); }
+PlayerController::~PlayerController() {
+  stopAutoAdvance_ = true;
+  if (autoAdvanceThread_ && autoAdvanceThread_->joinable()) {
+    autoAdvanceThread_->join();
+  }
+  if (idleTimerThread_ && idleTimerThread_->joinable()) {
+    idleTimerThread_->join();
+  }
+  stopMpv();
+}
 
 Json::Value PlayerController::parseBody(const drogon::HttpRequestPtr &req) {
   auto body = req->getBody();
@@ -162,11 +225,13 @@ Json::Value PlayerController::jsonResponse(bool success,
   return resp;
 }
 
-// Handlers
 void PlayerController::handlePlay(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   sendCommand(R"({"command": ["set_property", "pause", false]})");
+  isPlaying_ = true;
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback started")));
 }
@@ -174,7 +239,10 @@ void PlayerController::handlePlay(
 void PlayerController::handlePause(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   sendCommand(R"({"command": ["set_property", "pause", true]})");
+  isPlaying_ = false;
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playback paused")));
 }
@@ -182,8 +250,11 @@ void PlayerController::handlePause(
 void PlayerController::handleStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   sendCommand(R"({"command": ["stop"]})");
   currentIndex_ = -1;
+  isPlaying_ = false;
+  resetIdleTimer();
   callback(
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "Stopped")));
 }
@@ -191,8 +262,10 @@ void PlayerController::handleStop(
 void PlayerController::handleNext(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   if (currentIndex_ + 1 < (int)playlist_.size())
     loadTrack(currentIndex_ + 1);
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Next track")));
 }
@@ -200,8 +273,10 @@ void PlayerController::handleNext(
 void PlayerController::handlePrevious(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   if (currentIndex_ - 1 >= 0)
     loadTrack(currentIndex_ - 1);
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Previous track")));
 }
@@ -217,11 +292,6 @@ void PlayerController::handleSetPlaylist(
       callback(resp);
       return;
     }
-    system("pkill -f 'mpv.*--input-ipc-server' 2>/dev/null");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    if (!socketPath_.empty()) {
-      stopMpv();
-    }
     playlist_.clear();
     for (const auto &track : json["tracks"]) {
       if (track.isString()) {
@@ -232,12 +302,10 @@ void PlayerController::handleSetPlaylist(
       }
     }
     if (!playlist_.empty()) {
-      socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
-                    std::to_string(instanceCounter_++);
-      launchMpv();
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      startMpvIfNeeded();
       loadTrack(0);
     }
+    resetIdleTimer();
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "Playlist set"));
     callback(resp);
@@ -435,6 +503,7 @@ void PlayerController::handleGetAudioOutput(
 void PlayerController::handleAddToPlaylist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   auto json = parseBody(req);
   if (!json.isMember("track") || !json["track"].isString()) {
     callback(drogon::HttpResponse::newHttpJsonResponse(
@@ -442,6 +511,7 @@ void PlayerController::handleAddToPlaylist(
     return;
   }
   playlist_.push_back(drogon::utils::urlDecode(json["track"].asString()));
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Track added")));
 }
@@ -449,9 +519,12 @@ void PlayerController::handleAddToPlaylist(
 void PlayerController::handleClear(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   sendCommand(R"({"command": ["stop"]})");
   playlist_.clear();
   currentIndex_ = -1;
+  isPlaying_ = false;
+  resetIdleTimer();
   callback(
       drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "Cleared")));
 }
@@ -499,6 +572,7 @@ void PlayerController::handleGetCurrentTime(
 void PlayerController::handleSeek(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   auto json = parseBody(req);
   if (!json.isMember("position")) {
     callback(drogon::HttpResponse::newHttpJsonResponse(
@@ -508,6 +582,7 @@ void PlayerController::handleSeek(
   double position = std::max(0.0, json["position"].asDouble());
   sendCommand(R"({"command": ["seek", )" + std::to_string(position) +
               R"(, "absolute"]})");
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Seek completed")));
 }
@@ -524,12 +599,9 @@ void PlayerController::handlePlayFile(
   std::string path = drogon::utils::urlDecode(json["path"].asString());
   playlist_.clear();
   playlist_.push_back(path);
-  stopMpv();
-  socketPath_ = "/tmp/simple-mpv-" + std::to_string(getpid()) + "-" +
-                std::to_string(instanceCounter_++);
-  launchMpv();
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  startMpvIfNeeded();
   loadTrack(0);
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playing file")));
 }
@@ -537,6 +609,7 @@ void PlayerController::handlePlayFile(
 void PlayerController::handlePlayIndex(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  startMpvIfNeeded();
   auto json = parseBody(req);
   if (!json.isMember("index") || !json["index"].isInt()) {
     callback(drogon::HttpResponse::newHttpJsonResponse(
@@ -550,6 +623,7 @@ void PlayerController::handlePlayIndex(
     return;
   }
   loadTrack(index);
+  resetIdleTimer();
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Playing track at index " + std::to_string(index))));
 }

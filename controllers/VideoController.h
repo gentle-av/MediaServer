@@ -66,5 +66,15 @@ private:
   bool isVideoFile(const std::string &filename);
   std::string formatFileSize(uintmax_t size);
   void forceStop();
+  std::string getIconForFile(const std::string &ext);
+
   static std::string activeSocket_;
+  struct ThumbnailCacheEntry {
+    std::string base64;
+    std::chrono::steady_clock::time_point timestamp;
+  };
+  std::unordered_map<std::string, ThumbnailCacheEntry> memoryThumbnailCache_;
+  std::mutex thumbnailCacheMutex_;
+  static constexpr size_t MAX_MEMORY_CACHE_SIZE = 200;
+  static constexpr int THUMBNAIL_CACHE_SECONDS = 3600;
 };

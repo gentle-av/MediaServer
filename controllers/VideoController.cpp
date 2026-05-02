@@ -101,6 +101,9 @@ void VideoController::listFiles(
         std::string ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         item["isVideo"] = isVideoFile(ext);
+        item["icon"] = getIconForFile(ext);
+      } else {
+        item["icon"] = "folder";
       }
       items.push_back(item);
     }
@@ -125,6 +128,29 @@ void VideoController::listFiles(
   }
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
+}
+
+std::string VideoController::getIconForFile(const std::string &ext) {
+  if (ext == ".mp4" || ext == ".avi" || ext == ".mkv" || ext == ".mov" ||
+      ext == ".wmv" || ext == ".flv" || ext == ".webm" || ext == ".m4v" ||
+      ext == ".mpg" || ext == ".mpeg") {
+    return "video";
+  }
+  if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" ||
+      ext == ".bmp" || ext == ".svg") {
+    return "image";
+  }
+  if (ext == ".mp3" || ext == ".flac" || ext == ".wav" || ext == ".ogg" ||
+      ext == ".m4a") {
+    return "audio";
+  }
+  if (ext == ".pdf") {
+    return "pdf";
+  }
+  if (ext == ".txt" || ext == ".md" || ext == ".log") {
+    return "text";
+  }
+  return "file";
 }
 
 void VideoController::moveToTrash(
@@ -180,60 +206,10 @@ void VideoController::moveToTrash(
 void VideoController::getThumbnail(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  auto pathParam = req->getParameter("path");
-  if (pathParam.empty()) {
-    Json::Value resp;
-    resp["success"] = false;
-    resp["error"] = "Missing 'path' parameter";
-    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
-    httpResp->setStatusCode(k400BadRequest);
-    callback(httpResp);
-    return;
-  }
-  if (pathParam.find("/mnt/video") != 0) {
-    Json::Value resp;
-    resp["success"] = false;
-    resp["error"] = "Access denied";
-    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
-    httpResp->setStatusCode(k403Forbidden);
-    callback(httpResp);
-    return;
-  }
-  if (!fs::exists(pathParam) ||
-      !isVideoFile(fs::path(pathParam).extension().string())) {
-    Json::Value resp;
-    resp["success"] = false;
-    resp["error"] = "Invalid video file";
-    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
-    httpResp->setStatusCode(k404NotFound);
-    callback(httpResp);
-    return;
-  }
-  int width = 320;
-  int quality = 85;
-  auto widthParam = req->getParameter("width");
-  if (!widthParam.empty()) {
-    width = std::stoi(widthParam);
-  }
-  auto qualityParam = req->getParameter("quality");
-  if (!qualityParam.empty()) {
-    quality = std::stoi(qualityParam);
-  }
-  std::string base64Image =
-      ThumbnailExtractor::generateThumbnailBase64(pathParam, width, quality);
-  if (base64Image.empty()) {
-    Json::Value resp;
-    resp["success"] = false;
-    resp["error"] = "Failed to generate thumbnail";
-    auto httpResp = HttpResponse::newHttpJsonResponse(resp);
-    httpResp->setStatusCode(k500InternalServerError);
-    callback(httpResp);
-    return;
-  }
   Json::Value response;
-  response["success"] = true;
-  response["path"] = pathParam;
-  response["thumbnail"] = "data:image/jpeg;base64," + base64Image;
+  response["success"] = false;
+  response["error"] = "Thumbnails disabled";
+  response["use_icon"] = true;
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

@@ -1,9 +1,12 @@
 #pragma once
 
+#include <atomic>
 #include <drogon/HttpController.h>
 #include <drogon/HttpTypes.h>
 #include <json/json.h>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 class PlayerController : public drogon::HttpController<PlayerController> {
@@ -137,8 +140,18 @@ private:
   void loadTrack(int index);
   std::string escapePath(const std::string &path);
   void startAutoAdvance();
+  void resetIdleTimer();
+  void scheduleStop();
+  void ensureMpvRunning();
+  void startMpvIfNeeded();
+
   std::string socketPath_;
   std::vector<std::string> playlist_;
   int currentIndex_;
   static int instanceCounter_;
+  std::unique_ptr<std::thread> autoAdvanceThread_;
+  std::unique_ptr<std::thread> idleTimerThread_;
+  std::atomic<bool> stopAutoAdvance_{false};
+  std::atomic<bool> isPlaying_{false};
+  std::mutex timerMutex_;
 };
