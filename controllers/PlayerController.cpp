@@ -3,6 +3,7 @@
 #include "services/AlsaMixer.h"
 #include <chrono>
 #include <drogon/utils/Utilities.h>
+#include <iostream>
 #include <regex>
 #include <thread>
 #include <unistd.h>
@@ -90,47 +91,96 @@ void PlayerController::startMpvIfNeeded() {
     if (!autoAdvanceThread_) {
       stopAutoAdvance_ = false;
       autoAdvanceThread_ = std::make_unique<std::thread>([this]() {
+        double lastCurrentTime = 0;
+        bool trackFinished = false;
+        int resetCounter = 0;
         while (!stopAutoAdvance_) {
           std::this_thread::sleep_for(std::chrono::milliseconds(500));
           if (stopAutoAdvance_ || !isProcessAlive() || currentIndex_ < 0 ||
               currentIndex_ >= (int)playlist_.size())
             continue;
-          std::string eofResp =
-              sendCommand("{\"command\": [\"get_property\", \"eof-reached\"]}");
-          bool eofReached = eofResp.find("\"data\":true") != std::string::npos;
-          if (!eofReached) {
-            std::string timeResp =
-                sendCommand("{\"command\": [\"get_property\", \"time-pos\"]}");
-            std::string durationResp =
-                sendCommand("{\"command\": [\"get_property\", \"duration\"]}");
-            double currentTime = 0, duration = 0;
-            size_t pos = timeResp.find("\"data\"");
-            if (pos != std::string::npos) {
-              size_t start = timeResp.find(":", pos);
-              if (start != std::string::npos) {
-                try {
-                  currentTime = std::stod(timeResp.substr(start + 1));
-                } catch (...) {
-                }
+          std::string pauseResp =
+              sendCommand(R"({"command": ["get_property", "pause"]})");
+          bool isPaused = pauseResp.find("\"data\":true") != std::string::npos;
+          std::string timeResp =
+              sendCommand(R"({"command": ["get_property", "time-pos"]})");
+          std::string durationResp =
+              sendCommand(R"({"command": ["get_property", "duration"]})");
+          double currentTime = 0, duration = 0;
+          size_t pos = timeResp.find("\"data\"");
+          if (pos != std::string::npos) {
+            size_t start = timeResp.find(":", pos);
+            if (start != std::string::npos) {
+              try {
+                currentTime = std::stod(timeResp.substr(start + 1));
+              } catch (...) {
               }
             }
-            pos = durationResp.find("\"data\"");
-            if (pos != std::string::npos) {
-              size_t start = durationResp.find(":", pos);
-              if (start != std::string::npos) {
-                try {
-                  duration = std::stod(durationResp.substr(start + 1));
-                } catch (...) {
-                }
-              }
-            }
-            if (duration == 0)
-              duration = 300;
-            if (duration > 0 && (duration - currentTime) < 0.5)
-              eofReached = true;
           }
-          if (eofReached && currentIndex_ + 1 < (int)playlist_.size())
-            loadTrack(currentIndex_ + 1);
+          pos = durationResp.find("\"data\"");
+          if (pos != std::string::npos) {
+            size_t start = durationResp.find(":", pos);
+            if (start != std::string::npos) {
+              try {
+                duration = std::stod(durationResp.substr(start + 1));
+              } catch (...) {
+              }
+            }
+          }
+          std::cout << "[DEBUG] Track " << currentIndex_
+                    << " currentTime=" << currentTime
+                    << " duration=" << duration << " isPaused=" << isPaused
+                    << " lastTime=" << lastCurrentTime
+                    << " resetCounter=" << resetCounter << std::endl;
+          if (!trackFinished && lastCurrentTime > 0 && currentTime == 0 &&
+              duration == 0) {
+            std::cout << "[DEBUG] Track finished detected by time reset"
+                      << std::endl;
+            trackFinished = true;
+            resetCounter = 0;
+          }
+          if (trackFinished) {
+            if (duration > 0) {
+              std::cout
+                  << "[DEBUG] MPV reloaded with new duration, switching track"
+                  << std::endl;
+              if (currentIndex_ + 1 < (int)playlist_.size()) {
+                loadTrack(currentIndex_ + 1);
+              } else {
+                isPlaying_ = false;
+                currentIndex_ = -1;
+              }
+              trackFinished = false;
+              lastCurrentTime = 0;
+              resetCounter = 0;
+              continue;
+            }
+            resetCounter++;
+            if (resetCounter >= 4) {
+              std::cout
+                  << "[DEBUG] Timeout waiting for duration, forcing next track"
+                  << std::endl;
+              if (currentIndex_ + 1 < (int)playlist_.size()) {
+                loadTrack(currentIndex_ + 1);
+              } else {
+                isPlaying_ = false;
+                currentIndex_ = -1;
+              }
+              trackFinished = false;
+              lastCurrentTime = 0;
+              resetCounter = 0;
+              continue;
+            }
+          }
+          if (duration > 0) {
+            lastCurrentTime = currentTime;
+            if (!isPaused && currentTime > 0 &&
+                (duration - currentTime) < 0.5) {
+              std::cout << "[DEBUG] Track near end, waiting for reset"
+                        << std::endl;
+              trackFinished = false;
+            }
+          }
         }
       });
     }
@@ -151,12 +201,13 @@ std::string PlayerController::escapePath(const std::string &path) {
 void PlayerController::loadTrack(int index) {
   if (index < 0 || index >= (int)playlist_.size())
     return;
+  std::cout << "[DEBUG] loadTrack index=" << index
+            << " path=" << playlist_[index] << std::endl;
   currentIndex_ = index;
   isPlaying_ = true;
   std::string cmd = "{\"command\": [\"loadfile\", \"" +
                     escapePath(playlist_[index]) + "\", \"replace\"]}";
   sendCommand(cmd);
-  sendCommand("{\"command\": [\"set_property\", \"pause\", false]}");
   resetIdleTimer();
 }
 
@@ -292,6 +343,8 @@ void PlayerController::handleSetPlaylist(
       if (track.isString())
         playlist_.push_back(drogon::utils::urlDecode(track.asString()));
     }
+    std::cout << "[DEBUG] handleSetPlaylist: loaded " << playlist_.size()
+              << " tracks" << std::endl;
     if (!playlist_.empty()) {
       startMpvIfNeeded();
       loadTrack(0);

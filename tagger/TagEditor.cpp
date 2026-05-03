@@ -29,17 +29,14 @@ TagEditor::FileType TagEditor::detectFileType() const {
 }
 
 bool TagEditor::load() {
-  std::cout << "[TagEditor] Loading file: " << filename_ << std::endl;
   FileType type = detectFileType();
   if (type == FileType::Unknown) {
-    std::cout << "[TagEditor] Unknown file type" << std::endl;
     return false;
   }
   try {
     if (type == FileType::MP3) {
       TagLib::MPEG::File file(filename_.c_str());
       if (!file.isOpen()) {
-        std::cout << "[TagEditor] Failed to open MP3 file" << std::endl;
         return false;
       }
       TagLib::ID3v2::Tag *tag = file.ID3v2Tag(true);
@@ -66,7 +63,6 @@ bool TagEditor::load() {
     } else if (type == FileType::FLAC) {
       TagLib::FLAC::File file(filename_.c_str());
       if (!file.isOpen()) {
-        std::cout << "[TagEditor] Failed to open FLAC file" << std::endl;
         return false;
       }
       TagLib::Tag *tag = file.tag();
@@ -98,26 +94,19 @@ bool TagEditor::load() {
       }
     }
     loaded_ = true;
-    std::cout << "[TagEditor] Loaded: Title=" << tags_.title
-              << ", Artist=" << tags_.artist << ", Album=" << tags_.album
-              << std::endl;
     return true;
   } catch (const std::exception &e) {
-    std::cout << "[TagEditor] Exception: " << e.what() << std::endl;
     return false;
   }
 }
 
 bool TagEditor::save() {
   if (!loaded_ && !load()) {
-    std::cout << "[TagEditor] Cannot save - file not loaded" << std::endl;
     return false;
   }
   if (!modified_) {
-    std::cout << "[TagEditor] No changes to save" << std::endl;
     return true;
   }
-  std::cout << "[TagEditor] Saving file: " << filename_ << std::endl;
   FileType type = detectFileType();
   if (type == FileType::Unknown) {
     return false;

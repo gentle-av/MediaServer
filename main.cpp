@@ -11,7 +11,6 @@ Profiler *g_profiler = nullptr;
 std::shared_ptr<PlayerController> g_playerController = nullptr;
 
 void signalHandler(int signal) {
-  std::cout << "\n[INFO] Shutting down..." << std::endl;
   if (g_playerController) {
     g_playerController->handleForceStop(nullptr,
                                         [](const drogon::HttpResponsePtr &) {});
