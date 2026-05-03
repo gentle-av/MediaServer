@@ -1,8 +1,8 @@
-// VideoController.cpp
 #include "VideoController.h"
 #include "profilers/Profiler.h"
 #include "services/ThumbnailExtractor.h"
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <unistd.h>
@@ -77,29 +77,53 @@ void VideoController::listFiles(
     std::function<void(const HttpResponsePtr &)> &&callback) {
   Json::Value response;
   try {
-    auto json = req->getJsonObject();
-    std::string path = "/mnt/video";
-    if (json && json->isMember("path"))
-      path = (*json)["path"].asString();
-    if (path.find("/mnt/video") != 0)
-      path = "/mnt/video";
+    std::string requestPath = "/mnt/video";
+    std::string pathParam = req->getParameter("path");
+    if (!pathParam.empty()) {
+      requestPath = drogon::utils::urlDecode(pathParam);
+    }
+    std::cout << "=== listFiles called ===" << std::endl;
+    std::cout << "Path from parameter: " << pathParam << std::endl;
+    std::cout << "Decoded path: " << requestPath << std::endl;
+    if (requestPath.find("/mnt/video") != 0) {
+      requestPath = "/mnt/video";
+      std::cout << "Security check: reset to " << requestPath << std::endl;
+    }
+    std::cout << "Final path: " << requestPath << std::endl;
+    if (!fs::exists(requestPath) || !fs::is_directory(requestPath)) {
+      std::cout << "Directory does not exist or is not a directory: "
+                << requestPath << std::endl;
+      response["success"] = false;
+      response["error"] = "Directory not found: " + requestPath;
+      auto resp = HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(k404NotFound);
+      callback(resp);
+      return;
+    }
     std::vector<Json::Value> items;
-    for (const auto &entry : fs::directory_iterator(path)) {
+    int fileCount = 0;
+    int dirCount = 0;
+    for (const auto &entry : fs::directory_iterator(requestPath)) {
       Json::Value item;
       item["name"] = entry.path().filename().string();
       item["path"] = entry.path().string();
       item["isDirectory"] = entry.is_directory();
       if (entry.is_regular_file()) {
+        fileCount++;
         item["size"] = formatFileSize(entry.file_size());
         std::string ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         item["isVideo"] = isVideoFile(ext);
         item["icon"] = getIconForFile(ext);
       } else {
+        dirCount++;
         item["icon"] = "folder";
+        item["isVideo"] = false;
       }
       items.push_back(item);
     }
+    std::cout << "Directory scan complete - files: " << fileCount
+              << ", dirs: " << dirCount << std::endl;
     std::sort(items.begin(), items.end(),
               [](const Json::Value &a, const Json::Value &b) {
                 bool aIsDir = a["isDirectory"].asBool();
@@ -113,7 +137,11 @@ void VideoController::listFiles(
       itemsArray.append(item);
     response["items"] = itemsArray;
     response["success"] = true;
+    response["path"] = requestPath;
+    std::cout << "Response prepared, returning " << items.size() << " items"
+              << std::endl;
   } catch (const std::exception &e) {
+    std::cout << "Exception in listFiles: " << e.what() << std::endl;
     response["success"] = false;
     response["error"] = e.what();
   }
@@ -192,10 +220,172 @@ void VideoController::moveToTrash(
 void VideoController::getThumbnail(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+  std::string videoPath = req->getParameter("path");
+  int width = 320;
+  int quality = 85;
+  if (req->getParameter("width") != "") {
+    try {
+      width = std::stoi(req->getParameter("width"));
+      if (width < 50)
+        width = 50;
+      if (width > 1920)
+        width = 1920;
+    } catch (...) {
+    }
+  }
+  if (req->getParameter("quality") != "") {
+    try {
+      quality = std::stoi(req->getParameter("quality"));
+      if (quality < 1)
+        quality = 1;
+      if (quality > 100)
+        quality = 100;
+    } catch (...) {
+    }
+  }
+  if (videoPath.empty()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No path parameter provided";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string decodedPath = drogon::utils::urlDecode(videoPath);
+  if (decodedPath.find("/mnt/video") != 0 &&
+      decodedPath.find("/mnt/media") != 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Access denied: path outside allowed directories";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k403Forbidden);
+    callback(resp);
+    return;
+  }
+  if (!fs::exists(decodedPath)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "File not found: " + decodedPath;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k404NotFound);
+    callback(resp);
+    return;
+  }
+  std::string ext = fs::path(decodedPath).extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  if (!isVideoFile(ext)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Not a video file";
+    response["use_icon"] = true;
+    response["extension"] = ext;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  ThumbnailExtractor::initCache();
+  std::string base64Thumbnail;
+  try {
+    base64Thumbnail = ThumbnailExtractor::generateThumbnailBase64(
+        decodedPath, width, quality);
+  } catch (const std::exception &e) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] =
+        std::string("Failed to generate thumbnail: ") + e.what();
+    response["use_icon"] = true;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  if (base64Thumbnail.empty()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Could not generate thumbnail";
+    response["use_icon"] = true;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
   Json::Value response;
-  response["success"] = false;
-  response["error"] = "Thumbnails disabled";
-  response["use_icon"] = true;
+  response["success"] = true;
+  response["thumbnail"] = "data:image/jpeg;base64," + base64Thumbnail;
+  response["width"] = width;
+  response["quality"] = quality;
+  response["path"] = decodedPath;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void VideoController::getThumbnailsBatch(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("paths") || !(*json)["paths"].isArray()) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing 'paths' array parameter";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  int width = json->isMember("width") ? (*json)["width"].asInt() : 320;
+  int quality = json->isMember("quality") ? (*json)["quality"].asInt() : 85;
+  std::vector<std::string> paths;
+  for (const auto &path : (*json)["paths"]) {
+    if (path.isString()) {
+      paths.push_back(drogon::utils::urlDecode(path.asString()));
+    }
+  }
+  ThumbnailExtractor::initCache();
+  Json::Value results;
+  results["thumbnails"] = Json::Value(Json::arrayValue);
+  for (const auto &path : paths) {
+    Json::Value item;
+    item["path"] = path;
+    if (!fs::exists(path)) {
+      item["success"] = false;
+      item["error"] = "File not found";
+    } else {
+      std::string ext = fs::path(path).extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+      if (!isVideoFile(ext)) {
+        item["success"] = false;
+        item["error"] = "Not a video file";
+      } else {
+        try {
+          std::string base64Thumbnail =
+              ThumbnailExtractor::generateThumbnailBase64(path, width, quality);
+          if (!base64Thumbnail.empty()) {
+            item["success"] = true;
+            item["thumbnail"] = "data:image/jpeg;base64," + base64Thumbnail;
+          } else {
+            item["success"] = false;
+            item["error"] = "Could not generate thumbnail";
+          }
+        } catch (const std::exception &e) {
+          item["success"] = false;
+          item["error"] = e.what();
+        }
+      }
+    }
+    results["thumbnails"].append(item);
+  }
+  results["success"] = true;
+  results["count"] = static_cast<int>(paths.size());
+  auto resp = HttpResponse::newHttpJsonResponse(results);
+  callback(resp);
+}
+
+void VideoController::clearThumbnailCache(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  ThumbnailExtractor::clearCache();
+  Json::Value response;
+  response["success"] = true;
+  response["message"] = "Thumbnail cache cleared";
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

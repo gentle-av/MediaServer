@@ -1,11 +1,9 @@
-// VideoController.h
 #pragma once
+
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
-#include <memory>
 #include <string>
-#include <thread>
 
 class Profiler;
 namespace fs = std::filesystem;
@@ -20,6 +18,10 @@ public:
   ADD_METHOD_TO(VideoController::openVideo, "/api/open", Post);
   ADD_METHOD_TO(VideoController::moveToTrash, "/api/trash", Post);
   ADD_METHOD_TO(VideoController::getThumbnail, "/api/thumbnail", Get);
+  ADD_METHOD_TO(VideoController::getThumbnailsBatch, "/api/thumbnails/batch",
+                Post);
+  ADD_METHOD_TO(VideoController::clearThumbnailCache, "/api/thumbnails/clear",
+                Post);
   ADD_METHOD_TO(VideoController::getPlaybackStatus, "/api/video/status", Get);
   ADD_METHOD_TO(VideoController::controlMpv, "/api/mpv/control", Post);
   ADD_METHOD_TO(VideoController::seekMpv, "/api/mpv/seek", Post);
@@ -44,6 +46,12 @@ public:
   void getThumbnail(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
   void
+  getThumbnailsBatch(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
+  void
+  clearThumbnailCache(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
+  void
   getPlaybackStatus(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
   void controlMpv(const HttpRequestPtr &req,
@@ -67,12 +75,4 @@ private:
   void forceStop();
   std::string getIconForFile(const std::string &ext);
   static std::string activeSocket_;
-  struct ThumbnailCacheEntry {
-    std::string base64;
-    std::chrono::steady_clock::time_point timestamp;
-  };
-  std::unordered_map<std::string, ThumbnailCacheEntry> memoryThumbnailCache_;
-  std::mutex thumbnailCacheMutex_;
-  static constexpr size_t MAX_MEMORY_CACHE_SIZE = 200;
-  static constexpr int THUMBNAIL_CACHE_SECONDS = 3600;
 };
