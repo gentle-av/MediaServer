@@ -21,7 +21,7 @@ public:
   ADD_METHOD_TO(MusicController::getAlbums, "/api/music/albums", drogon::Get);
   ADD_METHOD_TO(MusicController::getAlbumsPaginated,
                 "/api/music/albums/paginated", drogon::Get);
-  ADD_METHOD_TO(MusicController::getAlbumArt, "/api/music/albumart/{path}",
+  ADD_METHOD_TO(MusicController::getAlbumArt, "/api/music/albumart",
                 drogon::Get);
   ADD_METHOD_TO(MusicController::getAlbumArtByAlbum,
                 "/api/music/albumart/album/{album}", drogon::Get);
@@ -42,6 +42,8 @@ public:
   ADD_METHOD_TO(MusicController::deleteAlbum, "/api/music/delete-album",
                 drogon::Post);
   ADD_METHOD_TO(MusicController::getRescanStatus, "/api/music/rescan-status",
+                drogon::Get);
+  ADD_METHOD_TO(MusicController::debugAlbumArt, "/api/music/debug/albumart",
                 drogon::Get);
   METHOD_LIST_END
 
@@ -73,8 +75,7 @@ public:
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void
   getAlbumArt(const drogon::HttpRequestPtr &req,
-              std::function<void(const drogon::HttpResponsePtr &)> &&callback,
-              const std::string &path);
+              std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void getAlbumArtByAlbum(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -109,6 +110,9 @@ public:
   void
   deleteAlbum(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void debugAlbumArt(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;

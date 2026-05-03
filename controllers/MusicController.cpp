@@ -524,31 +524,24 @@ void MusicController::getAlbumsPaginated(
   }
 }
 
-void MusicController::getAlbumArt(
+void MusicController::debugAlbumArt(
     const drogon::HttpRequestPtr &req,
-    std::function<void(const drogon::HttpResponsePtr &)> &&callback,
-    const std::string &path) {
-  std::string decodedPath = drogon::utils::urlDecode(path);
-  auto albumArt = db_->getAlbumArt(decodedPath);
-  if (albumArt.data.empty()) {
-    auto resp = drogon::HttpResponse::newNotFoundResponse();
-    callback(resp);
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::string filePath = req->getParameter("path");
+  if (filePath.empty()) {
+    Json::Value resp;
+    resp["error"] = "Missing 'path' parameter";
+    callback(drogon::HttpResponse::newHttpJsonResponse(resp));
     return;
   }
-  auto resp = drogon::HttpResponse::newHttpResponse();
-  std::string mimeType = albumArt.mimeType;
-  if (mimeType.empty())
-    mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
-  if (mimeType == "image/jpeg") {
-    resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
-  } else if (mimeType == "image/png") {
-    resp->setContentTypeCode(drogon::CT_IMAGE_PNG);
-  } else if (mimeType == "image/gif") {
-    resp->setContentTypeCode(drogon::CT_IMAGE_GIF);
-  } else {
-    resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
-  }
-  resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  Json::Value response;
+  response["requested_path"] = decodedPath;
+  response["file_exists"] = fs::exists(decodedPath);
+  auto albumArt = db_->getAlbumArt(decodedPath);
+  response["has_album_art"] = !albumArt.data.empty();
+  response["album_art_size"] = albumArt.data.size();
+  auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
 
@@ -1171,5 +1164,38 @@ void MusicController::getRescanStatus(
   response["old_albums_count"] = rescanStatus_.oldAlbumsCount;
   response["new_albums_count"] = rescanStatus_.newAlbumsCount;
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}
+
+void MusicController::getAlbumArt(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::string filePath = req->getParameter("path");
+  if (filePath.empty()) {
+    auto resp = drogon::HttpResponse::newNotFoundResponse();
+    callback(resp);
+    return;
+  }
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  auto albumArt = db_->getAlbumArt(decodedPath);
+  if (albumArt.data.empty()) {
+    auto resp = drogon::HttpResponse::newNotFoundResponse();
+    callback(resp);
+    return;
+  }
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  std::string mimeType = albumArt.mimeType;
+  if (mimeType.empty())
+    mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
+  if (mimeType == "image/jpeg") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
+  } else if (mimeType == "image/png") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_PNG);
+  } else if (mimeType == "image/gif") {
+    resp->setContentTypeCode(drogon::CT_IMAGE_GIF);
+  } else {
+    resp->setContentTypeCode(drogon::CT_APPLICATION_OCTET_STREAM);
+  }
+  resp->setBody(std::string(albumArt.data.data(), albumArt.data.size()));
   callback(resp);
 }
