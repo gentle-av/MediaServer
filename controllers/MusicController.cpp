@@ -3,18 +3,13 @@
 #include "tagger/TagEditor.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
-#include <iostream>
 #include <json/json.h>
 #include <regex>
-#include <taglib/attachedpictureframe.h>
 #include <taglib/fileref.h>
 #include <taglib/flacfile.h>
-#include <taglib/id3v2tag.h>
-#include <taglib/mpegfile.h>
 #include <unordered_set>
 
 namespace fs = std::filesystem;
-
 std::shared_ptr<PlayerController> MusicController::playerController_ = nullptr;
 MusicController::RescanStatus MusicController::rescanStatus_;
 std::mutex MusicController::rescanStatusMutex_;
@@ -22,14 +17,10 @@ std::mutex MusicController::rescanStatusMutex_;
 void MusicController::openMusium(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  std::cout << "[MusicController] openMusium: START" << std::endl;
   Json::Value response;
   try {
     auto json = req->getJsonObject();
-    std::cout << "[MusicController] openMusium: json received" << std::endl;
     if (!json || !json->isMember("tracks") || !(*json)["tracks"].isArray()) {
-      std::cout << "[MusicController] openMusium: ERROR - Missing tracks array"
-                << std::endl;
       response["status"] = "error";
       response["message"] = "Missing tracks array parameter";
       auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -39,15 +30,10 @@ void MusicController::openMusium(
     }
     std::vector<std::string> tracks;
     for (const auto &track : (*json)["tracks"]) {
-      if (track.isString()) {
+      if (track.isString())
         tracks.push_back(track.asString());
-      }
     }
-    std::cout << "[MusicController] openMusium: tracks count=" << tracks.size()
-              << std::endl;
     if (tracks.empty()) {
-      std::cout << "[MusicController] openMusium: ERROR - No tracks provided"
-                << std::endl;
       response["status"] = "error";
       response["message"] = "No tracks provided";
       auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
@@ -55,51 +41,31 @@ void MusicController::openMusium(
       callback(resp);
       return;
     }
-    LOG_INFO << "Opening Musium with " << tracks.size() << " tracks";
-    std::cout << "[MusicController] openMusium: playerController_="
-              << playerController_.get() << std::endl;
     if (playerController_) {
       Json::Value playlistJson;
-      for (const auto &track : tracks) {
+      for (const auto &track : tracks)
         playlistJson.append(track);
-      }
       Json::Value setPlaylistReq;
       setPlaylistReq["tracks"] = playlistJson;
       auto mockReq = drogon::HttpRequest::newHttpJsonRequest(setPlaylistReq);
-
-      std::cout << "[MusicController] openMusium: calling handleSetPlaylist"
-                << std::endl;
       playerController_->handleSetPlaylist(
-          mockReq, [](const drogon::HttpResponsePtr &resp) {
-            std::cout
-                << "[MusicController] handleSetPlaylist callback: received"
-                << std::endl;
-          });
-      std::cout << "[MusicController] openMusium: calling handlePlay"
-                << std::endl;
+          mockReq, [](const drogon::HttpResponsePtr &) {});
       playerController_->handlePlay(mockReq,
                                     [](const drogon::HttpResponsePtr &) {});
       response["status"] = "success";
       response["message"] = "Musium launched via PlayerController";
       response["tracks_count"] = static_cast<int>(tracks.size());
     } else {
-      std::cout << "[MusicController] openMusium: ERROR - PlayerController not "
-                   "available"
-                << std::endl;
       response["status"] = "error";
       response["message"] = "PlayerController not available";
     }
   } catch (const std::exception &e) {
-    std::cout << "[MusicController] openMusium: exception: " << e.what()
-              << std::endl;
-    LOG_ERROR << "Error launching Musium: " << e.what();
     response["status"] = "error";
     response["message"] = e.what();
   }
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   resp->setStatusCode(drogon::k200OK);
   callback(resp);
-  std::cout << "[MusicController] openMusium: END" << std::endl;
 }
 
 MusicController::MusicController() {
@@ -129,9 +95,8 @@ MusicController::getMetadataFromCache(const std::string &filePath) {
 void MusicController::addMetadataToCache(const std::string &filePath,
                                          const MusicMetadata &metadata) {
   std::lock_guard<std::mutex> lock(cacheMutex_);
-  if (metadataCache_.size() >= MAX_CACHE_SIZE) {
+  if (metadataCache_.size() >= MAX_CACHE_SIZE)
     cleanupCache();
-  }
   CachedMetadata cached;
   cached.metadata = metadata;
   cached.lastAccess = std::chrono::steady_clock::now();
@@ -153,9 +118,8 @@ void MusicController::cleanupCache() {
   if (metadataCache_.size() > MAX_CACHE_SIZE) {
     size_t toErase = metadataCache_.size() - MAX_CACHE_SIZE;
     auto it = metadataCache_.begin();
-    for (size_t i = 0; i < toErase && it != metadataCache_.end(); ++i) {
+    for (size_t i = 0; i < toErase && it != metadataCache_.end(); ++i)
       it = metadataCache_.erase(it);
-    }
   }
 }
 
@@ -166,10 +130,8 @@ bool MusicController::extractMetadata(const std::string &filePath,
     metadata = *cached;
     return true;
   }
-  if (!fs::exists(filePath)) {
-    LOG_ERROR << "File does not exist: " << filePath;
+  if (!fs::exists(filePath))
     return false;
-  }
   bool success = false;
   try {
     TagLib::FileRef f(filePath.c_str());
@@ -194,21 +156,13 @@ bool MusicController::extractMetadata(const std::string &filePath,
         metadata.artist = "Unknown";
       if (metadata.album.empty())
         metadata.album = "Unknown";
-      if (f.audioProperties()) {
-        metadata.duration = f.audioProperties()->lengthInSeconds();
-      } else {
-        metadata.duration = 0;
-      }
+      metadata.duration =
+          f.audioProperties() ? f.audioProperties()->lengthInSeconds() : 0;
       metadata.track = tag->track();
       metadata.year = tag->year();
       success = true;
-      LOG_INFO << "Extracted: " << filePath << " | " << metadata.artist << " - "
-               << metadata.title;
-    } else {
-      LOG_ERROR << "Cannot read tags from: " << filePath;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR << "Error extracting metadata: " << e.what();
   }
   if (!success) {
     std::string filename = fs::path(filePath).stem().string();
@@ -222,9 +176,8 @@ bool MusicController::extractMetadata(const std::string &filePath,
     metadata.year = 0;
     success = true;
   }
-  if (success) {
+  if (success)
     addMetadataToCache(filePath, metadata);
-  }
   return success;
 }
 
@@ -255,11 +208,9 @@ void MusicController::refreshFileMetadata(
     MusicMetadata metadata;
     if (extractMetadata(decodedPath, metadata)) {
       if (db_->addFile(decodedPath, metadata)) {
-        LOG_INFO << "Refreshed metadata for: " << decodedPath;
         std::vector<char> albumArt;
-        if (extractAlbumArt(decodedPath, albumArt)) {
+        if (extractAlbumArt(decodedPath, albumArt))
           db_->saveAlbumArt(decodedPath, albumArt);
-        }
         {
           std::lock_guard<std::mutex> lock(cacheMutex_);
           metadataCache_.erase(decodedPath);
@@ -324,24 +275,18 @@ void MusicController::updateFileTags(
       return;
     }
     MusicMetadata newMetadata;
-    if (json->isMember("title")) {
+    if (json->isMember("title"))
       newMetadata.title = (*json)["title"].asString();
-    }
-    if (json->isMember("artist")) {
+    if (json->isMember("artist"))
       newMetadata.artist = (*json)["artist"].asString();
-    }
-    if (json->isMember("album")) {
+    if (json->isMember("album"))
       newMetadata.album = (*json)["album"].asString();
-    }
-    if (json->isMember("genre")) {
+    if (json->isMember("genre"))
       newMetadata.genre = (*json)["genre"].asString();
-    }
-    if (json->isMember("track")) {
+    if (json->isMember("track"))
       newMetadata.track = (*json)["track"].asInt();
-    }
-    if (json->isMember("year")) {
+    if (json->isMember("year"))
       newMetadata.year = (*json)["year"].asInt();
-    }
     bool tagsUpdated = updateFileTagsInternal(decodedPath, newMetadata);
     if (!tagsUpdated) {
       response["status"] = "error";
@@ -362,9 +307,8 @@ void MusicController::updateFileTags(
       addMetadataToCache(decodedPath, updatedMetadata);
       if (json->isMember("album")) {
         std::vector<char> albumArt;
-        if (extractAlbumArt(decodedPath, albumArt)) {
+        if (extractAlbumArt(decodedPath, albumArt))
           db_->saveAlbumArt(decodedPath, albumArt);
-        }
       }
     }
     response["status"] = "success";
@@ -433,19 +377,15 @@ void MusicController::getArtists(
   try {
     auto artists = db_->getArtists();
     Json::Value artistsJson(Json::arrayValue);
-    for (const auto &artist : artists) {
+    for (const auto &artist : artists)
       artistsJson.append(artist);
-    }
     response["status"] = "success";
     response["artists"] = artistsJson;
     Json::StreamWriterBuilder builder;
     builder["indentation"] = "";
     std::string jsonStr = Json::writeString(builder, response);
-    bool clientSupportsGzip = false;
-    auto acceptEncoding = req->getHeader("accept-encoding");
-    if (acceptEncoding.find("gzip") != std::string::npos) {
-      clientSupportsGzip = true;
-    }
+    bool clientSupportsGzip =
+        req->getHeader("accept-encoding").find("gzip") != std::string::npos;
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(drogon::k200OK);
     resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
@@ -490,11 +430,8 @@ void MusicController::getAlbums(
     Json::StreamWriterBuilder builder;
     builder["indentation"] = "";
     std::string jsonStr = Json::writeString(builder, response);
-    bool clientSupportsGzip = false;
-    auto acceptEncoding = req->getHeader("accept-encoding");
-    if (acceptEncoding.find("gzip") != std::string::npos) {
-      clientSupportsGzip = true;
-    }
+    bool clientSupportsGzip =
+        req->getHeader("accept-encoding").find("gzip") != std::string::npos;
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(drogon::k200OK);
     resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
@@ -561,11 +498,8 @@ void MusicController::getAlbumsPaginated(
     Json::StreamWriterBuilder builder;
     builder["indentation"] = "";
     std::string jsonStr = Json::writeString(builder, response);
-    bool clientSupportsGzip = false;
-    auto acceptEncoding = req->getHeader("accept-encoding");
-    if (acceptEncoding.find("gzip") != std::string::npos) {
-      clientSupportsGzip = true;
-    }
+    bool clientSupportsGzip =
+        req->getHeader("accept-encoding").find("gzip") != std::string::npos;
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(drogon::k200OK);
     resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
@@ -603,9 +537,8 @@ void MusicController::getAlbumArt(
   }
   auto resp = drogon::HttpResponse::newHttpResponse();
   std::string mimeType = albumArt.mimeType;
-  if (mimeType.empty()) {
+  if (mimeType.empty())
     mimeType = AlbumArtExtractor::getMimeTypeFromData(albumArt.data);
-  }
   if (mimeType == "image/jpeg") {
     resp->setContentTypeCode(drogon::CT_IMAGE_JPG);
   } else if (mimeType == "image/png") {
@@ -678,11 +611,9 @@ void MusicController::scanNewFiles() {
         MusicMetadata metadata;
         if (extractMetadata(pathStr, metadata)) {
           if (db_->addFile(pathStr, metadata)) {
-            std::cout << "Added new file: " << pathStr << '\n';
             std::vector<char> albumArt;
-            if (extractAlbumArt(pathStr, albumArt)) {
+            if (extractAlbumArt(pathStr, albumArt))
               db_->saveAlbumArt(pathStr, albumArt);
-            }
           }
         }
       }
@@ -693,10 +624,8 @@ void MusicController::scanNewFiles() {
 void MusicController::removeMissingFiles() {
   auto allFiles = db_->getAllFiles();
   for (const auto &filePath : allFiles) {
-    if (!fs::exists(filePath)) {
+    if (!fs::exists(filePath))
       db_->removeFile(filePath);
-      std::cout << "Removed missing file: " << filePath << '\n';
-    }
   }
 }
 
@@ -733,8 +662,6 @@ bool MusicController::extractAlbumArt(const std::string &filePath,
     albumArt.assign(data.data(), data.data() + data.size());
     return true;
   } catch (const std::exception &e) {
-    std::cout << "Error extracting album art from " << filePath << ": "
-              << e.what() << '\n';
   }
   return false;
 }
@@ -766,11 +693,8 @@ void MusicController::getTracksByArtist(
     Json::StreamWriterBuilder builder;
     builder["indentation"] = "";
     std::string jsonStr = Json::writeString(builder, response);
-    bool clientSupportsGzip = false;
-    auto acceptEncoding = req->getHeader("accept-encoding");
-    if (acceptEncoding.find("gzip") != std::string::npos) {
-      clientSupportsGzip = true;
-    }
+    bool clientSupportsGzip =
+        req->getHeader("accept-encoding").find("gzip") != std::string::npos;
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(drogon::k200OK);
     resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
@@ -823,11 +747,8 @@ void MusicController::getTracksByAlbum(
     Json::StreamWriterBuilder builder;
     builder["indentation"] = "";
     std::string jsonStr = Json::writeString(builder, response);
-    bool clientSupportsGzip = false;
-    auto acceptEncoding = req->getHeader("accept-encoding");
-    if (acceptEncoding.find("gzip") != std::string::npos) {
-      clientSupportsGzip = true;
-    }
+    bool clientSupportsGzip =
+        req->getHeader("accept-encoding").find("gzip") != std::string::npos;
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(drogon::k200OK);
     resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
@@ -1032,7 +953,6 @@ void MusicController::getDatabaseStats(
 void MusicController::forceRescan(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "forceRescan called";
   {
     std::lock_guard<std::mutex> lock(rescanStatusMutex_);
     auto now = std::chrono::steady_clock::now();
@@ -1040,8 +960,6 @@ void MusicController::forceRescan(
                        now - rescanStatus_.lastRescanTime)
                        .count();
     if (rescanStatus_.inProgress || elapsed < 5) {
-      LOG_WARN << "Rescan rejected - inProgress=" << rescanStatus_.inProgress
-               << " elapsed=" << elapsed;
       Json::Value response;
       response["status"] = "error";
       response["message"] = "Rescan already in progress or too frequent";
@@ -1052,7 +970,6 @@ void MusicController::forceRescan(
     rescanStatus_ = RescanStatus();
     rescanStatus_.inProgress = true;
     rescanStatus_.lastRescanTime = now;
-    LOG_INFO << "Rescan started";
   }
   Json::Value response;
   response["status"] = "success";
@@ -1060,7 +977,6 @@ void MusicController::forceRescan(
   auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
   callback(resp);
   std::thread([this]() {
-    LOG_INFO << "Rescan thread started";
     try {
       auto oldAlbums = db_->getAlbums();
       {
@@ -1085,9 +1001,8 @@ void MusicController::forceRescan(
         rescanStatus_.totalFiles = musicFiles.size();
       }
       auto allFiles = db_->getAllFiles();
-      for (const auto &filePath : allFiles) {
+      for (const auto &filePath : allFiles)
         db_->removeFile(filePath);
-      }
       for (size_t i = 0; i < musicFiles.size(); i++) {
         std::string pathStr = musicFiles[i].string();
         MusicMetadata metadata;
@@ -1098,9 +1013,8 @@ void MusicController::forceRescan(
               rescanStatus_.addedFiles++;
             }
             std::vector<char> albumArt;
-            if (extractAlbumArt(pathStr, albumArt)) {
+            if (extractAlbumArt(pathStr, albumArt))
               db_->saveAlbumArt(pathStr, albumArt);
-            }
           } else {
             std::lock_guard<std::mutex> lock(rescanStatusMutex_);
             rescanStatus_.errorCount++;
@@ -1119,12 +1033,8 @@ void MusicController::forceRescan(
         std::lock_guard<std::mutex> lock(rescanStatusMutex_);
         rescanStatus_.newAlbumsCount = newAlbums.size();
         rescanStatus_.inProgress = false;
-        LOG_INFO << "Rescan completed. Added files: "
-                 << rescanStatus_.addedFiles
-                 << ", New albums: " << rescanStatus_.newAlbumsCount;
       }
     } catch (const std::exception &e) {
-      LOG_ERROR << "Rescan failed: " << e.what();
       std::lock_guard<std::mutex> lock(rescanStatusMutex_);
       rescanStatus_.inProgress = false;
     }
@@ -1135,15 +1045,12 @@ bool MusicController::extractMetadataWithTagEditor(const std::string &filePath,
                                                    MusicMetadata &metadata) {
   std::string ext = filePath.substr(filePath.find_last_of("."));
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  if (ext != ".flac") {
+  if (ext != ".flac")
     return false;
-  }
   try {
     TagEditor editor(filePath);
-    if (!editor.load()) {
-      LOG_WARN << "Failed to load file with TagEditor: " << filePath;
+    if (!editor.load())
       return false;
-    }
     metadata.title = editor.getTitle();
     metadata.artist = editor.getArtist();
     metadata.album = editor.getAlbum();
@@ -1162,49 +1069,36 @@ bool MusicController::extractMetadataWithTagEditor(const std::string &filePath,
     metadata.duration = 0;
     return true;
   } catch (const std::exception &e) {
-    LOG_ERROR << "Error extracting metadata with TagEditor from " << filePath
-              << ": " << e.what();
-    return false;
   }
+  return false;
 }
 
 bool MusicController::updateFileTagsInternal(const std::string &filePath,
                                              const MusicMetadata &metadata) {
   std::string ext = fs::path(filePath).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  if (ext != ".flac") {
+  if (ext != ".flac")
     return false;
-  }
   try {
     TagEditor editor(filePath);
-    if (!editor.load()) {
+    if (!editor.load())
       return false;
-    }
-    if (!metadata.title.empty()) {
+    if (!metadata.title.empty())
       editor.setTitle(metadata.title);
-    }
-    if (!metadata.artist.empty()) {
+    if (!metadata.artist.empty())
       editor.setArtist(metadata.artist);
-    }
-    if (!metadata.album.empty()) {
+    if (!metadata.album.empty())
       editor.setAlbum(metadata.album);
-    }
-    if (!metadata.genre.empty()) {
+    if (!metadata.genre.empty())
       editor.setGenre(metadata.genre);
-    }
-    if (metadata.track > 0) {
+    if (metadata.track > 0)
       editor.setTrackNumber(metadata.track);
-    }
-    if (metadata.year > 0) {
+    if (metadata.year > 0)
       editor.setDate(std::to_string(metadata.year));
-    }
-    if (!editor.save()) {
-      return false;
-    }
-    return true;
+    return editor.save();
   } catch (const std::exception &e) {
-    return false;
   }
+  return false;
 }
 
 void MusicController::deleteAlbum(
@@ -1241,11 +1135,10 @@ void MusicController::deleteAlbum(
         std::string trashCmd =
             "kioclient5 move \"" + track.filePath + "\" trash:/ 2>/dev/null";
         int result = system(trashCmd.c_str());
-        if (result == 0) {
+        if (result == 0)
           deletedCount++;
-        } else {
+        else
           errorCount++;
-        }
       }
       db_->removeFile(track.filePath);
     }

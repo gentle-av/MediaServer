@@ -1,5 +1,4 @@
 #pragma once
-
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
@@ -26,7 +25,6 @@ public:
 
   PowerController();
   ~PowerController();
-
   void adbKillServer(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);

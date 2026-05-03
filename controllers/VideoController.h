@@ -1,5 +1,5 @@
+// VideoController.h
 #pragma once
-
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
@@ -8,7 +8,6 @@
 #include <thread>
 
 class Profiler;
-
 namespace fs = std::filesystem;
 using namespace drogon;
 
@@ -67,7 +66,6 @@ private:
   std::string formatFileSize(uintmax_t size);
   void forceStop();
   std::string getIconForFile(const std::string &ext);
-
   static std::string activeSocket_;
   struct ThumbnailCacheEntry {
     std::string base64;

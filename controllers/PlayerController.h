@@ -1,5 +1,4 @@
 #pragma once
-
 #include <atomic>
 #include <drogon/HttpController.h>
 #include <drogon/HttpTypes.h>
@@ -58,7 +57,6 @@ public:
 
   PlayerController();
   ~PlayerController();
-
   void
   handlePlay(const drogon::HttpRequestPtr &req,
              std::function<void(const drogon::HttpResponsePtr &)> &&callback);
@@ -144,7 +142,6 @@ private:
   void scheduleStop();
   void ensureMpvRunning();
   void startMpvIfNeeded();
-
   std::string socketPath_;
   std::vector<std::string> playlist_;
   int currentIndex_;

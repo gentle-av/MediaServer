@@ -27,6 +27,11 @@ add_executable(MediaServer
     services/ThumbnailCache.cpp
     services/ThumbnailExtractor.cpp
     services/AlsaMixer.cpp
+    services/MetadataService.cpp
+    services/MusicScanner.cpp
+    services/PlayerManager.cpp
+    services/VideoPlayerManager.cpp
+    services/PowerService.cpp
     database/MusicDatabase.cpp
     profilers/Profiler.cpp
     tagger/TagEditor.cpp

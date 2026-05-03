@@ -1,5 +1,4 @@
 #include "PowerController.h"
-#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -12,23 +11,20 @@ static std::chrono::steady_clock::time_point lastSleepCall;
 static bool isGoingToSleep = false;
 
 PowerController::PowerController() {
-  LOG_INFO << "PowerController initialized";
   lastSleepCall = std::chrono::steady_clock::now();
 }
 
-PowerController::~PowerController() { LOG_INFO << "PowerController destroyed"; }
+PowerController::~PowerController() {}
 
 Json::Value PowerController::jsonResponse(bool success,
                                           const std::string &message,
                                           const Json::Value &data) {
   Json::Value resp;
   resp["success"] = success;
-  if (!message.empty()) {
+  if (!message.empty())
     resp["message"] = message;
-  }
-  if (!data.empty()) {
+  if (!data.empty())
     resp["data"] = data;
-  }
   return resp;
 }
 
@@ -39,13 +35,10 @@ std::string PowerController::execCommand(const std::string &cmd,
   std::array<char, 256> buffer;
   std::string result;
   FILE *pipe = popen(cmdWithTimeout.c_str(), "r");
-  if (!pipe) {
-    LOG_ERROR << "Failed to execute command: " << cmd;
+  if (!pipe)
     return "";
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
     result += buffer.data();
-  }
   pclose(pipe);
   return result;
 }
@@ -59,7 +52,6 @@ bool PowerController::isProcessAlive(const std::string &processName) {
 void PowerController::adbKillServer(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "adbKillServer called";
   execCommand("adb kill-server 2>/dev/null", 5);
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "ADB server killed"));
@@ -69,7 +61,6 @@ void PowerController::adbKillServer(
 void PowerController::adbStartServer(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "adbStartServer called";
   execCommand("adb start-server 2>/dev/null", 5);
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
   auto resp = drogon::HttpResponse::newHttpJsonResponse(
@@ -80,12 +71,10 @@ void PowerController::adbStartServer(
 void PowerController::adbConnect(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "adbConnect called";
   auto json = req->getJsonObject();
   std::string address = DEFAULT_TV_ADDRESS;
-  if (json && json->isMember("address") && (*json)["address"].isString()) {
+  if (json && json->isMember("address") && (*json)["address"].isString())
     address = (*json)["address"].asString();
-  }
   std::string cmd = "adb connect " + address + " 2>&1";
   std::string result = execCommand(cmd, 5);
   bool success = result.find("connected") != std::string::npos ||
@@ -101,7 +90,6 @@ void PowerController::adbConnect(
 void PowerController::adbKeyEvent(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "adbKeyEvent called";
   auto json = req->getJsonObject();
   if (!json || !json->isMember("keycode")) {
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
@@ -124,7 +112,6 @@ void PowerController::adbKeyEvent(
 void PowerController::adbGetState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "adbGetState called";
   std::string result = execCommand("adb get-state 2>&1", 5);
   bool connected = result.find("device") != std::string::npos;
   Json::Value data;
@@ -138,16 +125,12 @@ void PowerController::adbGetState(
 void PowerController::systemSleep(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "systemSleep called";
   std::lock_guard<std::mutex> lock(sleepMutex);
   auto now = std::chrono::steady_clock::now();
   auto elapsed =
       std::chrono::duration_cast<std::chrono::seconds>(now - lastSleepCall)
           .count();
   if (isGoingToSleep || elapsed < 10) {
-    LOG_WARN << "Sleep request ignored - already going to sleep or too "
-                "frequent (elapsed: "
-             << elapsed << "s)";
     auto resp = drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(false, "Sleep request ignored - too frequent"));
     callback(resp);
@@ -155,7 +138,6 @@ void PowerController::systemSleep(
   }
   isGoingToSleep = true;
   lastSleepCall = now;
-  LOG_INFO << "Executing system sleep...";
   std::string cmd = "/usr/bin/systemctl suspend 2>/dev/null";
   int result = system(cmd.c_str());
   bool success = result == 0;
@@ -168,7 +150,6 @@ void PowerController::systemSleep(
 void PowerController::getPowerStatus(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "getPowerStatus called";
   Json::Value data;
   execCommand("adb start-server 2>/dev/null", 2);
   std::string result = execCommand("adb get-state 2>/dev/null", 2);
@@ -184,7 +165,6 @@ void PowerController::getPowerStatus(
 void PowerController::getTVPowerState(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  LOG_INFO << "getTVPowerState called";
   auto self = std::shared_ptr<PowerController>(this, [](PowerController *) {});
   std::thread([self, callback]() {
     Json::Value data;
@@ -194,9 +174,8 @@ void PowerController::getTVPowerState(
     FILE *pipe = popen("timeout 3 adb get-state 2>/dev/null", "r");
     if (pipe) {
       char buffer[128];
-      while (fgets(buffer, sizeof(buffer), pipe)) {
+      while (fgets(buffer, sizeof(buffer), pipe))
         stateResult += buffer;
-      }
       pclose(pipe);
     }
     bool connected = stateResult.find("device") != std::string::npos;
@@ -217,9 +196,8 @@ void PowerController::getTVPowerState(
                  "r");
     if (pipe) {
       char buffer[256];
-      while (fgets(buffer, sizeof(buffer), pipe)) {
+      while (fgets(buffer, sizeof(buffer), pipe))
         powerResult += buffer;
-      }
       pclose(pipe);
     }
     bool screenOn = false;

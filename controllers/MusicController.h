@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 class MusicController : public drogon::HttpController<MusicController> {
+
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicController::getTracksByArtist,
@@ -45,13 +46,11 @@ public:
   METHOD_LIST_END
 
   MusicController();
+
   static void
   setPlayerController(std::shared_ptr<PlayerController> controller) {
-    std::cout << "[MusicController] setPlayerController called, controller="
-              << controller.get() << std::endl;
     playerController_ = controller;
   }
-
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -80,6 +79,10 @@ public:
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
       const std::string &album);
+  void getRescanStatus(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+
   void scan(const drogon::HttpRequestPtr &req,
             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void removeMissing(
@@ -106,14 +109,12 @@ public:
   void
   deleteAlbum(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void getRescanStatus(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
   std::string musicDir_;
   static std::shared_ptr<PlayerController> playerController_;
+
   struct RescanStatus {
     bool inProgress = false;
     int totalFiles = 0;
@@ -124,12 +125,14 @@ private:
     int newAlbumsCount = 0;
     std::chrono::steady_clock::time_point lastRescanTime;
   };
+
   struct CachedMetadata {
     MusicMetadata metadata;
     std::chrono::steady_clock::time_point lastAccess;
     std::vector<char> albumArt;
     bool hasAlbumArt = false;
   };
+
   std::string fixTagLibString(const TagLib::String &str);
   static RescanStatus rescanStatus_;
   static std::mutex rescanStatusMutex_;
@@ -138,6 +141,7 @@ private:
   static constexpr size_t MAX_CACHE_SIZE = 500;
   static constexpr int DEFAULT_PAGE_SIZE = 20;
   static constexpr int MAX_PAGE_SIZE = 50;
+
   bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
   bool extractMetadataWithTagEditor(const std::string &filePath,
                                     MusicMetadata &metadata);
