@@ -1,15 +1,16 @@
+// MusicController.h (упрощенный)
 #pragma once
 
 #include "controllers/PlayerController.h"
 #include "database/MusicDatabase.h"
-#include <chrono>
+#include "services/music/AlbumArtService.h"
+#include "services/music/MetadataCache.h"
+#include "services/music/MusicScanner.h"
+#include "services/music/PlaylistManager.h"
 #include <drogon/drogon.h>
-#include <mutex>
-#include <taglib/tstring.h>
-#include <unordered_map>
+#include <memory>
 
 class MusicController : public drogon::HttpController<MusicController> {
-
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicController::getTracksByArtist,
@@ -43,16 +44,12 @@ public:
                 drogon::Post);
   ADD_METHOD_TO(MusicController::getRescanStatus, "/api/music/rescan-status",
                 drogon::Get);
-  ADD_METHOD_TO(MusicController::debugAlbumArt, "/api/music/debug/albumart",
-                drogon::Get);
   METHOD_LIST_END
 
   MusicController();
+  static void setPlayerController(std::shared_ptr<PlayerController> controller);
 
-  static void
-  setPlayerController(std::shared_ptr<PlayerController> controller) {
-    playerController_ = controller;
-  }
+  // Handlers
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
@@ -80,10 +77,6 @@ public:
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,
       const std::string &album);
-  void getRescanStatus(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-
   void scan(const drogon::HttpRequestPtr &req,
             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void removeMissing(
@@ -110,53 +103,17 @@ public:
   void
   deleteAlbum(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
-  void debugAlbumArt(
+  void getRescanStatus(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   std::unique_ptr<MusicDatabase> db_;
+  std::unique_ptr<MetadataCache> cache_;
+  std::unique_ptr<MusicScanner> scanner_;
+  std::unique_ptr<AlbumArtService> albumArtService_;
+  std::unique_ptr<PlaylistManager> playlistManager_;
+
   std::string musicDir_;
   static std::shared_ptr<PlayerController> playerController_;
-
-  struct RescanStatus {
-    bool inProgress = false;
-    int totalFiles = 0;
-    int processedFiles = 0;
-    int addedFiles = 0;
-    int errorCount = 0;
-    int oldAlbumsCount = 0;
-    int newAlbumsCount = 0;
-    std::chrono::steady_clock::time_point lastRescanTime;
-  };
-
-  struct CachedMetadata {
-    MusicMetadata metadata;
-    std::chrono::steady_clock::time_point lastAccess;
-    std::vector<char> albumArt;
-    bool hasAlbumArt = false;
-  };
-
-  std::string fixTagLibString(const TagLib::String &str);
-  static RescanStatus rescanStatus_;
-  static std::mutex rescanStatusMutex_;
-  std::unordered_map<std::string, CachedMetadata> metadataCache_;
-  std::mutex cacheMutex_;
-  static constexpr size_t MAX_CACHE_SIZE = 500;
-  static constexpr int DEFAULT_PAGE_SIZE = 20;
-  static constexpr int MAX_PAGE_SIZE = 50;
-
-  bool extractMetadata(const std::string &filePath, MusicMetadata &metadata);
-  bool extractMetadataWithTagEditor(const std::string &filePath,
-                                    MusicMetadata &metadata);
-  bool updateFileTagsInternal(const std::string &filePath,
-                              const MusicMetadata &metadata);
-  bool extractAlbumArt(const std::string &filePath,
-                       std::vector<char> &albumArt);
-  void scanNewFiles();
-  void removeMissingFiles();
-  MusicMetadata *getMetadataFromCache(const std::string &filePath);
-  void addMetadataToCache(const std::string &filePath,
-                          const MusicMetadata &metadata);
-  void cleanupCache();
 };

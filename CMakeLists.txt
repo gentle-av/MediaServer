@@ -22,19 +22,19 @@ add_executable(MediaServer
     controllers/MusicController.cpp
     controllers/PlayerController.cpp
     controllers/PowerController.cpp
+    database/MusicDatabase.cpp
     services/AlbumArtExtractor.cpp
-    services/MusicMetadataExtractor.cpp
+    services/AlsaMixer.cpp
     services/ThumbnailCache.cpp
     services/ThumbnailExtractor.cpp
-    services/AlsaMixer.cpp
-    services/MetadataService.cpp
-    services/MusicScanner.cpp
-    services/PlayerManager.cpp
-    services/VideoPlayerManager.cpp
-    services/PowerService.cpp
-    database/MusicDatabase.cpp
-    profilers/Profiler.cpp
+    services/music/AlbumArtService.cpp
+    services/music/MetadataCache.cpp
+    services/music/MetadataExtractor.cpp
+    services/music/MusicScanner.cpp
+    services/music/PlaylistManager.cpp
+    services/music/ResponseBuild.cpp
     tagger/TagEditor.cpp
+    profilers/Profiler.cpp
 )
 
 target_link_libraries(MediaServer
