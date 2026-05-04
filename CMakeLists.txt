@@ -33,6 +33,14 @@ add_executable(MediaServer
     services/music/MusicScanner.cpp
     services/music/PlaylistManager.cpp
     services/music/ResponseBuild.cpp
+    services/player/AudioOutputSwitcher.cpp
+    services/player/AutoAdvanceTracker.cpp
+    services/player/MetadataParser.cpp
+    services/player/MpvCommandSender.cpp
+    services/player/PlayerSessionManager.cpp
+    services/player/TracklistManager.cpp
+    services/player/TrackLoader.cpp
+    services/player/Volumer.cpp
     tagger/TagEditor.cpp
     profilers/Profiler.cpp
 )
