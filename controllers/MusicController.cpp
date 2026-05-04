@@ -41,9 +41,26 @@ void MusicController::openMusium(
       callback(resp);
       return;
     }
+    std::vector<std::string> validTracks;
+    for (const auto &track : tracks) {
+      MusicMetadata testMeta;
+      if (extractMetadata(track, testMeta) && testMeta.duration > 0) {
+        validTracks.push_back(track);
+      } else {
+        std::cerr << "[WARN] Skipping invalid track: " << track << std::endl;
+      }
+    }
+    if (validTracks.empty()) {
+      response["status"] = "error";
+      response["message"] = "No valid tracks found";
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+      resp->setStatusCode(drogon::k400BadRequest);
+      callback(resp);
+      return;
+    }
     if (playerController_) {
       Json::Value playlistJson;
-      for (const auto &track : tracks)
+      for (const auto &track : validTracks)
         playlistJson.append(track);
       Json::Value setPlaylistReq;
       setPlaylistReq["tracks"] = playlistJson;
@@ -54,7 +71,7 @@ void MusicController::openMusium(
                                     [](const drogon::HttpResponsePtr &) {});
       response["status"] = "success";
       response["message"] = "Musium launched via PlayerController";
-      response["tracks_count"] = static_cast<int>(tracks.size());
+      response["tracks_count"] = static_cast<int>(validTracks.size());
     } else {
       response["status"] = "error";
       response["message"] = "PlayerController not available";
@@ -176,9 +193,9 @@ bool MusicController::extractMetadata(const std::string &filePath,
     metadata.year = 0;
     success = true;
   }
-  if (success)
+  if (success && metadata.duration > 0)
     addMetadataToCache(filePath, metadata);
-  return success;
+  return success && metadata.duration > 0;
 }
 
 void MusicController::refreshFileMetadata(

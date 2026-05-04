@@ -94,19 +94,25 @@ void PlayerController::startMpvIfNeeded() {
         double lastCurrentTime = 0;
         bool trackFinished = false;
         int resetCounter = 0;
+        int lastTrackIndex_ = -1;
+        auto trackLoadTime = std::chrono::steady_clock::now();
+        bool trackLoading = true;
         while (!stopAutoAdvance_) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+          std::this_thread::sleep_for(std::chrono::milliseconds(250));
           if (stopAutoAdvance_ || !isProcessAlive() || currentIndex_ < 0 ||
               currentIndex_ >= (int)playlist_.size())
             continue;
           std::string pauseResp =
               sendCommand(R"({"command": ["get_property", "pause"]})");
-          bool isPaused = pauseResp.find("\"data\":true") != std::string::npos;
           std::string timeResp =
               sendCommand(R"({"command": ["get_property", "time-pos"]})");
           std::string durationResp =
               sendCommand(R"({"command": ["get_property", "duration"]})");
+          std::string eofResp =
+              sendCommand(R"({"command": ["get_property", "eof-reached"]})");
+          bool isPaused = pauseResp.find("\"data\":true") != std::string::npos;
           double currentTime = 0, duration = 0;
+          bool eofReached = false;
           size_t pos = timeResp.find("\"data\"");
           if (pos != std::string::npos) {
             size_t start = timeResp.find(":", pos);
@@ -127,59 +133,35 @@ void PlayerController::startMpvIfNeeded() {
               }
             }
           }
+          if (eofResp.find("\"data\":true") != std::string::npos) {
+            eofReached = true;
+          }
+          static bool waitingForNext = false;
+          static int waitCounter = 0;
           std::cout << "[DEBUG] Track " << currentIndex_
-                    << " currentTime=" << currentTime
-                    << " duration=" << duration << " isPaused=" << isPaused
-                    << " lastTime=" << lastCurrentTime
-                    << " resetCounter=" << resetCounter << std::endl;
-          if (!trackFinished && lastCurrentTime > 0 && currentTime == 0 &&
-              duration == 0) {
-            std::cout << "[DEBUG] Track finished detected by time reset"
+                    << " time=" << currentTime << " dur=" << duration
+                    << " eof=" << eofReached << " paused=" << isPaused
+                    << " waiting=" << waitingForNext << std::endl;
+
+          if (eofReached && !waitingForNext && duration > 0) {
+            waitingForNext = true;
+            waitCounter = 0;
+            std::cout << "[DEBUG] Track finished, switching to next"
                       << std::endl;
-            trackFinished = true;
-            resetCounter = 0;
           }
-          if (trackFinished) {
-            if (duration > 0) {
-              std::cout
-                  << "[DEBUG] MPV reloaded with new duration, switching track"
-                  << std::endl;
+          if (waitingForNext) {
+            waitCounter++;
+            if (duration > 0 || waitCounter > 8) {
               if (currentIndex_ + 1 < (int)playlist_.size()) {
                 loadTrack(currentIndex_ + 1);
               } else {
                 isPlaying_ = false;
                 currentIndex_ = -1;
               }
-              trackFinished = false;
-              lastCurrentTime = 0;
-              resetCounter = 0;
-              continue;
+              waitingForNext = false;
+              waitCounter = 0;
             }
-            resetCounter++;
-            if (resetCounter >= 4) {
-              std::cout
-                  << "[DEBUG] Timeout waiting for duration, forcing next track"
-                  << std::endl;
-              if (currentIndex_ + 1 < (int)playlist_.size()) {
-                loadTrack(currentIndex_ + 1);
-              } else {
-                isPlaying_ = false;
-                currentIndex_ = -1;
-              }
-              trackFinished = false;
-              lastCurrentTime = 0;
-              resetCounter = 0;
-              continue;
-            }
-          }
-          if (duration > 0) {
-            lastCurrentTime = currentTime;
-            if (!isPaused && currentTime > 0 &&
-                (duration - currentTime) < 0.5) {
-              std::cout << "[DEBUG] Track near end, waiting for reset"
-                        << std::endl;
-              trackFinished = false;
-            }
+            continue;
           }
         }
       });
