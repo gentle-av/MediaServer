@@ -78,21 +78,20 @@ void VideoController::listFiles(
   Json::Value response;
   try {
     std::string requestPath = "/mnt/video";
-    std::string pathParam = req->getParameter("path");
-    if (!pathParam.empty()) {
-      requestPath = drogon::utils::urlDecode(pathParam);
+    auto json = req->getJsonObject();
+    if (json && json->isMember("path") && (*json)["path"].isString()) {
+      requestPath = (*json)["path"].asString();
+    } else {
+      std::string pathParam = req->getParameter("path");
+      if (!pathParam.empty()) {
+        requestPath = drogon::utils::urlDecode(pathParam);
+      }
     }
-    std::cout << "=== listFiles called ===" << std::endl;
-    std::cout << "Path from parameter: " << pathParam << std::endl;
-    std::cout << "Decoded path: " << requestPath << std::endl;
+    requestPath = drogon::utils::urlDecode(requestPath);
     if (requestPath.find("/mnt/video") != 0) {
       requestPath = "/mnt/video";
-      std::cout << "Security check: reset to " << requestPath << std::endl;
     }
-    std::cout << "Final path: " << requestPath << std::endl;
     if (!fs::exists(requestPath) || !fs::is_directory(requestPath)) {
-      std::cout << "Directory does not exist or is not a directory: "
-                << requestPath << std::endl;
       response["success"] = false;
       response["error"] = "Directory not found: " + requestPath;
       auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -101,29 +100,23 @@ void VideoController::listFiles(
       return;
     }
     std::vector<Json::Value> items;
-    int fileCount = 0;
-    int dirCount = 0;
     for (const auto &entry : fs::directory_iterator(requestPath)) {
       Json::Value item;
       item["name"] = entry.path().filename().string();
       item["path"] = entry.path().string();
       item["isDirectory"] = entry.is_directory();
       if (entry.is_regular_file()) {
-        fileCount++;
         item["size"] = formatFileSize(entry.file_size());
         std::string ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         item["isVideo"] = isVideoFile(ext);
         item["icon"] = getIconForFile(ext);
       } else {
-        dirCount++;
         item["icon"] = "folder";
         item["isVideo"] = false;
       }
       items.push_back(item);
     }
-    std::cout << "Directory scan complete - files: " << fileCount
-              << ", dirs: " << dirCount << std::endl;
     std::sort(items.begin(), items.end(),
               [](const Json::Value &a, const Json::Value &b) {
                 bool aIsDir = a["isDirectory"].asBool();
@@ -138,10 +131,7 @@ void VideoController::listFiles(
     response["items"] = itemsArray;
     response["success"] = true;
     response["path"] = requestPath;
-    std::cout << "Response prepared, returning " << items.size() << " items"
-              << std::endl;
   } catch (const std::exception &e) {
-    std::cout << "Exception in listFiles: " << e.what() << std::endl;
     response["success"] = false;
     response["error"] = e.what();
   }
