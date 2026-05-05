@@ -52,9 +52,9 @@ public:
                 "/api/audio/output/headphones", drogon::Post);
   ADD_METHOD_TO(PlayerController::handleGetAudioOutput, "/api/audio/output",
                 drogon::Get);
-  ADD_METHOD_TO(PlayerController::handlePlayIndex, "/api/audio/index",
+  ADD_METHOD_TO(PlayerController::handlePlayIndex, "/api/audio/playIndex",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleForceStop, "/api/audio/force",
+  ADD_METHOD_TO(PlayerController::handleForceStop, "/api/audio/forceStop",
                 drogon::Post);
   METHOD_LIST_END
 

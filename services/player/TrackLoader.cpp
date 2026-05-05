@@ -7,7 +7,6 @@ TrackLoader::TrackLoader(SendCommandFunc sendCommand)
 void TrackLoader::loadTrack(const std::string &path,
                             std::atomic<int> &currentIndex,
                             std::atomic<bool> &isPlaying) {
-  currentIndex = 0;
   isPlaying = true;
   std::string cmd = "{\"command\": [\"loadfile\", \"" + escapePath(path) +
                     "\", \"replace\"]}";
