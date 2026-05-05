@@ -21,18 +21,18 @@ public:
   ADD_METHOD_TO(PlayerController::handleNext, "/api/audio/next", drogon::Post);
   ADD_METHOD_TO(PlayerController::handlePrevious, "/api/audio/previous",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleSetPlaylist, "/api/audio/playlist",
+  ADD_METHOD_TO(PlayerController::handleSetPlaylist, "/api/audio/setPlaylist",
                 drogon::Post);
   ADD_METHOD_TO(PlayerController::handleAddToPlaylist, "/api/audio/add",
                 drogon::Post);
   ADD_METHOD_TO(PlayerController::handleClear, "/api/audio/clear",
                 drogon::Post);
-  ADD_METHOD_TO(PlayerController::handleGetPlaylist, "/api/audio/playlist",
+  ADD_METHOD_TO(PlayerController::handleGetPlaylist, "/api/audio/getPlaylist",
                 drogon::Get);
-  ADD_METHOD_TO(PlayerController::handlePlaybackState, "/api/audio/state",
-                drogon::Get);
-  ADD_METHOD_TO(PlayerController::handleGetCurrentTime, "/api/audio/time",
-                drogon::Get);
+  ADD_METHOD_TO(PlayerController::handlePlaybackState,
+                "/api/audio/playbackState", drogon::Get);
+  ADD_METHOD_TO(PlayerController::handleGetCurrentTime,
+                "/api/audio/currentTime", drogon::Get);
   ADD_METHOD_TO(PlayerController::handleSeek, "/api/audio/seek", drogon::Post);
   ADD_METHOD_TO(PlayerController::handlePlayFile, "/api/audio/file",
                 drogon::Post);
