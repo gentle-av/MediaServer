@@ -856,3 +856,54 @@ void VideoController::openVideo(
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
+
+void VideoController::deleteDirectory(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "No path provided";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string path = (*json)["path"].asString();
+  if (path.find("/mnt/video") != 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Access denied";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k403Forbidden);
+    callback(resp);
+    return;
+  }
+  if (!fs::exists(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Path not found";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k404NotFound);
+    callback(resp);
+    return;
+  }
+  if (!fs::is_directory(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Not a directory";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+    return;
+  }
+  std::string trashCmd = "kioclient5 move \"" + path + "\" trash:/ 2>&1";
+  int result = system(trashCmd.c_str());
+  Json::Value response;
+  response["success"] = (result == 0);
+  response["message"] =
+      (result == 0) ? "Directory moved to trash" : "Failed to move directory";
+  response["path"] = path;
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  callback(resp);
+}

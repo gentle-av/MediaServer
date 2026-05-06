@@ -29,6 +29,8 @@ public:
                 Get);
   ADD_METHOD_TO(VideoController::closeVideo, "/api/video/close", Post);
   ADD_METHOD_TO(VideoController::forceStopVideo, "/api/video/forceStop", Post);
+  ADD_METHOD_TO(VideoController::deleteDirectory, "/api/delete-directory",
+                Post);
   METHOD_LIST_END
 
   void setProfiler(Profiler *profiler) { profiler_ = profiler; }
@@ -65,6 +67,8 @@ public:
                   std::function<void(const HttpResponsePtr &)> &&callback);
   void forceStopVideo(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback);
+  void deleteDirectory(const HttpRequestPtr &req,
+                       std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;
