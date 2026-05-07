@@ -49,7 +49,6 @@ public:
   MusicController();
   static void setPlayerController(std::shared_ptr<PlayerController> controller);
 
-  // Handlers
   void getTracksByArtist(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback,

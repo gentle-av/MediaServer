@@ -171,10 +171,20 @@ void VideoController::moveToTrash(
     return;
   }
   std::string path = (*json)["path"].asString();
-  if (path.find("/mnt/video") != 0) {
+  if (path.empty()) {
     Json::Value response;
     response["success"] = false;
-    response["error"] = "Access denied";
+    response["error"] = "Empty path";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  if (path.find("/mnt/video") != 0 && path.find("/mnt/media") != 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] =
+        "Access denied: path must be under /mnt/video or /mnt/media";
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k403Forbidden);
     callback(resp);
@@ -183,13 +193,23 @@ void VideoController::moveToTrash(
   if (!fs::exists(path)) {
     Json::Value response;
     response["success"] = false;
-    response["error"] = "File not found";
+    response["error"] = "File not found: " + path;
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k404NotFound);
     callback(resp);
     return;
   }
-  std::string trashCmd = "kioclient5 move \"" + path + "\" trash:/";
+  if (fs::is_directory(path)) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Cannot delete directory using this endpoint, use "
+                        "/api/delete-directory";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string trashCmd = "kioclient5 move \"" + path + "\" trash:/ 2>&1";
   int result = system(trashCmd.c_str());
   if (result == 0) {
     Json::Value response;
@@ -200,7 +220,8 @@ void VideoController::moveToTrash(
   } else {
     Json::Value response;
     response["success"] = false;
-    response["error"] = "Failed to move file to trash";
+    response["error"] = "Failed to move file to trash, kioclient5 returned " +
+                        std::to_string(result);
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k500InternalServerError);
     callback(resp);
