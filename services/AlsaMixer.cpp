@@ -12,35 +12,6 @@
 const std::vector<std::string> AlsaMixer::availableOutputs_ = {"speakers",
                                                                "headphones"};
 
-bool AlsaMixer::switchToSpeakers() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::vector<std::pair<std::string, std::string>> commands = {
-      {"sset 'Analog Output'", "Speakers"}, {"sset 'Line'", "Line"}};
-  for (const auto &cmd : commands) {
-    std::string fullCmd = cmd.first + " " + cmd.second;
-    if (executeAmixer(fullCmd)) {
-      currentOutput_ = "speakers";
-      detectCurrentOutput();
-      return true;
-    }
-  }
-  return false;
-}
-
-bool AlsaMixer::switchToHeadphones() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  std::vector<std::string> commands = {"sset 'Analog Output' Headphones",
-                                       "sset 'Headphones Impedance' 1"};
-  for (const auto &cmd : commands) {
-    if (executeAmixer(cmd)) {
-      currentOutput_ = "headphones";
-      detectCurrentOutput();
-      return true;
-    }
-  }
-  return false;
-}
-
 AlsaMixer::AlsaMixer()
     : controlName_("Master"), currentVolume_(0), muted_(false),
       currentOutput_("speakers") {
@@ -189,6 +160,30 @@ bool AlsaMixer::isMuted() {
 
 std::string AlsaMixer::getControlName() { return controlName_; }
 
+bool AlsaMixer::switchToSpeakers() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::string cmd = "sset 'Analog Output' Speakers";
+  if (executeAmixer(cmd)) {
+    currentOutput_ = "speakers";
+    detectCurrentOutput();
+    std::cout << "[AlsaMixer] Switched to speakers" << std::endl;
+    return true;
+  }
+  return false;
+}
+
+bool AlsaMixer::switchToHeadphones() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::string cmd = "sset 'Analog Output' Headphones";
+  if (executeAmixer(cmd)) {
+    currentOutput_ = "headphones";
+    detectCurrentOutput();
+    std::cout << "[AlsaMixer] Switched to headphones" << std::endl;
+    return true;
+  }
+  return false;
+}
+
 std::string AlsaMixer::getCurrentOutput() {
   std::lock_guard<std::mutex> lock(mutex_);
   detectCurrentOutput();
@@ -203,29 +198,19 @@ void AlsaMixer::detectCurrentOutput() {
   std::array<char, 256> buffer;
   std::string result;
   FILE *pipe = popen(
-      "amixer -c 0 get Headphone 2>/dev/null | grep -o 'on\\|off' | head -1",
+      "amixer -c 0 sget 'Analog Output' 2>/dev/null | grep 'Item0:' | head -1",
       "r");
   if (pipe) {
     while (fgets(buffer.data(), buffer.size(), pipe))
       result += buffer.data();
     pclose(pipe);
   }
-  if (!result.empty() && result.find("on") != std::string::npos) {
+  if (result.find("Speakers") != std::string::npos) {
+    currentOutput_ = "speakers";
+  } else if (result.find("Headphones") != std::string::npos) {
     currentOutput_ = "headphones";
-    return;
+  } else {
+    currentOutput_ = "speakers";
   }
-  pipe = popen(
-      "amixer -c 0 get Speaker 2>/dev/null | grep -o 'on\\|off' | head -1",
-      "r");
-  if (pipe) {
-    result.clear();
-    while (fgets(buffer.data(), buffer.size(), pipe))
-      result += buffer.data();
-    pclose(pipe);
-    if (!result.empty() && result.find("on") != std::string::npos) {
-      currentOutput_ = "speakers";
-      return;
-    }
-  }
-  currentOutput_ = "speakers";
+  std::cout << "[AlsaMixer] Detected output: " << currentOutput_ << std::endl;
 }
