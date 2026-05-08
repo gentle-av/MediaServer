@@ -4,37 +4,59 @@
 #include "services/music/MetadataCache.h"
 #include <atomic>
 #include <chrono>
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <unordered_set>
+#include <vector>
+
+struct RescanStatus {
+  std::atomic<bool> inProgress{false};
+  std::atomic<int> totalFiles{0};
+  std::atomic<int> processedFiles{0};
+  std::atomic<int> addedFiles{0};
+  std::atomic<int> errorCount{0};
+  std::atomic<int> oldAlbumsCount{0};
+  std::atomic<int> newAlbumsCount{0};
+  std::chrono::steady_clock::time_point startTime;
+  std::chrono::steady_clock::time_point lastScanTime;
+
+  void reset() {
+    inProgress = false;
+    totalFiles = 0;
+    processedFiles = 0;
+    addedFiles = 0;
+    errorCount = 0;
+    oldAlbumsCount = 0;
+    newAlbumsCount = 0;
+  }
+};
 
 class MusicScanner {
 public:
-  struct ScanStatus {
-    std::atomic<bool> inProgress{false};
-    std::atomic<int> totalFiles{0};
-    std::atomic<int> processedFiles{0};
-    std::atomic<int> addedFiles{0};
-    std::atomic<int> errorCount{0};
-    std::atomic<int> oldAlbumsCount{0};
-    std::atomic<int> newAlbumsCount{0};
-    std::chrono::steady_clock::time_point lastScanTime;
-  };
-
   MusicScanner(MusicDatabase &db, MetadataCache &cache,
                const std::string &musicDir);
+  ~MusicScanner();
 
   void scanNewFiles();
   void removeMissingFiles();
-  void forceRescan(std::function<void()> onComplete = nullptr);
-  const ScanStatus &getStatus() const { return status_; }
-  bool isInProgress() const { return status_.inProgress; }
+  void forceRescan(std::function<void()> onComplete);
+  bool isInProgress() const { return status_.inProgress.load(); }
+  const RescanStatus &getStatus() const { return status_; }
 
 private:
-  std::vector<std::string> scanMusicDirectory();
   bool isMusicFile(const std::string &path);
-  void processFile(const std::string &path, bool addToDb = true);
+  std::vector<std::string> scanMusicDirectory();
+  void processFile(const std::string &path, bool addToDb);
+  void doRescan(std::function<void()> onComplete);
 
   MusicDatabase &db_;
   MetadataCache &cache_;
   std::string musicDir_;
-  ScanStatus status_;
+  RescanStatus status_;
+  std::mutex mutex_;
+  std::unique_ptr<std::thread> rescanThread_;
+  std::unordered_set<std::string> processedPaths_;
 };

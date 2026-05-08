@@ -14,10 +14,8 @@ MusicController::MusicController() {
       home ? std::string(home) + "/.local/share/media-explorer/music.db"
            : "./music.db";
   fs::create_directories(fs::path(dbPath).parent_path());
-
   db_ = std::make_unique<MusicDatabase>(dbPath);
   db_->init();
-
   cache_ = std::make_unique<MetadataCache>();
   scanner_ = std::make_unique<MusicScanner>(*db_, *cache_, "/mnt/media/music");
   albumArtService_ = std::make_unique<AlbumArtService>(*db_);
@@ -36,7 +34,6 @@ void MusicController::getTracksByArtist(
   try {
     std::string decodedArtist = drogon::utils::urlDecode(artist);
     auto tracks = db_->getTracksByArtist(decodedArtist);
-
     Json::Value tracksJson(Json::arrayValue);
     for (const auto &track : tracks) {
       Json::Value trackObj;
@@ -50,7 +47,6 @@ void MusicController::getTracksByArtist(
       trackObj["genre"] = track.genre;
       tracksJson.append(trackObj);
     }
-
     Json::Value response;
     response["tracks"] = tracksJson;
     response["count"] = static_cast<int>(tracks.size());
@@ -69,7 +65,6 @@ void MusicController::getTracksByAlbum(
     std::string decodedAlbum = drogon::utils::urlDecode(album);
     std::string artistFilter = req->getParameter("artist");
     auto tracks = db_->getTracksByAlbum(decodedAlbum, artistFilter);
-
     Json::Value tracksJson(Json::arrayValue);
     for (const auto &track : tracks) {
       Json::Value trackObj;
@@ -83,7 +78,6 @@ void MusicController::getTracksByAlbum(
       trackObj["genre"] = track.genre;
       tracksJson.append(trackObj);
     }
-
     Json::Value response;
     response["tracks"] = tracksJson;
     response["count"] = static_cast<int>(tracks.size());
@@ -100,13 +94,11 @@ void MusicController::listFiles(
   try {
     auto allFiles = db_->getAllFiles();
     Json::Value files(Json::arrayValue);
-
     for (const auto &filePath : allFiles) {
       if (fs::exists(filePath)) {
         Json::Value fileInfo;
         fileInfo["path"] = filePath;
         fileInfo["filename"] = fs::path(filePath).filename().string();
-
         MusicMetadata metadata;
         if (db_->getMetadata(filePath, metadata)) {
           fileInfo["title"] = metadata.title;
@@ -122,7 +114,6 @@ void MusicController::listFiles(
         db_->removeFile(filePath);
       }
     }
-
     Json::Value response;
     response["files"] = files;
     response["count"] = static_cast<int>(files.size());
@@ -142,7 +133,6 @@ void MusicController::getArtists(
     for (const auto &artist : artists) {
       artistsJson.append(artist);
     }
-
     Json::Value response;
     response["artists"] = artistsJson;
     callback(ResponseBuilder::compressedJson(response, req));
@@ -158,7 +148,6 @@ void MusicController::getAlbums(
   try {
     std::string artistFilter = req->getParameter("artist");
     auto albums = db_->getAlbums(artistFilter);
-
     Json::Value albumsJson(Json::arrayValue);
     for (const auto &[album, artist, year] : albums) {
       Json::Value albumObj;
@@ -167,7 +156,6 @@ void MusicController::getAlbums(
       albumObj["year"] = year;
       albumsJson.append(albumObj);
     }
-
     Json::Value response;
     response["albums"] = albumsJson;
     callback(ResponseBuilder::compressedJson(response, req));
@@ -188,21 +176,17 @@ void MusicController::getAlbumsPaginated(
     int pageSize = req->getParameter("pageSize").empty()
                        ? 20
                        : std::stoi(req->getParameter("pageSize"));
-
     if (pageSize > 50)
       pageSize = 50;
     if (page < 1)
       page = 1;
-
     int offset = (page - 1) * pageSize;
     auto allAlbums = db_->getAlbums(artistFilter);
     int totalCount = allAlbums.size();
     int totalPages = (totalCount + pageSize - 1) / pageSize;
-
     Json::Value albumsJson(Json::arrayValue);
     int start = offset;
     int end = std::min(offset + pageSize, totalCount);
-
     for (int i = start; i < end; ++i) {
       const auto &[album, artist, year] = allAlbums[i];
       Json::Value albumObj;
@@ -211,7 +195,6 @@ void MusicController::getAlbumsPaginated(
       albumObj["year"] = year;
       albumsJson.append(albumObj);
     }
-
     Json::Value response;
     response["albums"] = albumsJson;
     response["pagination"]["currentPage"] = page;
@@ -220,7 +203,6 @@ void MusicController::getAlbumsPaginated(
     response["pagination"]["totalPages"] = totalPages;
     response["pagination"]["hasNext"] = page < totalPages;
     response["pagination"]["hasPrev"] = page > 1;
-
     callback(ResponseBuilder::compressedJson(response, req));
   } catch (const std::exception &e) {
     ResponseBuilder::sendError(callback, e.what(),
@@ -236,7 +218,6 @@ void MusicController::getAlbumArt(
     callback(drogon::HttpResponse::newNotFoundResponse());
     return;
   }
-
   std::string decodedPath = drogon::utils::urlDecode(filePath);
   auto albumArt = albumArtService_->getAlbumArt(decodedPath);
   callback(albumArtService_->createImageResponse(albumArt));
@@ -248,7 +229,6 @@ void MusicController::getAlbumArtByAlbum(
     const std::string &album) {
   std::string decodedAlbum = drogon::utils::urlDecode(album);
   std::string artistFilter = req->getParameter("artist");
-
   auto albumArt =
       albumArtService_->getAlbumArtByAlbum(decodedAlbum, artistFilter);
   callback(albumArtService_->createImageResponse(albumArt));
@@ -286,18 +266,15 @@ void MusicController::openMusium(
     ResponseBuilder::sendError(callback, "Missing tracks array parameter");
     return;
   }
-
   std::vector<std::string> tracks;
   for (const auto &track : (*json)["tracks"]) {
     if (track.isString())
       tracks.push_back(track.asString());
   }
-
   if (tracks.empty()) {
     ResponseBuilder::sendError(callback, "No tracks provided");
     return;
   }
-
   if (playlistManager_->openMusium(tracks)) {
     Json::Value data;
     data["tracks_count"] = static_cast<int>(tracks.size());
@@ -316,22 +293,16 @@ void MusicController::getFileMetadata(
     ResponseBuilder::sendError(callback, "Parameter 'path' is required");
     return;
   }
-
   std::string decodedPath = drogon::utils::urlDecode(filePath);
-
   try {
     MusicMetadata dbMetadata;
     bool dbExists = db_->getMetadata(decodedPath, dbMetadata);
-
     MusicMetadata fileMetadata;
     bool fileRead =
         MetadataExtractor::extractMetadata(decodedPath, fileMetadata);
-
     Json::Value result;
     result["path"] = decodedPath;
     result["file_exists"] = fs::exists(decodedPath);
-
-    // Database metadata
     Json::Value dbData;
     dbData["exists"] = dbExists;
     if (dbExists) {
@@ -344,8 +315,6 @@ void MusicController::getFileMetadata(
       dbData["duration"] = dbMetadata.duration;
     }
     result["database"] = dbData;
-
-    // File metadata
     Json::Value fileData;
     fileData["readable"] = fileRead;
     if (fileRead) {
@@ -358,15 +327,12 @@ void MusicController::getFileMetadata(
       fileData["duration"] = fileMetadata.duration;
     }
     result["file"] = fileData;
-
-    // Comparison
     Json::Value comparison;
     comparison["title_matches"] = (dbMetadata.title == fileMetadata.title);
     comparison["artist_matches"] = (dbMetadata.artist == fileMetadata.artist);
     comparison["album_matches"] = (dbMetadata.album == fileMetadata.album);
     comparison["track_matches"] = (dbMetadata.track == fileMetadata.track);
     result["comparison"] = comparison;
-
     Json::Value recommendations(Json::arrayValue);
     if (!fileMetadata.title.empty() && dbMetadata.title != fileMetadata.title) {
       recommendations.append(
@@ -376,9 +342,7 @@ void MusicController::getFileMetadata(
       recommendations.append(
           "File has no title tag - using filename as fallback");
     }
-
     result["recommendations"] = recommendations;
-
     ResponseBuilder::sendSuccess(callback, result);
   } catch (const std::exception &e) {
     ResponseBuilder::sendError(callback, e.what(),
@@ -395,17 +359,14 @@ void MusicController::refreshFileMetadata(
                                "Parameter 'path' is required in JSON body");
     return;
   }
-
   std::string filePath = (*json)["path"].asString();
   std::string decodedPath = drogon::utils::urlDecode(filePath);
-
   try {
     if (!fs::exists(decodedPath)) {
       ResponseBuilder::sendError(callback, "File does not exist",
                                  drogon::k404NotFound);
       return;
     }
-
     MusicMetadata metadata;
     if (MetadataExtractor::extractMetadata(decodedPath, metadata)) {
       if (db_->addFile(decodedPath, metadata)) {
@@ -413,17 +374,14 @@ void MusicController::refreshFileMetadata(
         if (MetadataExtractor::extractAlbumArt(decodedPath, albumArt)) {
           db_->saveAlbumArt(decodedPath, albumArt);
         }
-
         cache_->erase(decodedPath);
         cache_->put(decodedPath, metadata);
-
         Json::Value data;
         data["path"] = decodedPath;
         data["title"] = metadata.title;
         data["artist"] = metadata.artist;
         data["album"] = metadata.album;
         data["track"] = metadata.track;
-
         ResponseBuilder::sendSuccess(callback, data);
       } else {
         ResponseBuilder::sendError(callback,
@@ -444,14 +402,12 @@ void MusicController::getDatabaseStats(
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
     auto allFiles = db_->getAllFiles();
-
     int filesWithTags = 0;
     int filesWithoutTitle = 0;
     int filesWithArtist = 0;
     int filesWithAlbum = 0;
     std::unordered_set<std::string> uniqueArtists;
     std::unordered_set<std::string> uniqueAlbums;
-
     for (const auto &filePath : allFiles) {
       MusicMetadata metadata;
       if (db_->getMetadata(filePath, metadata)) {
@@ -470,7 +426,6 @@ void MusicController::getDatabaseStats(
         }
       }
     }
-
     Json::Value data;
     data["total_files"] = static_cast<int>(allFiles.size());
     data["files_with_tags"] = filesWithTags;
@@ -481,7 +436,6 @@ void MusicController::getDatabaseStats(
     data["unique_albums"] = static_cast<int>(uniqueAlbums.size());
     data["tag_coverage_percent"] =
         allFiles.empty() ? 0 : (filesWithTags * 100 / allFiles.size());
-
     ResponseBuilder::sendSuccess(callback, data);
   } catch (const std::exception &e) {
     ResponseBuilder::sendError(callback, e.what(),
@@ -493,16 +447,21 @@ void MusicController::forceRescan(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   if (scanner_->isInProgress()) {
-    ResponseBuilder::sendError(callback, "Rescan already in progress",
-                               drogon::k409Conflict);
+    Json::Value response;
+    response["status"] = "error";
+    response["message"] = "Rescan already in progress";
+    response["in_progress"] = true;
+    const auto &status = scanner_->getStatus();
+    response["total_files"] = status.totalFiles.load();
+    response["processed_files"] = status.processedFiles.load();
+    callback(ResponseBuilder::jsonResponse(response));
     return;
   }
-
-  ResponseBuilder::sendSuccess(callback, "Force rescan started in background");
-
-  scanner_->forceRescan([]() {
-    // Optional: log completion
-  });
+  scanner_->forceRescan([]() {});
+  Json::Value response;
+  response["status"] = "success";
+  response["message"] = "Force rescan started";
+  callback(ResponseBuilder::jsonResponse(response));
 }
 
 void MusicController::updateFileTags(
@@ -513,17 +472,14 @@ void MusicController::updateFileTags(
     ResponseBuilder::sendError(callback, "Parameter 'path' is required");
     return;
   }
-
   std::string filePath = (*json)["path"].asString();
   std::string decodedPath = drogon::utils::urlDecode(filePath);
-
   try {
     if (!fs::exists(decodedPath)) {
       ResponseBuilder::sendError(callback, "File does not exist",
                                  drogon::k404NotFound);
       return;
     }
-
     MusicMetadata newMetadata;
     if (json->isMember("title"))
       newMetadata.title = (*json)["title"].asString();
@@ -537,20 +493,17 @@ void MusicController::updateFileTags(
       newMetadata.track = (*json)["track"].asInt();
     if (json->isMember("year"))
       newMetadata.year = (*json)["year"].asInt();
-
     if (!MetadataExtractor::updateFileTags(decodedPath, newMetadata)) {
       ResponseBuilder::sendError(
           callback, "Failed to update tags. Only FLAC files are supported.",
           drogon::k500InternalServerError);
       return;
     }
-
     MusicMetadata updatedMetadata;
     if (MetadataExtractor::extractMetadata(decodedPath, updatedMetadata)) {
       db_->addFile(decodedPath, updatedMetadata);
       cache_->erase(decodedPath);
       cache_->put(decodedPath, updatedMetadata);
-
       if (json->isMember("album")) {
         std::vector<char> albumArt;
         if (MetadataExtractor::extractAlbumArt(decodedPath, albumArt)) {
@@ -558,7 +511,6 @@ void MusicController::updateFileTags(
         }
       }
     }
-
     Json::Value data;
     data["path"] = decodedPath;
     data["title"] = newMetadata.title;
@@ -567,7 +519,6 @@ void MusicController::updateFileTags(
     data["track"] = newMetadata.track;
     data["year"] = newMetadata.year;
     data["genre"] = newMetadata.genre;
-
     ResponseBuilder::sendSuccess(callback, data);
   } catch (const std::exception &e) {
     ResponseBuilder::sendError(callback, e.what(),
@@ -691,8 +642,8 @@ void MusicController::getRescanStatus(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   const auto &status = scanner_->getStatus();
-
   Json::Value response;
+  response["status"] = "success";
   response["in_progress"] = status.inProgress.load();
   response["total_files"] = status.totalFiles.load();
   response["processed_files"] = status.processedFiles.load();
@@ -700,6 +651,11 @@ void MusicController::getRescanStatus(
   response["error_count"] = status.errorCount.load();
   response["old_albums_count"] = status.oldAlbumsCount.load();
   response["new_albums_count"] = status.newAlbumsCount.load();
-
+  if (status.totalFiles.load() > 0) {
+    response["percent"] =
+        (status.processedFiles.load() * 100) / status.totalFiles.load();
+  } else {
+    response["percent"] = 0;
+  }
   callback(ResponseBuilder::jsonResponse(response));
 }

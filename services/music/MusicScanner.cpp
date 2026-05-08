@@ -1,4 +1,5 @@
 #include "services/music/MusicScanner.h"
+#include "database/MusicDatabase.h"
 #include "models/MusicMetadata.h"
 #include "services/music/MetadataExtractor.h"
 #include <algorithm>
@@ -11,20 +12,32 @@ MusicScanner::MusicScanner(MusicDatabase &db, MetadataCache &cache,
                            const std::string &musicDir)
     : db_(db), cache_(cache), musicDir_(musicDir) {}
 
+MusicScanner::~MusicScanner() {
+  if (rescanThread_ && rescanThread_->joinable()) {
+    rescanThread_->join();
+  }
+}
+
 bool MusicScanner::isMusicFile(const std::string &path) {
   auto ext = fs::path(path).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  return ext == ".mp3" || ext == ".flac" || ext == ".m4a" || ext == ".wav";
+  return ext == ".mp3" || ext == ".flac" || ext == ".m4a" || ext == ".wav" ||
+         ext == ".ogg";
 }
 
 std::vector<std::string> MusicScanner::scanMusicDirectory() {
   std::vector<std::string> musicFiles;
-  if (!fs::exists(musicDir_))
+  if (!fs::exists(musicDir_)) {
     return musicFiles;
-  for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
-    if (entry.is_regular_file() && isMusicFile(entry.path().string())) {
-      musicFiles.push_back(entry.path().string());
+  }
+  try {
+    for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
+      if (entry.is_regular_file() && isMusicFile(entry.path().string())) {
+        musicFiles.push_back(entry.path().string());
+      }
     }
+  } catch (const std::exception &e) {
+    // Ignore permission errors
   }
   return musicFiles;
 }
@@ -46,12 +59,17 @@ void MusicScanner::processFile(const std::string &path, bool addToDb) {
 }
 
 void MusicScanner::scanNewFiles() {
+  if (status_.inProgress) {
+    return;
+  }
   std::thread([this]() {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto existingFiles = db_.getAllFiles();
     std::unordered_set<std::string> existingSet(existingFiles.begin(),
                                                 existingFiles.end());
     auto musicFiles = scanMusicDirectory();
-    status_.totalFiles = musicFiles.size();
+    status_.totalFiles = static_cast<int>(musicFiles.size());
+    status_.processedFiles = 0;
     for (const auto &path : musicFiles) {
       if (existingSet.find(path) == existingSet.end()) {
         processFile(path, true);
@@ -72,16 +90,29 @@ void MusicScanner::removeMissingFiles() {
 }
 
 void MusicScanner::forceRescan(std::function<void()> onComplete) {
-  if (status_.inProgress)
+  if (status_.inProgress) {
+    if (onComplete)
+      onComplete();
     return;
+  }
+  doRescan(onComplete);
+}
+
+void MusicScanner::doRescan(std::function<void()> onComplete) {
+  if (rescanThread_ && rescanThread_->joinable()) {
+    rescanThread_->join();
+  }
+  status_.reset();
   status_.inProgress = true;
-  status_.lastScanTime = std::chrono::steady_clock::now();
-  std::thread([this, onComplete]() {
+  status_.startTime = std::chrono::steady_clock::now();
+  status_.lastScanTime = status_.startTime;
+  rescanThread_ = std::make_unique<std::thread>([this, onComplete]() {
+    std::lock_guard<std::mutex> lock(mutex_);
     try {
       auto oldAlbums = db_.getAlbums();
-      status_.oldAlbumsCount = oldAlbums.size();
+      status_.oldAlbumsCount = static_cast<int>(oldAlbums.size());
       auto musicFiles = scanMusicDirectory();
-      status_.totalFiles = musicFiles.size();
+      status_.totalFiles = static_cast<int>(musicFiles.size());
       auto allFiles = db_.getAllFiles();
       for (const auto &path : allFiles) {
         db_.removeFile(path);
@@ -95,11 +126,13 @@ void MusicScanner::forceRescan(std::function<void()> onComplete) {
         status_.processedFiles++;
       }
       auto newAlbums = db_.getAlbums();
-      status_.newAlbumsCount = newAlbums.size();
-    } catch (const std::exception &) {
+      status_.newAlbumsCount = static_cast<int>(newAlbums.size());
+    } catch (const std::exception &e) {
+      status_.errorCount++;
     }
     status_.inProgress = false;
-    if (onComplete)
+    if (onComplete) {
       onComplete();
-  }).detach();
+    }
+  });
 }
