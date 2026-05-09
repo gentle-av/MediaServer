@@ -305,3 +305,40 @@ void VideoController::deleteDirectory(
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }
+
+void VideoController::getThumbnailPost(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing path parameter";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  std::string videoPath = (*json)["path"].asString();
+  int width = json->isMember("width") ? (*json)["width"].asInt() : 320;
+  int quality = json->isMember("quality") ? (*json)["quality"].asInt() : 85;
+
+  if (width < 50)
+    width = 50;
+  if (width > 1920)
+    width = 1920;
+  if (quality < 1)
+    quality = 1;
+  if (quality > 100)
+    quality = 100;
+  auto &thumbnailService = ThumbnailService::getInstance();
+  auto response =
+      thumbnailService.generateThumbnailResponse(videoPath, width, quality);
+  auto resp = HttpResponse::newHttpJsonResponse(response);
+  if (!response["success"].asBool() && response.isMember("error")) {
+    if (response["error"].asString() == "Access denied") {
+      resp->setStatusCode(k403Forbidden);
+    }
+  }
+  callback(resp);
+}

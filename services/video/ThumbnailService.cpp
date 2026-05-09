@@ -1,5 +1,6 @@
 #include "ThumbnailService.h"
 #include "../ThumbnailCache.h"
+#include "FileSystemService.h"
 #include <array>
 #include <cstdio>
 #include <filesystem>
@@ -109,4 +110,33 @@ std::string ThumbnailService::base64Encode(const std::vector<uint8_t> &data) {
     base64.push_back(padding >= 1 ? '=' : base64_chars[block & 0x3F]);
   }
   return base64;
+}
+
+Json::Value
+ThumbnailService::generateThumbnailResponse(const std::string &videoPath,
+                                            int width, int quality) {
+  auto &fsService = FileSystemService::getInstance();
+  Json::Value response;
+  if (!fsService.isPathAllowed(videoPath)) {
+    response["success"] = false;
+    response["error"] = "Access denied";
+    return response;
+  }
+  if (!isVideoValid(videoPath)) {
+    response["success"] = false;
+    response["error"] = "Video file is corrupted or invalid";
+    response["use_icon"] = true;
+    return response;
+  }
+  std::string base64Thumbnail =
+      generateThumbnailBase64(videoPath, width, quality);
+  if (base64Thumbnail.empty()) {
+    response["success"] = false;
+    response["error"] = "Could not generate thumbnail";
+    response["use_icon"] = true;
+    return response;
+  }
+  response["success"] = true;
+  response["thumbnail"] = "data:image/jpeg;base64," + base64Thumbnail;
+  return response;
 }

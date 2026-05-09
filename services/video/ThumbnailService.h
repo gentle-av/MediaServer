@@ -1,7 +1,7 @@
-// services/video/ThumbnailService.h
 #pragma once
 
 #include <cstdint>
+#include <json/json.h>
 #include <string>
 #include <vector>
 
@@ -17,6 +17,8 @@ public:
   bool generateRawThumbnail(const std::string &videoPath, int width,
                             int quality, std::vector<uint8_t> &imageData);
   std::string base64Encode(const std::vector<uint8_t> &data);
+  Json::Value generateThumbnailResponse(const std::string &videoPath, int width,
+                                        int quality);
 
 private:
   ThumbnailService() = default;
