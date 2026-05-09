@@ -37,7 +37,6 @@ std::vector<std::string> MusicScanner::scanMusicDirectory() {
       }
     }
   } catch (const std::exception &e) {
-    // Ignore permission errors
   }
   return musicFiles;
 }
@@ -58,11 +57,30 @@ void MusicScanner::processFile(const std::string &path, bool addToDb) {
   }
 }
 
-void MusicScanner::scanNewFiles() {
+bool MusicScanner::shouldProcessFile(const std::string &path,
+                                     bool skipExistingInDb) {
+  if (!skipExistingInDb) {
+    return true;
+  }
+  MusicMetadata *cached = cache_.get(path);
+  if (cached != nullptr) {
+    return false;
+  }
+  if (db_.fileExists(path)) {
+    MusicMetadata dbMetadata;
+    if (db_.getMetadata(path, dbMetadata)) {
+      cache_.put(path, dbMetadata);
+      return false;
+    }
+  }
+  return true;
+}
+
+void MusicScanner::scanNewFiles(bool skipExistingInDb) {
   if (status_.inProgress) {
     return;
   }
-  std::thread([this]() {
+  std::thread([this, skipExistingInDb]() {
     std::lock_guard<std::mutex> lock(mutex_);
     auto existingFiles = db_.getAllFiles();
     std::unordered_set<std::string> existingSet(existingFiles.begin(),
@@ -71,7 +89,7 @@ void MusicScanner::scanNewFiles() {
     status_.totalFiles = static_cast<int>(musicFiles.size());
     status_.processedFiles = 0;
     for (const auto &path : musicFiles) {
-      if (existingSet.find(path) == existingSet.end()) {
+      if (shouldProcessFile(path, skipExistingInDb)) {
         processFile(path, true);
       }
       status_.processedFiles++;
@@ -111,19 +129,27 @@ void MusicScanner::doRescan(std::function<void()> onComplete) {
     try {
       auto oldAlbums = db_.getAlbums();
       status_.oldAlbumsCount = static_cast<int>(oldAlbums.size());
+      auto dbFiles = db_.getAllFiles();
+      std::unordered_set<std::string> dbFilesSet(dbFiles.begin(),
+                                                 dbFiles.end());
       auto musicFiles = scanMusicDirectory();
       status_.totalFiles = static_cast<int>(musicFiles.size());
-      auto allFiles = db_.getAllFiles();
-      for (const auto &path : allFiles) {
-        db_.removeFile(path);
-        cache_.erase(path);
-      }
+      std::unordered_set<std::string> foundFiles;
       status_.addedFiles = 0;
       status_.errorCount = 0;
       status_.processedFiles = 0;
       for (const auto &path : musicFiles) {
-        processFile(path, true);
+        foundFiles.insert(path);
+        if (dbFilesSet.find(path) == dbFilesSet.end()) {
+          processFile(path, true);
+        }
         status_.processedFiles++;
+      }
+      for (const auto &path : dbFiles) {
+        if (foundFiles.find(path) == foundFiles.end()) {
+          db_.removeFile(path);
+          cache_.erase(path);
+        }
       }
       auto newAlbums = db_.getAlbums();
       status_.newAlbumsCount = static_cast<int>(newAlbums.size());

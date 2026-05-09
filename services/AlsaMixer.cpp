@@ -212,5 +212,4 @@ void AlsaMixer::detectCurrentOutput() {
   } else {
     currentOutput_ = "speakers";
   }
-  std::cout << "[AlsaMixer] Detected output: " << currentOutput_ << std::endl;
 }

@@ -40,7 +40,7 @@ public:
                const std::string &musicDir);
   ~MusicScanner();
 
-  void scanNewFiles();
+  void scanNewFiles(bool skipExistingInDb = true);
   void removeMissingFiles();
   void forceRescan(std::function<void()> onComplete);
   bool isInProgress() const { return status_.inProgress.load(); }
@@ -51,6 +51,7 @@ private:
   std::vector<std::string> scanMusicDirectory();
   void processFile(const std::string &path, bool addToDb);
   void doRescan(std::function<void()> onComplete);
+  bool shouldProcessFile(const std::string &path, bool skipExistingInDb);
 
   MusicDatabase &db_;
   MetadataCache &cache_;
