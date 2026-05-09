@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -11,13 +12,24 @@ FileSystemService &FileSystemService::getInstance() {
 }
 
 Json::Value FileSystemService::listDirectory(const std::string &path) {
+  std::cout << "[DEBUG] listDirectory called with path: " << path << std::endl;
   Json::Value result;
   std::vector<Json::Value> items;
+  if (!fs::exists(path) || !fs::is_directory(path)) {
+    std::cout << "[DEBUG] Path does not exist or is not a directory: " << path
+              << std::endl;
+    result["success"] = false;
+    result["error"] = "Directory not found: " + path;
+    return result;
+  }
+  std::cout << "[DEBUG] Iterating directory: " << path << std::endl;
   for (const auto &entry : fs::directory_iterator(path)) {
     Json::Value item;
     item["name"] = entry.path().filename().string();
     item["path"] = entry.path().string();
     item["isDirectory"] = entry.is_directory();
+    std::cout << "[DEBUG] Found in " << path << ": " << item["name"].asString()
+              << std::endl;
     if (entry.is_regular_file()) {
       item["size"] = formatFileSize(entry.file_size());
       std::string ext = entry.path().extension().string();
@@ -45,6 +57,8 @@ Json::Value FileSystemService::listDirectory(const std::string &path) {
   result["items"] = itemsArray;
   result["success"] = true;
   result["path"] = path;
+  std::cout << "[DEBUG] Returning result for path: " << path << " with "
+            << items.size() << " items" << std::endl;
   return result;
 }
 

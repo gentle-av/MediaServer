@@ -17,12 +17,10 @@ Json::Value ThumbnailRequestHandler::buildErrorResponse(
   Json::Value response;
   response["success"] = false;
   response["error"] = error;
-  if (useIcon) {
+  if (useIcon)
     response["use_icon"] = true;
-  }
-  if (!ext.empty()) {
+  if (!ext.empty())
     response["extension"] = ext;
-  }
   return response;
 }
 
@@ -43,30 +41,24 @@ ThumbnailRequestHandler::handleSingleRequest(const std::string &videoPath,
                                              int width, int quality) {
   auto &thumbnailService = ThumbnailService::getInstance();
   auto &fsService = FileSystemService::getInstance();
-  if (videoPath.empty()) {
+  if (videoPath.empty())
     return buildErrorResponse("No path parameter provided");
-  }
-  if (!fsService.isPathAllowed(videoPath)) {
+  if (!fsService.isPathAllowed(videoPath))
     return buildErrorResponse(
         "Access denied: path outside allowed directories");
-  }
-  if (!fsService.fileExists(videoPath)) {
+  if (!fsService.fileExists(videoPath))
     return buildErrorResponse("File not found: " + videoPath);
-  }
   std::string ext = fs::path(videoPath).extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  if (!fsService.isVideoFile(ext)) {
+  if (!fsService.isVideoFile(ext))
     return buildErrorResponse("Not a video file", true, ext);
-  }
-  if (!thumbnailService.isVideoValid(videoPath)) {
+  if (!thumbnailService.isVideoValid(videoPath))
     return buildErrorResponse("Video file is corrupted or invalid", true);
-  }
   try {
     std::string base64Thumbnail =
         thumbnailService.generateThumbnailBase64(videoPath, width, quality);
-    if (base64Thumbnail.empty()) {
+    if (base64Thumbnail.empty())
       return buildErrorResponse("Could not generate thumbnail", true);
-    }
     return buildSuccessResponse(base64Thumbnail, width, quality, videoPath);
   } catch (const std::exception &e) {
     return buildErrorResponse(

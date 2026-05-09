@@ -41,16 +41,21 @@ void VideoController::listFiles(
   auto json = req->getJsonObject();
   if (json && json->isMember("path") && (*json)["path"].isString()) {
     requestPath = (*json)["path"].asString();
+    std::cout << "[DEBUG] listFiles received path from JSON: " << requestPath
+              << std::endl;
   } else {
     std::string pathParam = req->getParameter("path");
     if (!pathParam.empty()) {
       requestPath = drogon::utils::urlDecode(pathParam);
+      std::cout << "[DEBUG] listFiles received path from param: " << requestPath
+                << std::endl;
     }
   }
-  requestPath = drogon::utils::urlDecode(requestPath);
   if (!fsService.isPathAllowed(requestPath)) {
+    std::cout << "[DEBUG] Path not allowed: " << requestPath << std::endl;
     requestPath = "/mnt/video";
   }
+  std::cout << "[DEBUG] listFiles final path: " << requestPath << std::endl;
   if (!fsService.fileExists(requestPath) ||
       !fsService.isDirectory(requestPath)) {
     Json::Value response;
@@ -61,8 +66,10 @@ void VideoController::listFiles(
     callback(resp);
     return;
   }
-  auto resp =
-      HttpResponse::newHttpJsonResponse(fsService.listDirectory(requestPath));
+  Json::Value result = fsService.listDirectory(requestPath);
+  std::cout << "[DEBUG] listFiles returning result for path: " << requestPath
+            << std::endl;
+  auto resp = HttpResponse::newHttpJsonResponse(result);
   callback(resp);
 }
 
