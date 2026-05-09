@@ -1,5 +1,7 @@
-#include "ThumbnailExtractor.h"
-#include "ThumbnailCache.h"
+#include "ThumbnailService.h"
+#include "../ThumbnailCache.h"
+#include <array>
+#include <cstdio>
 #include <filesystem>
 #include <libffmpegthumbnailer/imagetypes.h>
 #include <libffmpegthumbnailer/videothumbnailer.h>
@@ -7,9 +9,29 @@
 
 namespace fs = std::filesystem;
 
-static bool isCacheInitialized = false;
+ThumbnailService &ThumbnailService::getInstance() {
+  static ThumbnailService instance;
+  return instance;
+}
 
-void ThumbnailExtractor::initCache(const std::string &dbPath) {
+bool ThumbnailService::isVideoValid(const std::string &videoPath) {
+  std::string cmd =
+      "ffprobe -v error -select_streams v:0 -show_streams -show_format \"" +
+      videoPath + "\" 2>/dev/null";
+  std::array<char, 128> buffer;
+  std::string result;
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe) {
+    return false;
+  }
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+    result += buffer.data();
+  }
+  pclose(pipe);
+  return !result.empty();
+}
+
+void ThumbnailService::initCache(const std::string &dbPath) {
   if (!isCacheInitialized) {
     std::string path = dbPath;
     if (path.empty()) {
@@ -23,9 +45,12 @@ void ThumbnailExtractor::initCache(const std::string &dbPath) {
   }
 }
 
-bool ThumbnailExtractor::generateRawThumbnail(const std::string &videoPath,
-                                              int width, int quality,
-                                              std::vector<uint8_t> &imageData) {
+bool ThumbnailService::generateRawThumbnail(const std::string &videoPath,
+                                            int width, int quality,
+                                            std::vector<uint8_t> &imageData) {
+  if (!isVideoValid(videoPath)) {
+    return false;
+  }
   try {
     ffmpegthumbnailer::VideoThumbnailer thumbnailer;
     thumbnailer.setThumbnailSize(width);
@@ -40,26 +65,26 @@ bool ThumbnailExtractor::generateRawThumbnail(const std::string &videoPath,
 }
 
 std::string
-ThumbnailExtractor::generateThumbnailBase64(const std::string &videoPath,
-                                            int width, int quality) {
+ThumbnailService::generateThumbnailBase64(const std::string &videoPath,
+                                          int width, int quality) {
   initCache();
   return ThumbnailCache::getInstance().getThumbnail(videoPath, width, quality);
 }
 
-void ThumbnailExtractor::clearCache() {
+void ThumbnailService::clearCache() {
   if (isCacheInitialized) {
     ThumbnailCache::getInstance().clearCache();
   }
 }
 
-void ThumbnailExtractor::shutdownCache() {
+void ThumbnailService::shutdownCache() {
   if (isCacheInitialized) {
     ThumbnailCache::getInstance().shutdown();
     isCacheInitialized = false;
   }
 }
 
-std::string ThumbnailExtractor::base64Encode(const std::vector<uint8_t> &data) {
+std::string ThumbnailService::base64Encode(const std::vector<uint8_t> &data) {
   static const char *base64_chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   std::string base64;

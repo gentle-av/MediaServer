@@ -1,5 +1,5 @@
 #include "ThumbnailCache.h"
-#include "ThumbnailExtractor.h"
+#include "video/ThumbnailService.h"
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
@@ -179,17 +179,29 @@ std::string ThumbnailCache::getThumbnail(const std::string &videoPath,
       return thumbnail;
     }
   }
+  auto &thumbnailService = ThumbnailService::getInstance();
   std::vector<uint8_t> imageData;
-  if (!ThumbnailExtractor::generateRawThumbnail(videoPath, width, quality,
-                                                imageData)) {
+  if (!thumbnailService.generateRawThumbnail(videoPath, width, quality,
+                                             imageData)) {
     return "";
   }
-  thumbnail = ThumbnailExtractor::base64Encode(imageData);
+  thumbnail = thumbnailService.base64Encode(imageData);
   if (!thumbnail.empty()) {
     std::lock_guard<std::mutex> lock(mutex_);
     saveToCache(videoPath, thumbnail, width, quality);
   }
   return thumbnail;
+}
+
+std::vector<std::pair<std::string, std::string>>
+ThumbnailCache::getThumbnailsBatch(const std::vector<std::string> &videoPaths,
+                                   int width, int quality, size_t numThreads) {
+  std::vector<std::pair<std::string, std::string>> results;
+  for (const auto &path : videoPaths) {
+    std::string thumbnail = getThumbnail(path, width, quality);
+    results.emplace_back(path, thumbnail);
+  }
+  return results;
 }
 
 void ThumbnailCache::clearCache() {

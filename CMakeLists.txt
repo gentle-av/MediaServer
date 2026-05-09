@@ -26,7 +26,14 @@ add_executable(MediaServer
     services/AlbumArtExtractor.cpp
     services/AlsaMixer.cpp
     services/ThumbnailCache.cpp
-    services/ThumbnailExtractor.cpp
+    services/video/FileSystemService.cpp
+    services/video/PlaybackService.cpp
+    services/video/PlaybackStatus.cpp
+    services/video/StaticFileService.cpp
+    services/video/ThumbnailRequestHandler.cpp
+    services/video/ThumbnailService.cpp
+    services/video/TrashHandler.cpp
+    services/video/VideoControlHandler.cpp
     services/music/AlbumArtService.cpp
     services/music/MetadataCache.cpp
     services/music/MetadataExtractor.cpp
