@@ -23,9 +23,9 @@ add_executable(MediaServer
     controllers/PlayerController.cpp
     controllers/PowerController.cpp
     database/MusicDatabase.cpp
-    services/AlbumArtExtractor.cpp
-    services/AlsaMixer.cpp
-    services/ThumbnailCache.cpp
+    services/music/AlbumArtExtractor.cpp
+    services/system/AlsaMixer.cpp
+    services/video/ThumbnailCache.cpp
     services/video/FileSystemService.cpp
     services/video/PlaybackService.cpp
     services/video/PlaybackStatus.cpp

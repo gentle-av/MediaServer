@@ -1,5 +1,5 @@
 #include "services/player/AudioOutputSwitcher.h"
-#include "services/AlsaMixer.h"
+#include "services/system/AlsaMixer.h"
 #include <iostream>
 
 AudioOutputSwitcher::AudioOutputSwitcher() { detectCurrentOutput(); }

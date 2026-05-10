@@ -1,6 +1,6 @@
-#include "ThumbnailService.h"
-#include "../ThumbnailCache.h"
-#include "FileSystemService.h"
+#include "services/video/ThumbnailService.h"
+#include "services/video/FileSystemService.h"
+#include "services/video/ThumbnailCache.h"
 #include <array>
 #include <cstdio>
 #include <filesystem>

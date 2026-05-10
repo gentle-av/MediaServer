@@ -1,5 +1,5 @@
-#include "ThumbnailCache.h"
-#include "video/ThumbnailService.h"
+#include "services/video/ThumbnailCache.h"
+#include "services/video/ThumbnailService.h"
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
