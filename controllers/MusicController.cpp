@@ -1,4 +1,5 @@
 #include "controllers/MusicController.h"
+#include "services/music/AlbumArtWriter.h"
 #include "services/music/MetadataExtractor.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
@@ -658,4 +659,43 @@ void MusicController::getRescanStatus(
     response["percent"] = 0;
   }
   callback(ResponseBuilder::jsonResponse(response));
+}
+
+void MusicController::uploadAlbumArt(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("path") || !json->isMember("image_data")) {
+    ResponseBuilder::sendError(callback,
+                               "Missing 'path' or 'image_data' parameter");
+    return;
+  }
+  std::string filePath = (*json)["path"].asString();
+  std::string imageBase64 = (*json)["image_data"].asString();
+  std::string decodedPath = drogon::utils::urlDecode(filePath);
+  if (!fs::exists(decodedPath)) {
+    ResponseBuilder::sendError(callback, "File does not exist",
+                               drogon::k404NotFound);
+    return;
+  }
+  std::vector<char> imageData =
+      drogon::utils::base64DecodeToVector(imageBase64);
+  if (imageData.empty()) {
+    ResponseBuilder::sendError(callback, "Failed to decode base64 image data");
+    return;
+  }
+  AlbumArtWriter writer;
+  if (!writer.writeToFile(decodedPath, imageData)) {
+    ResponseBuilder::sendError(callback, "Failed to write album art to file");
+    return;
+  }
+  if (!db_->saveAlbumArt(decodedPath, imageData)) {
+    ResponseBuilder::sendError(callback,
+                               "Failed to save album art to database");
+    return;
+  }
+  Json::Value data;
+  data["path"] = decodedPath;
+  data["size"] = (int)imageData.size();
+  ResponseBuilder::sendSuccess(callback, data);
 }

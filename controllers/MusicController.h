@@ -8,6 +8,7 @@
 #include "services/music/MusicScanner.h"
 #include "services/music/PlaylistManager.h"
 #include <drogon/drogon.h>
+#include <functional>
 #include <memory>
 
 class MusicController : public drogon::HttpController<MusicController> {
@@ -44,6 +45,8 @@ public:
                 drogon::Post);
   ADD_METHOD_TO(MusicController::getRescanStatus, "/api/music/rescan-status",
                 drogon::Get);
+  ADD_METHOD_TO(MusicController::uploadAlbumArt, "/api/music/upload-album-art",
+                drogon::Post);
   METHOD_LIST_END
 
   MusicController();
@@ -103,6 +106,9 @@ public:
   deleteAlbum(const drogon::HttpRequestPtr &req,
               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
   void getRescanStatus(
+      const drogon::HttpRequestPtr &req,
+      std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void uploadAlbumArt(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 

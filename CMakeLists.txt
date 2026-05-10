@@ -35,6 +35,7 @@ add_executable(MediaServer
     services/video/TrashHandler.cpp
     services/video/VideoControlHandler.cpp
     services/music/AlbumArtService.cpp
+    services/music/AlbumArtWriter.cpp
     services/music/MetadataCache.cpp
     services/music/MetadataExtractor.cpp
     services/music/MusicScanner.cpp

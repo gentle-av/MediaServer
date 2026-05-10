@@ -157,30 +157,25 @@ bool MusicDatabase::saveAlbumArt(const std::string &filePath,
                                  const std::vector<char> &albumArt) {
   std::string mimeType = "image/jpeg";
   if (albumArt.size() >= 8) {
-    if (albumArt[0] == 0xFF && albumArt[1] == 0xD8) {
+    if (albumArt[0] == 0xFF && albumArt[1] == 0xD8)
       mimeType = "image/jpeg";
-    } else if (albumArt[0] == 0x89 && albumArt[1] == 0x50 &&
-               albumArt[2] == 0x4E && albumArt[3] == 0x47) {
+    else if (albumArt[0] == 0x89 && albumArt[1] == 0x50)
       mimeType = "image/png";
-    } else if (albumArt[0] == 0x47 && albumArt[1] == 0x49 &&
-               albumArt[2] == 0x46) {
+    else if (albumArt[0] == 0x47 && albumArt[1] == 0x49)
       mimeType = "image/gif";
-    }
   }
   const char *sql = "INSERT OR REPLACE INTO album_art (file_path, art_data, "
                     "mime_type) VALUES (?, ?, ?)";
   sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_blob(stmt, 2, albumArt.data(), albumArt.size(),
-                      SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 3, mimeType.c_str(), -1, SQLITE_TRANSIENT);
-    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
-    sqlite3_finalize(stmt);
-    return success;
-  }
+  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+  sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
+  sqlite3_bind_blob(stmt, 2, albumArt.data(), albumArt.size(),
+                    SQLITE_TRANSIENT);
+  sqlite3_bind_text(stmt, 3, mimeType.c_str(), -1, SQLITE_TRANSIENT);
+  bool success = (sqlite3_step(stmt) == SQLITE_DONE);
   sqlite3_finalize(stmt);
-  return false;
+  return success;
 }
 
 AlbumArtData MusicDatabase::getAlbumArt(const std::string &filePath) {
