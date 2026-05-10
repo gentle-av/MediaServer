@@ -41,14 +41,10 @@ void VideoController::listFiles(
   auto json = req->getJsonObject();
   if (json && json->isMember("path") && (*json)["path"].isString()) {
     requestPath = (*json)["path"].asString();
-    std::cout << "[DEBUG] listFiles received path from JSON: " << requestPath
-              << std::endl;
   } else {
     std::string pathParam = req->getParameter("path");
     if (!pathParam.empty()) {
       requestPath = drogon::utils::urlDecode(pathParam);
-      std::cout << "[DEBUG] listFiles received path from param: " << requestPath
-                << std::endl;
     }
   }
   if (!fsService.isPathAllowed(requestPath)) {

@@ -1,7 +1,6 @@
 #include "VideoControlHandler.h"
 #include "FileSystemService.h"
 #include "PlaybackService.h"
-#include "PlaybackStatus.h"
 #include <atomic>
 #include <mutex>
 
@@ -95,7 +94,6 @@ Json::Value VideoControlHandler::handleControl(const std::string &command,
 Json::Value VideoControlHandler::handleSeek(double seekTime,
                                             std::string &activeSocket) {
   auto &playbackService = PlaybackService::getInstance();
-  auto &statusService = PlaybackStatus::getInstance();
   Json::Value response;
   if (activeSocket.empty()) {
     response["success"] = false;
@@ -108,12 +106,10 @@ Json::Value VideoControlHandler::handleSeek(double seekTime,
     response["error"] = "MPV process is dead";
     return response;
   }
-  double actualTime = 0;
-  double duration = 0;
-  statusService.seek(activeSocket, seekTime, actualTime, duration);
-  response["success"] = true;
-  response["time"] = actualTime;
-  response["duration"] = duration;
+  std::string seekResponse;
+  bool result = playbackService.seek(activeSocket, seekTime, seekResponse);
+  response["success"] = result;
+  response["time"] = seekTime;
   return response;
 }
 

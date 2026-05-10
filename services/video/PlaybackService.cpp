@@ -71,12 +71,26 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
       "echo '" + jsonCommand + "' | socat - " + activeSocket + " 2>&1";
   std::array<char, 128> buffer;
   FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
+  if (!pipe)
     return false;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
     response += buffer.data();
-  }
+  pclose(pipe);
+  return true;
+}
+
+bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
+                           std::string &response) {
+  std::string jsonCommand = "{\"command\":[\"seek\", " +
+                            std::to_string(seekTime) + ", \"absolute\"]}";
+  std::string cmd =
+      "echo '" + jsonCommand + "' | socat - " + activeSocket + " 2>&1";
+  std::array<char, 128> buffer;
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (!pipe)
+    return false;
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
+    response += buffer.data();
   pclose(pipe);
   return true;
 }
@@ -88,12 +102,10 @@ bool PlaybackService::getProperty(const std::string &activeSocket,
                     "\"]}' | socat - " + activeSocket + " 2>/dev/null";
   std::array<char, 128> buffer;
   FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
+  if (!pipe)
     return false;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
     value += buffer.data();
-  }
   pclose(pipe);
   return true;
 }
@@ -103,12 +115,10 @@ bool PlaybackService::checkProcessAlive(const std::string &activeSocket) {
   std::array<char, 128> buffer;
   std::string result;
   FILE *pipe = popen(checkCmd.c_str(), "r");
-  if (!pipe) {
+  if (!pipe)
     return false;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
     result += buffer.data();
-  }
   pclose(pipe);
   return !result.empty();
 }
