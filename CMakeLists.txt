@@ -25,6 +25,7 @@ add_executable(MediaServer
     database/MusicDatabase.cpp
     services/music/AlbumArtExtractor.cpp
     services/system/AlsaMixer.cpp
+    services/system/PowerService.cpp
     services/video/ThumbnailCache.cpp
     services/video/FileSystemService.cpp
     services/video/PlaybackService.cpp
