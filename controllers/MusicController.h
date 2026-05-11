@@ -2,14 +2,10 @@
 
 #include "controllers/PlayerController.h"
 #include "services/music/MusicScanner.h"
-#include <drogon/drogon.h>
 #include <memory>
 
-class MusicController : public drogon::HttpController<MusicController> {
+class MusicController {
 public:
-  METHOD_LIST_BEGIN
-  METHOD_LIST_END
-
   MusicController();
   static void init(std::shared_ptr<PlayerController> playerController);
 

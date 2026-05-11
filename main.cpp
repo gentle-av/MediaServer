@@ -1,6 +1,5 @@
 #include "controllers/MusicController.h"
 #include "controllers/PlayerController.h"
-#include "database/MusicDatabase.h"
 #include "profilers/Profiler.h"
 #include <csignal>
 #include <drogon/drogon.h>
@@ -15,7 +14,6 @@ void signalHandler(int signal) {
                                         [](const drogon::HttpResponsePtr &) {});
   }
   drogon::app().quit();
-  std::exit(0);
 }
 
 int main(int argc, char *argv[]) {
@@ -23,17 +21,11 @@ int main(int argc, char *argv[]) {
   std::signal(SIGTERM, signalHandler);
   Profiler profiler(argc, argv);
   g_profiler = &profiler;
-  auto config = profiler.getConfig();
-  const char *home = getenv("HOME");
-  std::string dbPath =
-      home ? std::string(home) + "/.local/share/media-explorer/music.db"
-           : "./music.db";
-  auto musicDb = std::make_shared<MusicDatabase>(dbPath);
-  musicDb->init();
   profiler.applyToDrogon(drogon::app());
   profiler.printStartupInfo();
   g_playerController = std::make_shared<PlayerController>();
   MusicController::init(g_playerController);
+  MusicController musicController;
   drogon::app().enableGzip(true).setThreadNum(4).run();
   return 0;
 }
