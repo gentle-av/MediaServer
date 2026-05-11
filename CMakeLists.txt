@@ -18,23 +18,18 @@ pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 
 add_executable(MediaServer
     main.cpp
-    controllers/VideoController.cpp
+    controllers/AlbumArtController.cpp
+    controllers/AlbumManagementController.cpp
     controllers/MusicController.cpp
+    controllers/MusicLibraryController.cpp
+    controllers/MusicMetadataController.cpp
+    controllers/MusicPlaybackController.cpp
+    controllers/MusicScanController.cpp
     controllers/PlayerController.cpp
     controllers/PowerController.cpp
+    controllers/VideoController.cpp
     database/MusicDatabase.cpp
     services/music/AlbumArtExtractor.cpp
-    services/system/AlsaMixer.cpp
-    services/system/PowerService.cpp
-    services/video/ThumbnailCache.cpp
-    services/video/FileSystemService.cpp
-    services/video/PlaybackService.cpp
-    services/video/PlaybackStatus.cpp
-    services/video/StaticFileService.cpp
-    services/video/ThumbnailRequestHandler.cpp
-    services/video/ThumbnailService.cpp
-    services/video/TrashHandler.cpp
-    services/video/VideoControlHandler.cpp
     services/music/AlbumArtService.cpp
     services/music/AlbumArtWriter.cpp
     services/music/MetadataCache.cpp
@@ -50,6 +45,17 @@ add_executable(MediaServer
     services/player/TracklistManager.cpp
     services/player/TrackLoader.cpp
     services/player/Volumer.cpp
+    services/system/AlsaMixer.cpp
+    services/system/PowerService.cpp
+    services/video/FileSystemService.cpp
+    services/video/PlaybackService.cpp
+    services/video/PlaybackStatus.cpp
+    services/video/StaticFileService.cpp
+    services/video/ThumbnailCache.cpp
+    services/video/ThumbnailRequestHandler.cpp
+    services/video/ThumbnailService.cpp
+    services/video/TrashHandler.cpp
+    services/video/VideoControlHandler.cpp
     tagger/TagEditor.cpp
     profilers/Profiler.cpp
 )

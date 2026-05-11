@@ -4,7 +4,6 @@
 #include "profilers/Profiler.h"
 #include <csignal>
 #include <drogon/drogon.h>
-#include <iostream>
 #include <memory>
 
 Profiler *g_profiler = nullptr;
@@ -34,7 +33,7 @@ int main(int argc, char *argv[]) {
   profiler.applyToDrogon(drogon::app());
   profiler.printStartupInfo();
   g_playerController = std::make_shared<PlayerController>();
-  MusicController::setPlayerController(g_playerController);
+  MusicController::init(g_playerController);
   drogon::app().enableGzip(true).setThreadNum(4).run();
   return 0;
 }
