@@ -1,6 +1,6 @@
 #pragma once
 
-#include "controllers/PlayerController.h"
+#include "controllers/player/PlayerController.h"
 #include "database/MusicDatabase.h"
 #include <memory>
 #include <string>

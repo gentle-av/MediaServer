@@ -1,4 +1,4 @@
-#include "controllers/MusicScanController.h"
+#include "controllers/music/MusicScanController.h"
 #include "services/music/ResponseBuilder.h"
 
 MusicScanner *MusicScanController::scanner_ = nullptr;

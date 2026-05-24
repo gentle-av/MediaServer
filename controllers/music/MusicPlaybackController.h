@@ -1,6 +1,6 @@
 #pragma once
 
-#include "controllers/PlayerController.h"
+#include "controllers/player/PlayerController.h"
 #include "services/music/PlaylistManager.h"
 #include <drogon/drogon.h>
 

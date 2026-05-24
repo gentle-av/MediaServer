@@ -1,10 +1,10 @@
-#include "controllers/MusicController.h"
-#include "controllers/AlbumArtController.h"
-#include "controllers/AlbumManagementController.h"
-#include "controllers/MusicLibraryController.h"
-#include "controllers/MusicMetadataController.h"
-#include "controllers/MusicPlaybackController.h"
-#include "controllers/MusicScanController.h"
+#include "controllers/music/MusicController.h"
+#include "controllers/albums/AlbumArtController.h"
+#include "controllers/albums/AlbumManagementController.h"
+#include "controllers/music/MusicLibraryController.h"
+#include "controllers/music/MusicMetadataController.h"
+#include "controllers/music/MusicPlaybackController.h"
+#include "controllers/music/MusicScanController.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;

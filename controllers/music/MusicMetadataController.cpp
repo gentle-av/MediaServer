@@ -1,4 +1,4 @@
-#include "controllers/MusicMetadataController.h"
+#include "controllers/music/MusicMetadataController.h"
 #include "services/music/MetadataExtractor.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>

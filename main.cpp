@@ -1,5 +1,5 @@
-#include "controllers/MusicController.h"
-#include "controllers/PlayerController.h"
+#include "controllers/music/MusicController.h"
+#include "controllers/player/PlayerController.h"
 #include "profilers/Profiler.h"
 #include <csignal>
 #include <drogon/drogon.h>

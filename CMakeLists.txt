@@ -18,16 +18,16 @@ pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 
 add_executable(MediaServer
     main.cpp
-    controllers/AlbumArtController.cpp
-    controllers/AlbumManagementController.cpp
-    controllers/MusicController.cpp
-    controllers/MusicLibraryController.cpp
-    controllers/MusicMetadataController.cpp
-    controllers/MusicPlaybackController.cpp
-    controllers/MusicScanController.cpp
-    controllers/PlayerController.cpp
-    controllers/PowerController.cpp
-    controllers/VideoController.cpp
+    controllers/albums/AlbumArtController.cpp
+    controllers/albums/AlbumManagementController.cpp
+    controllers/music/MusicController.cpp
+    controllers/music/MusicLibraryController.cpp
+    controllers/music/MusicMetadataController.cpp
+    controllers/music/MusicPlaybackController.cpp
+    controllers/music/MusicScanController.cpp
+    controllers/player/PlayerController.cpp
+    controllers/power/PowerController.cpp
+    controllers/video/VideoController.cpp
     database/MusicDatabase.cpp
     services/music/AlbumArtExtractor.cpp
     services/music/AlbumArtService.cpp

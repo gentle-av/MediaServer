@@ -1,4 +1,4 @@
-#include "controllers/PlayerController.h"
+#include "controllers/player/PlayerController.h"
 #include <drogon/utils/Utilities.h>
 
 PlayerController::PlayerController() {

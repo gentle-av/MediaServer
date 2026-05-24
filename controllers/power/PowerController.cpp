@@ -1,4 +1,4 @@
-#include "PowerController.h"
+#include "controllers/power/PowerController.h"
 #include "services/system/PowerService.h"
 
 PowerController::PowerController() {

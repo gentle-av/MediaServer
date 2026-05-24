@@ -1,4 +1,4 @@
-#include "controllers/AlbumManagementController.h"
+#include "controllers/albums/AlbumManagementController.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
