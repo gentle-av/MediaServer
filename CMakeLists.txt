@@ -15,6 +15,7 @@ pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
+pkg_check_modules(DBUS REQUIRED dbus-1)
 
 add_executable(MediaServer
     main.cpp
@@ -47,6 +48,7 @@ add_executable(MediaServer
     services/player/Volumer.cpp
     services/system/AlsaMixer.cpp
     services/system/PowerService.cpp
+    services/system/static/MonitorService.cpp
     services/video/FileSystemService.cpp
     services/video/PlaybackService.cpp
     services/video/PlaybackStatus.cpp
@@ -67,6 +69,7 @@ target_link_libraries(MediaServer
     ${MPV_LIBRARIES}
     ${LIBCURL_LIBRARIES}
     ${FFMPEGTHUMBNAILER_LIBRARIES}
+    ${DBUS_LIBRARIES}
     asound
     pthread
     dl
@@ -79,6 +82,7 @@ target_include_directories(MediaServer PRIVATE
     ${MPV_INCLUDE_DIRS}
     ${LIBCURL_INCLUDE_DIRS}
     ${FFMPEGTHUMBNAILER_INCLUDE_DIRS}
+    ${DBUS_INCLUDE_DIRS}
 )
 
 target_compile_definitions(MediaServer PRIVATE TAGLIB_STATIC)
