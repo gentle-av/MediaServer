@@ -20,7 +20,7 @@ bool MonitorService::isSessionIdle() {
     return false;
   }
   DBusMessage *reply =
-      dbus_connection_send_with_reply_and_block(conn, msg, 1000, &err);
+      dbus_connection_send_with_reply_and_block(conn, msg, 100, &err);
   dbus_message_unref(msg);
   if (dbus_error_is_set(&err) || !reply) {
     dbus_error_free(&err);
