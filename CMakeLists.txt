@@ -27,6 +27,7 @@ add_executable(MediaServer
     controllers/music/MusicPlaybackController.cpp
     controllers/music/MusicScanController.cpp
     controllers/player/PlayerController.cpp
+    controllers/system/MonitorController.cpp
     controllers/power/PowerController.cpp
     controllers/video/VideoController.cpp
     database/MusicDatabase.cpp
@@ -48,7 +49,7 @@ add_executable(MediaServer
     services/player/Volumer.cpp
     services/system/AlsaMixer.cpp
     services/system/PowerService.cpp
-    services/system/static/MonitorService.cpp
+    services/system/MonitorService.cpp
     services/video/FileSystemService.cpp
     services/video/PlaybackService.cpp
     services/video/PlaybackStatus.cpp

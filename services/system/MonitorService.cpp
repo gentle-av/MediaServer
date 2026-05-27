@@ -1,4 +1,4 @@
-#include "services/system/static/MonitorService.h"
+#include "services/system/MonitorService.h"
 
 #include <dbus/dbus.h>
 #include <iostream>
