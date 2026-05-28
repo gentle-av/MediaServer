@@ -16,9 +16,11 @@ pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 pkg_check_modules(DBUS REQUIRED dbus-1)
+pkg_check_modules(WAYLAND REQUIRED wayland-client)
 
 add_executable(MediaServer
     main.cpp
+    info/MonitorInfo.cpp
     controllers/albums/AlbumArtController.cpp
     controllers/albums/AlbumManagementController.cpp
     controllers/music/MusicController.cpp
@@ -71,6 +73,7 @@ target_link_libraries(MediaServer
     ${LIBCURL_LIBRARIES}
     ${FFMPEGTHUMBNAILER_LIBRARIES}
     ${DBUS_LIBRARIES}
+    ${WAYLAND_LIBRARIES}
     asound
     pthread
     dl
