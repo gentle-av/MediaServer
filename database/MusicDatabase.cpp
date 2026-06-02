@@ -363,3 +363,14 @@ std::string MusicDatabase::getFilePathByAlbum(const std::string &albumName,
   sqlite3_finalize(stmt);
   return result;
 }
+
+bool MusicDatabase::removeAlbumArt(const std::string &filePath) {
+  const char *sql = "DELETE FROM album_art WHERE file_path = ?";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+  sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
+  bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+  sqlite3_finalize(stmt);
+  return success;
+}

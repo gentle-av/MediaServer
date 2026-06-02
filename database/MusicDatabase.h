@@ -40,6 +40,7 @@ public:
   void forceRescan(const std::string &rootPath);
   std::string getFilePathByAlbum(const std::string &albumName,
                                  const std::string &artistName = "");
+  bool removeAlbumArt(const std::string &filePath);
 
 private:
   class Impl;

@@ -1,5 +1,5 @@
 #include "services/music/AlbumArtService.h"
-#include "MetadataExtractor.h"
+#include "services/music/MetadataExtractor.h"
 
 AlbumArtService::AlbumArtService(MusicDatabase &db) : db_(db) {}
 
@@ -40,6 +40,10 @@ AlbumArtService::getAlbumArtByAlbum(const std::string &album,
 bool AlbumArtService::saveAlbumArt(const std::string &filePath,
                                    const std::vector<char> &data) {
   return db_.saveAlbumArt(filePath, data);
+}
+
+bool AlbumArtService::removeAlbumArt(const std::string &filePath) {
+  return db_.removeAlbumArt(filePath);
 }
 
 drogon::HttpResponsePtr

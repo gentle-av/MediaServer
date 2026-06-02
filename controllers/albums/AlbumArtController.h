@@ -16,6 +16,8 @@ public:
                 "/api/music/upload-album-art", drogon::Post);
   ADD_METHOD_TO(AlbumArtController::deleteAlbumArt,
                 "/api/music/albumart/delete", drogon::Post);
+  ADD_METHOD_TO(AlbumArtController::options, "/api/music/upload-album-art",
+                drogon::Options);
   METHOD_LIST_END
 
   AlbumArtController();
@@ -34,6 +36,8 @@ public:
   void deleteAlbumArt(
       const drogon::HttpRequestPtr &req,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
+  void options(const drogon::HttpRequestPtr &req,
+               std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
   static std::unique_ptr<AlbumArtService> albumArtService_;

@@ -16,6 +16,18 @@ void AlbumArtController::init(std::unique_ptr<MusicDatabase> &db) {
   }
 }
 
+void AlbumArtController::options(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  resp->setStatusCode(drogon::k200OK);
+  resp->addHeader("Access-Control-Allow-Origin", "*");
+  resp->addHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+  resp->addHeader("Access-Control-Max-Age", "86400");
+  callback(resp);
+}
+
 void AlbumArtController::getAlbumArt(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
@@ -43,6 +55,8 @@ void AlbumArtController::getAlbumArtByAlbum(
 void AlbumArtController::uploadAlbumArt(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  auto resp = drogon::HttpResponse::newHttpResponse();
+  resp->addHeader("Access-Control-Allow-Origin", "*");
   auto json = req->getJsonObject();
   if (!json || !json->isMember("path") || !json->isMember("image_data")) {
     ResponseBuilder::sendError(callback,
@@ -67,10 +81,19 @@ void AlbumArtController::uploadAlbumArt(
     ResponseBuilder::sendError(callback, "Failed to write album art to file");
     return;
   }
+  if (albumArtService_) {
+    auto db = albumArtService_->getDatabase();
+    if (db) {
+      db->saveAlbumArt(decodedPath, imageData);
+    }
+  }
   Json::Value data;
   data["path"] = decodedPath;
   data["size"] = (int)imageData.size();
-  ResponseBuilder::sendSuccess(callback, data);
+  data["status"] = "success";
+  auto successResp = ResponseBuilder::success(data);
+  successResp->addHeader("Access-Control-Allow-Origin", "*");
+  callback(successResp);
 }
 
 void AlbumArtController::deleteAlbumArt(
@@ -92,6 +115,12 @@ void AlbumArtController::deleteAlbumArt(
     ResponseBuilder::sendError(callback,
                                "Failed to remove album art from file");
     return;
+  }
+  if (albumArtService_) {
+    auto db = albumArtService_->getDatabase();
+    if (db) {
+      db->removeAlbumArt(decodedPath);
+    }
   }
   Json::Value data;
   data["path"] = decodedPath;
