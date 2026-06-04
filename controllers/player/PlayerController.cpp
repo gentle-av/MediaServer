@@ -1,6 +1,117 @@
 #include "controllers/player/PlayerController.h"
 #include <drogon/utils/Utilities.h>
 
+void PlayerController::handleGetCurrentTime(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value data;
+  if (!sessionManager_->isProcessAlive(socketPath_)) {
+    data["currentTime"] = 0;
+    data["duration"] = 0;
+    callback(drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "", data)));
+    return;
+  }
+  std::string timeResp = commandSender_->sendCommand(
+      R"({"command": ["get_property", "time-pos"]})");
+  std::string durationResp = commandSender_->sendCommand(
+      R"({"command": ["get_property", "duration"]})");
+  double currentTime = 0, duration = 0;
+  try {
+    size_t pos = timeResp.find("\"data\"");
+    if (pos != std::string::npos) {
+      size_t start = timeResp.find(":", pos);
+      if (start != std::string::npos) {
+        std::string numStr = timeResp.substr(start + 1);
+        size_t end = numStr.find_first_of(",}\n\r");
+        if (end != std::string::npos)
+          numStr = numStr.substr(0, end);
+        currentTime = std::stod(numStr);
+      }
+    }
+    pos = durationResp.find("\"data\"");
+    if (pos != std::string::npos) {
+      size_t start = durationResp.find(":", pos);
+      if (start != std::string::npos) {
+        std::string numStr = durationResp.substr(start + 1);
+        size_t end = numStr.find_first_of(",}\n\r");
+        if (end != std::string::npos)
+          numStr = numStr.substr(0, end);
+        duration = std::stod(numStr);
+      }
+    }
+  } catch (...) {
+  }
+  data["currentTime"] = currentTime;
+  data["duration"] = duration > 0 ? duration : 0;
+  callback(
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data)));
+}
+
+void PlayerController::handlePlaybackState(
+    const drogon::HttpRequestPtr &req,
+    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  Json::Value state;
+  if (!sessionManager_->isProcessAlive(socketPath_)) {
+    state["isPlaying"] = false;
+    state["currentTrack"] = "";
+    state["currentIndex"] = currentIndex_.load();
+    state["totalTracks"] = tracklistManager_->size();
+    state["currentTime"] = 0;
+    state["duration"] = 0;
+    callback(drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(true, "", state)));
+    return;
+  }
+  std::string pauseResp =
+      commandSender_->sendCommand(R"({"command": ["get_property", "pause"]})");
+  bool isPaused = pauseResp.find("\"data\":true") != std::string::npos;
+  std::string timeResp = commandSender_->sendCommand(
+      R"({"command": ["get_property", "time-pos"]})");
+  std::string durationResp = commandSender_->sendCommand(
+      R"({"command": ["get_property", "duration"]})");
+  double currentTime = 0, duration = 0;
+  size_t pos = timeResp.find("\"data\"");
+  if (pos != std::string::npos) {
+    size_t start = timeResp.find(":", pos);
+    if (start != std::string::npos) {
+      try {
+        std::string numStr = timeResp.substr(start + 1);
+        size_t end = numStr.find_first_of(",}\n\r");
+        if (end != std::string::npos)
+          numStr = numStr.substr(0, end);
+        currentTime = std::stod(numStr);
+      } catch (...) {
+      }
+    }
+  }
+  pos = durationResp.find("\"data\"");
+  if (pos != std::string::npos) {
+    size_t start = durationResp.find(":", pos);
+    if (start != std::string::npos) {
+      try {
+        std::string numStr = durationResp.substr(start + 1);
+        size_t end = numStr.find_first_of(",}\n\r");
+        if (end != std::string::npos)
+          numStr = numStr.substr(0, end);
+        duration = std::stod(numStr);
+      } catch (...) {
+      }
+    }
+  }
+  state["isPlaying"] = !isPaused && (currentTime > 0 || duration > 0);
+  state["currentTrack"] =
+      (currentIndex_ >= 0 && currentIndex_ < tracklistManager_->size())
+          ? tracklistManager_->getTrack(currentIndex_)
+          : "";
+  state["currentIndex"] = currentIndex_.load();
+  state["totalTracks"] = tracklistManager_->size();
+  state["currentTime"] = currentTime;
+  state["duration"] = duration > 0 ? duration : 300;
+  callback(
+      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", state)));
+}
+
 PlayerController::PlayerController() {
   sessionManager_ = std::make_unique<PlayerSessionManager>();
   commandSender_ = std::make_unique<MpvCommandSender>("");
@@ -211,102 +322,6 @@ void PlayerController::handleGetPlaylist(
     playlist.append(track);
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "", playlist)));
-}
-
-void PlayerController::handlePlaybackState(
-    const drogon::HttpRequestPtr &req,
-    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  Json::Value state;
-  if (!sessionManager_->isProcessAlive(socketPath_)) {
-    state["isPlaying"] = false;
-    state["currentTrack"] = "";
-    state["currentIndex"] = currentIndex_.load();
-    state["totalTracks"] = tracklistManager_->size();
-    state["currentTime"] = 0;
-    state["duration"] = 0;
-    callback(drogon::HttpResponse::newHttpJsonResponse(
-        jsonResponse(true, "", state)));
-    return;
-  }
-  std::string pauseResp =
-      commandSender_->sendCommand(R"({"command": ["get_property", "pause"]})");
-  bool isPaused = pauseResp.find("\"data\":true") != std::string::npos;
-  std::string timeResp = commandSender_->sendCommand(
-      R"({"command": ["get_property", "time-pos"]})");
-  std::string durationResp = commandSender_->sendCommand(
-      R"({"command": ["get_property", "duration"]})");
-  double currentTime = 0, duration = 0;
-  size_t pos = timeResp.find("\"data\"");
-  if (pos != std::string::npos) {
-    size_t start = timeResp.find(":", pos);
-    if (start != std::string::npos) {
-      try {
-        currentTime = std::stod(timeResp.substr(start + 1));
-      } catch (...) {
-      }
-    }
-  }
-  pos = durationResp.find("\"data\"");
-  if (pos != std::string::npos) {
-    size_t start = durationResp.find(":", pos);
-    if (start != std::string::npos) {
-      try {
-        duration = std::stod(durationResp.substr(start + 1));
-      } catch (...) {
-      }
-    }
-  }
-  state["isPlaying"] = !isPaused && (currentTime > 0 || duration > 0);
-  state["currentTrack"] =
-      (currentIndex_ >= 0 && currentIndex_ < tracklistManager_->size())
-          ? tracklistManager_->getTrack(currentIndex_)
-          : "";
-  state["currentIndex"] = currentIndex_.load();
-  state["totalTracks"] = tracklistManager_->size();
-  state["currentTime"] = currentTime;
-  state["duration"] = duration > 0 ? duration : 300;
-  callback(
-      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", state)));
-}
-
-void PlayerController::handleGetCurrentTime(
-    const drogon::HttpRequestPtr &req,
-    std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  Json::Value data;
-  if (!sessionManager_->isProcessAlive(socketPath_)) {
-    data["currentTime"] = 0;
-    data["duration"] = 0;
-    callback(drogon::HttpResponse::newHttpJsonResponse(
-        jsonResponse(true, "", data)));
-    return;
-  }
-  std::string timeResp = commandSender_->sendCommand(
-      R"({"command": ["get_property", "time-pos"]})");
-  std::string durationResp = commandSender_->sendCommand(
-      R"({"command": ["get_property", "duration"]})");
-  double currentTime = 0, duration = 0;
-  try {
-    Json::Value timeJson, durationJson;
-    Json::CharReaderBuilder builder;
-    std::string errors;
-    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
-    if (reader->parse(timeResp.c_str(), timeResp.c_str() + timeResp.size(),
-                      &timeJson, &errors) &&
-        timeJson.isMember("data") && timeJson["data"].isNumeric()) {
-      currentTime = timeJson["data"].asDouble();
-    }
-    if (reader->parse(durationResp.c_str(),
-                      durationResp.c_str() + durationResp.size(), &durationJson,
-                      &errors) &&
-        durationJson.isMember("data") && durationJson["data"].isNumeric()) {
-      duration = durationJson["data"].asDouble();
-    }
-  } catch (...) {
-  }
-  data["currentTime"] = currentTime;
-  data["duration"] = duration > 0 ? duration : 0;
-  callback(
-      drogon::HttpResponse::newHttpJsonResponse(jsonResponse(true, "", data)));
 }
 
 void PlayerController::handleSeek(

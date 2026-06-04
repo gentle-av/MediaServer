@@ -16,6 +16,37 @@ void AlbumManagementController::init(std::unique_ptr<MusicDatabase> &db,
   cache_ = cache.get();
 }
 
+static std::string escapeShellArg(const std::string &arg) {
+  std::string escaped = arg;
+  size_t pos = 0;
+  while ((pos = escaped.find('\\', pos)) != std::string::npos) {
+    escaped.replace(pos, 1, "\\\\");
+    pos += 2;
+  }
+  pos = 0;
+  while ((pos = escaped.find('"', pos)) != std::string::npos) {
+    escaped.replace(pos, 1, "\\\"");
+    pos += 2;
+  }
+  pos = 0;
+  while ((pos = escaped.find('\'', pos)) != std::string::npos) {
+    escaped.replace(pos, 1, "'\\''");
+    pos += 4;
+  }
+  return "'" + escaped + "'";
+}
+
+static bool moveToTrash(const std::string &path) {
+  std::string escapedPath = escapeShellArg(path);
+  std::string trashCmd =
+      "kioclient5 move " + escapedPath + " trash:/ 2>/dev/null";
+  if (system(trashCmd.c_str()) == 0) {
+    return true;
+  }
+  std::string rmCmd = "rm -rf " + escapedPath;
+  return system(rmCmd.c_str()) == 0;
+}
+
 void AlbumManagementController::deleteAlbum(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
@@ -54,17 +85,10 @@ void AlbumManagementController::deleteAlbum(
     int deletedFiles = 0;
     int errorCount = 0;
     if (fs::exists(albumFolderPath)) {
-      std::string trashCmd =
-          "kioclient5 move \"" + albumFolderPath + "\" trash:/ 2>/dev/null";
-      if (system(trashCmd.c_str()) != 0) {
-        std::string rmCmd = "rm -rf \"" + albumFolderPath + "\"";
-        if (system(rmCmd.c_str()) != 0) {
-          errorCount++;
-        } else {
-          deletedFiles = static_cast<int>(tracks.size());
-        }
-      } else {
+      if (moveToTrash(albumFolderPath)) {
         deletedFiles = static_cast<int>(tracks.size());
+      } else {
+        errorCount++;
       }
     } else {
       errorCount++;
@@ -72,6 +96,7 @@ void AlbumManagementController::deleteAlbum(
     std::string artistFolderPath =
         fs::path(albumFolderPath).parent_path().string();
     bool shouldDeleteArtistFolder = false;
+    int artistFolderDeleted = 0;
     if (!artistFolderPath.empty() && fs::exists(artistFolderPath)) {
       auto remainingAlbums = db_->getAlbums(decodedArtist);
       bool hasOtherAlbums = false;
@@ -98,16 +123,8 @@ void AlbumManagementController::deleteAlbum(
         }
       }
     }
-    int artistFolderDeleted = 0;
     if (shouldDeleteArtistFolder && fs::exists(artistFolderPath)) {
-      std::string artistTrashCmd =
-          "kioclient5 move \"" + artistFolderPath + "\" trash:/ 2>/dev/null";
-      if (system(artistTrashCmd.c_str()) != 0) {
-        std::string artistRmCmd = "rm -rf \"" + artistFolderPath + "\"";
-        if (system(artistRmCmd.c_str()) == 0) {
-          artistFolderDeleted = 1;
-        }
-      } else {
+      if (moveToTrash(artistFolderPath)) {
         artistFolderDeleted = 1;
       }
     }

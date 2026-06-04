@@ -4,6 +4,21 @@
 #include <regex>
 #include <string>
 
+static std::string escapeForShell(const std::string &arg) {
+  std::string escaped = arg;
+  size_t pos = 0;
+  while ((pos = escaped.find('\\', pos)) != std::string::npos) {
+    escaped.replace(pos, 1, "\\\\");
+    pos += 2;
+  }
+  pos = 0;
+  while ((pos = escaped.find('"', pos)) != std::string::npos) {
+    escaped.replace(pos, 1, "\\\"");
+    pos += 2;
+  }
+  return "\"" + escaped + "\"";
+}
+
 int Volumer::getVolume() const {
   std::string cmd = "timeout 2 amixer get Master 2>/dev/null";
   std::array<char, 256> buffer;
