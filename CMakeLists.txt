@@ -50,6 +50,7 @@ add_executable(MediaServer
     services/system/AlsaMixer.cpp
     services/system/PowerService.cpp
     services/system/MonitorService.cpp
+    services/video/ThreadMonitor.cpp
     services/video/FileSystemService.cpp
     services/video/PlaybackService.cpp
     services/video/PlaybackStatus.cpp
