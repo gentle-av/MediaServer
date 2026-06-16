@@ -1,227 +1,173 @@
 #include "PlaybackService.h"
-#include "ThreadMonitor.h"
-#include <array>
 #include <chrono>
-#include <cstdlib>
 #include <iostream>
 #include <thread>
-#include <unistd.h>
 
-static std::string escapeForShell(const std::string &arg) {
-  std::string escaped = arg;
-  size_t pos = 0;
-  while ((pos = escaped.find('\\', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\\");
-    pos += 2;
-  }
-  pos = 0;
-  while ((pos = escaped.find('"', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\"");
-    pos += 2;
-  }
-  return "\"" + escaped + "\"";
+PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
+  mpv = mpv_create();
+  mpv_set_option_string(mpv, "vo", "gpu-next");
+  mpv_set_option_string(mpv, "hwdec", "auto-safe");
+  mpv_set_option_string(mpv, "config", "no");
+  mpv_set_option_string(mpv, "really-quiet", "yes");
+  int fullscreen = 1;
+  mpv_set_option(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
+  mpv_initialize(mpv);
 }
 
-static std::string escapeForSingleQuotes(const std::string &arg) {
-  std::string escaped = arg;
-  size_t pos = 0;
-  while ((pos = escaped.find('\'', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "'\\''");
-    pos += 4;
+PlaybackService::~PlaybackService() {
+  if (mpv) {
+    mpv_terminate_destroy(mpv);
   }
-  return "'" + escaped + "'";
 }
 
 PlaybackService &PlaybackService::getInstance() {
   static PlaybackService instance;
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.registerThread("PlaybackServiceMain", std::this_thread::get_id());
   return instance;
+}
+
+std::string PlaybackService::getCachedOrFetch(const std::string &property) {
+  auto now = std::chrono::steady_clock::now();
+  auto it = cache.find(property);
+  if (it != cache.end() && (now - it->second.second) < CACHE_TTL) {
+    return it->second.first;
+  }
+  if (!mpv || !isPlaying)
+    return "";
+  std::string result;
+  if (property == "time-pos") {
+    double val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  } else if (property == "duration") {
+    double val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  } else if (property == "pause") {
+    int val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_FLAG, &val) >= 0) {
+      result = val ? "{\"data\":true}" : "{\"data\":false}";
+    }
+  } else if (property == "path") {
+    const char *val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_STRING, &val) >= 0 &&
+        val) {
+      result = "{\"data\":\"" + std::string(val) + "\"}";
+      mpv_free((void *)val);
+    }
+  }
+  if (!result.empty()) {
+    cache[property] = {result, now};
+  }
+  return result;
 }
 
 void PlaybackService::openVideo(const std::string &path,
                                 std::string &activeSocket, bool &success) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(),
-                    "PlaybackService::openVideo - waiting for mpv startup");
   std::cerr << "[DEBUG] PlaybackService::openVideo called with path: " << path
             << std::endl;
-  if (!activeSocket.empty()) {
-    std::string escapedSocket = escapeForShell(activeSocket);
-    std::string quitCmd = "echo '{\"command\": [\"quit\"]}' | socat - " +
-                          escapedSocket + " 2>/dev/null";
-    std::cerr << "[DEBUG] Executing quitCmd: " << quitCmd << std::endl;
-    system(quitCmd.c_str());
-    activeSocket.clear();
-    monitor.startWait(std::this_thread::get_id(),
-                      "PlaybackService::openVideo - waiting after quit");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    monitor.endWait(std::this_thread::get_id());
+  if (isPlaying) {
+    const char *cmd[] = {"stop", nullptr};
+    mpv_command(mpv, cmd);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  std::string socketPath = "/tmp/mpv-socket-" + std::to_string(getpid()) + "-" +
-                           std::to_string(socketCounter++);
-  std::string escapedPath = escapeForShell(path);
-  std::string cmd =
-      "mpv --fs --vo=gpu-next --hwdec=auto-safe --input-ipc-server=" +
-      socketPath + " " + escapedPath + " > /dev/null 2>&1 &";
-  std::cerr << "[DEBUG] Executing cmd: " << cmd << std::endl;
-  int result = system(cmd.c_str());
-  std::cerr << "[DEBUG] Command result: " << result << std::endl;
-  if (result == 0) {
-    monitor.startWait(
-        std::this_thread::get_id(),
-        "PlaybackService::openVideo - waiting for socket initialization");
+  const char *cmd[] = {"loadfile", path.c_str(), nullptr};
+  int result = mpv_command(mpv, cmd);
+  success = (result >= 0);
+  if (success) {
+    isPlaying = true;
+    activeSocket = "libmpv-internal";
+    int pause = 0;
+    mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+    cache.clear();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    monitor.endWait(std::this_thread::get_id());
-    activeSocket = socketPath;
   }
-  success = (result == 0);
-  monitor.endWait(std::this_thread::get_id());
 }
 
 void PlaybackService::closeVideo(std::string &activeSocket) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(), "PlaybackService::closeVideo");
-  std::cerr << "[DEBUG] PlaybackService::closeVideo called" << std::endl;
-  if (!activeSocket.empty()) {
-    std::string escapedSocket = escapeForShell(activeSocket);
-    std::string quitCmd = "echo '{\"command\": [\"quit\"]}' | socat - " +
-                          escapedSocket + " 2>/dev/null";
-    std::cerr << "[DEBUG] Executing quitCmd: " << quitCmd << std::endl;
-    system(quitCmd.c_str());
-    activeSocket.clear();
+  if (mpv && isPlaying) {
+    const char *cmd[] = {"stop", nullptr};
+    mpv_command(mpv, cmd);
+    isPlaying = false;
   }
-  monitor.endWait(std::this_thread::get_id());
+  activeSocket.clear();
+  cache.clear();
 }
 
 void PlaybackService::forceStop(std::string &activeSocket) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(), "PlaybackService::forceStop");
-  std::cerr << "[DEBUG] PlaybackService::forceStop called" << std::endl;
-  if (!activeSocket.empty()) {
-    std::string escapedSocket = escapeForShell(activeSocket);
-    std::string quitCmd = "echo '{\"command\": [\"quit\"]}' | socat - " +
-                          escapedSocket + " 2>/dev/null";
-    std::cerr << "[DEBUG] Executing quitCmd: " << quitCmd << std::endl;
-    system(quitCmd.c_str());
-    activeSocket.clear();
+  if (mpv && isPlaying) {
+    const char *cmd[] = {"stop", nullptr};
+    mpv_command(mpv, cmd);
+    isPlaying = false;
   }
-  std::cerr << "[DEBUG] Killing all mpv processes" << std::endl;
+  activeSocket.clear();
+  cache.clear();
   system("pkill -f 'mpv.*--input-ipc-server' 2>/dev/null");
-  monitor.endWait(std::this_thread::get_id());
 }
 
 bool PlaybackService::sendCommand(const std::string &activeSocket,
                                   const std::string &command,
                                   std::string &response) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(),
-                    "PlaybackService::sendCommand - waiting for socat");
-  std::cerr << "[DEBUG] PlaybackService::sendCommand called with command: "
-            << command << std::endl;
-  std::string jsonCommand;
-  if (command == "play")
-    jsonCommand = "{\"command\": [\"set_property\", \"pause\", false]}";
-  else if (command == "pause")
-    jsonCommand = "{\"command\": [\"set_property\", \"pause\", true]}";
-  else if (command == "cycle pause")
-    jsonCommand = "{\"command\": [\"cycle\", \"pause\"]}";
-  else if (command == "stop")
-    jsonCommand = "{\"command\": [\"quit\"]}";
-  else if (command == "fullscreen")
-    jsonCommand = "{\"command\": [\"cycle\", \"fullscreen\"]}";
-  else
-    jsonCommand = "{\"command\": [\"" + command + "\"]}";
-  std::string escapedSocket = escapeForShell(activeSocket);
-  std::string escapedCommand = escapeForSingleQuotes(jsonCommand);
-  std::string cmd =
-      "echo " + escapedCommand + " | socat - " + escapedSocket + " 2>&1";
-  std::cerr << "[DEBUG] Executing cmd: " << cmd << std::endl;
-  std::array<char, 128> buffer;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    monitor.endWait(std::this_thread::get_id());
+  if (!mpv || !isPlaying)
     return false;
+  int result = -1;
+  if (command == "play" ||
+      command == "{\"command\":[\"set_property\", \"pause\", false]}") {
+    int pause = 0;
+    result = mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  } else if (command == "pause" ||
+             command == "{\"command\":[\"set_property\", \"pause\", true]}") {
+    int pause = 1;
+    result = mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  } else if (command.find("seek") != std::string::npos) {
+    size_t start = command.find("seek") + 5;
+    size_t end = command.find(",", start);
+    if (end != std::string::npos) {
+      double seekTime = std::stod(command.substr(start, end - start));
+      const char *cmd[] = {"seek", std::to_string(seekTime).c_str(), "absolute",
+                           nullptr};
+      result = mpv_command(mpv, cmd);
+    }
+  } else if (command == "fullscreen" ||
+             command == "{\"command\":[\"cycle\", \"fullscreen\"]}") {
+    const char *cmd[] = {"cycle", "fullscreen", nullptr};
+    result = mpv_command(mpv, cmd);
+  } else if (command == "stop" || command == "{\"command\":[\"quit\"]}") {
+    const char *cmd[] = {"stop", nullptr};
+    result = mpv_command(mpv, cmd);
+    isPlaying = false;
   }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-    response += buffer.data();
-  pclose(pipe);
-  std::cerr << "[DEBUG] Response: " << response << std::endl;
-  monitor.endWait(std::this_thread::get_id());
-  return true;
+  response =
+      result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"command failed\"}";
+  if (result >= 0) {
+    cache.clear();
+  }
+  return result >= 0;
 }
 
 bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
                            std::string &response) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(),
-                    "PlaybackService::seek - waiting for socat");
-  std::cerr << "[DEBUG] PlaybackService::seek called with seekTime: "
-            << seekTime << std::endl;
-  std::string jsonCommand = "{\"command\":[\"seek\", " +
-                            std::to_string(seekTime) + ", \"absolute\"]}";
-  std::string escapedSocket = escapeForShell(activeSocket);
-  std::string escapedCommand = escapeForSingleQuotes(jsonCommand);
-  std::string cmd =
-      "echo " + escapedCommand + " | socat - " + escapedSocket + " 2>&1";
-  std::cerr << "[DEBUG] Executing cmd: " << cmd << std::endl;
-  std::array<char, 128> buffer;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    monitor.endWait(std::this_thread::get_id());
+  if (!mpv || !isPlaying)
     return false;
+  const char *cmd[] = {"seek", std::to_string(seekTime).c_str(), "absolute",
+                       nullptr};
+  int result = mpv_command(mpv, cmd);
+  response =
+      result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"seek failed\"}";
+  if (result >= 0) {
+    cache.erase("time-pos");
   }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-    response += buffer.data();
-  pclose(pipe);
-  monitor.endWait(std::this_thread::get_id());
-  return true;
+  return result >= 0;
 }
 
 bool PlaybackService::getProperty(const std::string &activeSocket,
                                   const std::string &property,
                                   std::string &value) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(),
-                    "PlaybackService::getProperty - waiting for socat");
-  std::cerr << "[DEBUG] PlaybackService::getProperty called with property: "
-            << property << std::endl;
-  std::string jsonCommand =
-      "{\"command\": [\"get_property\", \"" + property + "\"]}";
-  std::string escapedSocket = escapeForShell(activeSocket);
-  std::string escapedCommand = escapeForSingleQuotes(jsonCommand);
-  std::string cmd =
-      "echo " + escapedCommand + " | socat - " + escapedSocket + " 2>/dev/null";
-  std::cerr << "[DEBUG] Executing cmd: " << cmd << std::endl;
-  std::array<char, 128> buffer;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    monitor.endWait(std::this_thread::get_id());
-    return false;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-    value += buffer.data();
-  pclose(pipe);
-  monitor.endWait(std::this_thread::get_id());
-  return true;
+  value = getCachedOrFetch(property);
+  return !value.empty();
 }
 
 bool PlaybackService::checkProcessAlive(const std::string &activeSocket) {
-  auto &monitor = ThreadMonitor::getInstance();
-  monitor.startWait(std::this_thread::get_id(),
-                    "PlaybackService::checkProcessAlive");
-  std::string escapedSocket = escapeForShell(activeSocket);
-  std::string checkCmd = "pgrep -f " + escapedSocket;
-  std::array<char, 128> buffer;
-  std::string result;
-  FILE *pipe = popen(checkCmd.c_str(), "r");
-  if (!pipe) {
-    monitor.endWait(std::this_thread::get_id());
-    return false;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-    result += buffer.data();
-  pclose(pipe);
-  monitor.endWait(std::this_thread::get_id());
-  return !result.empty();
+  return mpv != nullptr && isPlaying;
 }

@@ -85,7 +85,7 @@ Json::Value VideoControlHandler::handleControl(const std::string &command,
   response["success"] = true;
   response["command_sent"] = command;
   response["socat_response"] = socatResponse;
-  if (command == "stop") {
+  if (command == "stop" || command == "{\"command\":[\"quit\"]}") {
     activeSocket.clear();
   }
   return response;

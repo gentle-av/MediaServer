@@ -1,10 +1,14 @@
 #pragma once
 
+#include <chrono>
+#include <mpv/client.h>
 #include <string>
+#include <unordered_map>
 
 class PlaybackService {
 public:
   static PlaybackService &getInstance();
+  ~PlaybackService();
   void openVideo(const std::string &path, std::string &activeSocket,
                  bool &success);
   void closeVideo(std::string &activeSocket);
@@ -18,6 +22,15 @@ public:
   bool checkProcessAlive(const std::string &activeSocket);
 
 private:
-  PlaybackService() = default;
-  int socketCounter = 0;
+  PlaybackService();
+  PlaybackService(const PlaybackService &) = delete;
+  PlaybackService &operator=(const PlaybackService &) = delete;
+  mpv_handle *mpv;
+  bool isPlaying;
+  std::unordered_map<
+      std::string,
+      std::pair<std::string, std::chrono::steady_clock::time_point>>
+      cache;
+  static constexpr auto CACHE_TTL = std::chrono::milliseconds(200);
+  std::string getCachedOrFetch(const std::string &property);
 };
