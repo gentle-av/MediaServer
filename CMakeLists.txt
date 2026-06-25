@@ -45,6 +45,7 @@ add_executable(MediaServer
     services/player/AudioOutputSwitcher.cpp
     services/player/AutoAdvanceTracker.cpp
     services/player/MetadataParser.cpp
+    services/player/MkvAudioChannel.cpp
     services/player/MpvCommandSender.cpp
     services/player/PlayerSessionManager.cpp
     services/player/TracklistManager.cpp
