@@ -54,8 +54,12 @@ void MkvAudioChannelController::sendSuccess(Callback &&callback,
 
 void MkvAudioChannelController::getAudioTracks(
     const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback,
-    const std::string &filepath) {
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto filepath = req->getParameter("path");
+  if (filepath.empty()) {
+    sendError(std::move(callback), k400BadRequest, "Missing 'path' parameter");
+    return;
+  }
   auto reader = openReader(filepath, callback);
   if (!reader)
     return;
@@ -72,8 +76,18 @@ void MkvAudioChannelController::getAudioTracks(
 
 void MkvAudioChannelController::getTrackByIndex(
     const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback,
-    const std::string &filepath, int index) {
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto filepath = req->getParameter("path");
+  if (filepath.empty()) {
+    sendError(std::move(callback), k400BadRequest, "Missing 'path' parameter");
+    return;
+  }
+  auto indexParam = req->getParameter("index");
+  if (indexParam.empty()) {
+    sendError(std::move(callback), k400BadRequest, "Missing 'index' parameter");
+    return;
+  }
+  int index = std::stoi(indexParam);
   auto reader = openReader(filepath, callback);
   if (!reader)
     return;
@@ -92,8 +106,19 @@ void MkvAudioChannelController::getTrackByIndex(
 
 void MkvAudioChannelController::getTrackByStream(
     const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback,
-    const std::string &filepath, int stream_index) {
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto filepath = req->getParameter("path");
+  if (filepath.empty()) {
+    sendError(std::move(callback), k400BadRequest, "Missing 'path' parameter");
+    return;
+  }
+  auto streamParam = req->getParameter("stream");
+  if (streamParam.empty()) {
+    sendError(std::move(callback), k400BadRequest,
+              "Missing 'stream' parameter");
+    return;
+  }
+  int stream_index = std::stoi(streamParam);
   auto reader = openReader(filepath, callback);
   if (!reader)
     return;

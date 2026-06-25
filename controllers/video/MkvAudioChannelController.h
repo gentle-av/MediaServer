@@ -18,25 +18,23 @@ public:
   ~MkvAudioChannelController() override;
 
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(MkvAudioChannelController::getAudioTracks,
-                "/api/audio/tracks/{filepath}", Get);
+  ADD_METHOD_TO(MkvAudioChannelController::getAudioTracks, "/api/mkv/tracks",
+                Get);
   ADD_METHOD_TO(MkvAudioChannelController::getTrackByIndex,
-                "/api/audio/tracks/{filepath}/{index}", Get);
+                "/api/mkv/tracks/by-index", Get);
   ADD_METHOD_TO(MkvAudioChannelController::getTrackByStream,
-                "/api/audio/tracks/stream/{filepath}/{stream_index}", Get);
+                "/api/mkv/tracks/by-stream", Get);
   METHOD_LIST_END
 
   void getAudioTracks(const HttpRequestPtr &req,
-                      std::function<void(const HttpResponsePtr &)> &&callback,
-                      const std::string &filepath);
+                      std::function<void(const HttpResponsePtr &)> &&callback);
 
   void getTrackByIndex(const HttpRequestPtr &req,
-                       std::function<void(const HttpResponsePtr &)> &&callback,
-                       const std::string &filepath, int index);
+                       std::function<void(const HttpResponsePtr &)> &&callback);
 
-  void getTrackByStream(const HttpRequestPtr &req,
-                        std::function<void(const HttpResponsePtr &)> &&callback,
-                        const std::string &filepath, int stream_index);
+  void
+  getTrackByStream(const HttpRequestPtr &req,
+                   std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   using Callback = std::function<void(const HttpResponsePtr &)>;
