@@ -31,6 +31,7 @@ add_executable(MediaServer
     controllers/system/MonitorController.cpp
     controllers/power/PowerController.cpp
     controllers/video/VideoController.cpp
+    controllers/video/MkvAudioChannelController.cpp
     database/MusicDatabase.cpp
     models/MkvAudioTrackInfo.cpp
     services/music/AlbumArtExtractor.cpp
