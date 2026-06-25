@@ -16,6 +16,7 @@ pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 pkg_check_modules(DBUS REQUIRED dbus-1)
+pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil)
 
 add_executable(MediaServer
     main.cpp
@@ -31,6 +32,7 @@ add_executable(MediaServer
     controllers/power/PowerController.cpp
     controllers/video/VideoController.cpp
     database/MusicDatabase.cpp
+    models/MkvAudioTrackInfo.cpp
     services/music/AlbumArtExtractor.cpp
     services/music/AlbumArtService.cpp
     services/music/AlbumArtWriter.cpp
@@ -72,6 +74,7 @@ target_link_libraries(MediaServer
     ${LIBCURL_LIBRARIES}
     ${FFMPEGTHUMBNAILER_LIBRARIES}
     ${DBUS_LIBRARIES}
+    ${FFMPEG_LIBRARIES}
     asound
     pthread
     dl
@@ -85,6 +88,7 @@ target_include_directories(MediaServer PRIVATE
     ${LIBCURL_INCLUDE_DIRS}
     ${FFMPEGTHUMBNAILER_INCLUDE_DIRS}
     ${DBUS_INCLUDE_DIRS}
+    ${FFMPEG_INCLUDE_DIRS}
 )
 
 target_compile_definitions(MediaServer PRIVATE TAGLIB_STATIC)
