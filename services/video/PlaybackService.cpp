@@ -56,6 +56,11 @@ std::string PlaybackService::getCachedOrFetch(const std::string &property) {
       result = "{\"data\":\"" + std::string(val) + "\"}";
       mpv_free((void *)val);
     }
+  } else if (property == "aid") {
+    int64_t val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
   }
   if (!result.empty()) {
     cache[property] = {result, now};
@@ -170,4 +175,13 @@ bool PlaybackService::getProperty(const std::string &activeSocket,
 
 bool PlaybackService::checkProcessAlive(const std::string &activeSocket) {
   return mpv != nullptr && isPlaying;
+}
+
+bool PlaybackService::setAudioTrack(int stream_index) {
+  if (!mpv || !isPlaying) {
+    return false;
+  }
+  int64_t aid = stream_index;
+  int result = mpv_set_property(mpv, "aid", MPV_FORMAT_INT64, &aid);
+  return result >= 0;
 }

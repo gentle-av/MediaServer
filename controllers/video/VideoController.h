@@ -14,6 +14,7 @@ public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(VideoController::getIndex, "/", Get);
   ADD_METHOD_TO(VideoController::serveStatic, "/static/{filename}", Get);
+  ADD_METHOD_TO(VideoController::setAudioTrack, "/api/video/audio/track", Post);
   ADD_METHOD_TO(VideoController::listFiles, "/api/list", Post);
   ADD_METHOD_TO(VideoController::openVideo, "/api/open", Post);
   ADD_METHOD_TO(VideoController::moveToTrash, "/api/trash", Post);
@@ -73,6 +74,8 @@ public:
   void
   getThumbnailPost(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
+  void setAudioTrack(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
   Profiler *profiler_ = nullptr;

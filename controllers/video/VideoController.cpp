@@ -1,7 +1,6 @@
 #include "controllers/video/VideoController.h"
 #include "profilers/Profiler.h"
 #include "services/video/FileSystemService.h"
-#include "services/video/PlaybackService.h"
 #include "services/video/PlaybackStatus.h"
 #include "services/video/StaticFileService.h"
 #include "services/video/ThumbnailRequestHandler.h"
@@ -343,5 +342,25 @@ void VideoController::getThumbnailPost(
       resp->setStatusCode(k403Forbidden);
     }
   }
+  callback(resp);
+}
+
+void VideoController::setAudioTrack(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("stream_index")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing stream_index parameter";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  int stream_index = (*json)["stream_index"].asInt();
+  auto response = VideoControlHandler::getInstance().handleSetAudioTrack(
+      stream_index, activeSocket_);
+  auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

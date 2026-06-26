@@ -20,6 +20,7 @@ public:
   bool getProperty(const std::string &activeSocket, const std::string &property,
                    std::string &value);
   bool checkProcessAlive(const std::string &activeSocket);
+  bool setAudioTrack(int stream_index);
 
 private:
   PlaybackService();

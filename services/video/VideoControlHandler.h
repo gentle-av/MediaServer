@@ -14,6 +14,8 @@ public:
   Json::Value handleSeek(double seekTime, std::string &activeSocket);
   Json::Value handleGetProperty(const std::string &propertyName,
                                 const std::string &activeSocket);
+  Json::Value handleSetAudioTrack(int stream_index,
+                                  const std::string &activeSocket);
 
 private:
   VideoControlHandler() = default;

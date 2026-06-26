@@ -130,3 +130,24 @@ VideoControlHandler::handleGetProperty(const std::string &propertyName,
   response["value"] = value;
   return response;
 }
+
+Json::Value
+VideoControlHandler::handleSetAudioTrack(int stream_index,
+                                         const std::string &activeSocket) {
+  auto &playbackService = PlaybackService::getInstance();
+  Json::Value response;
+  if (activeSocket.empty()) {
+    response["success"] = false;
+    response["error"] = "No active video playing";
+    return response;
+  }
+  if (!playbackService.checkProcessAlive(activeSocket)) {
+    response["success"] = false;
+    response["error"] = "MPV process is dead";
+    return response;
+  }
+  bool result = playbackService.setAudioTrack(stream_index);
+  response["success"] = result;
+  response["stream_index"] = stream_index;
+  return response;
+}
