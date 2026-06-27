@@ -24,16 +24,19 @@ public:
                 "/api/mkv/tracks/by-index", Get);
   ADD_METHOD_TO(MkvAudioChannelController::getTrackByStream,
                 "/api/mkv/tracks/by-stream", Get);
+  ADD_METHOD_TO(MkvAudioChannelController::getSelectedTrack,
+                "/api/mkv/tracks/selected", Get);
   METHOD_LIST_END
 
   void getAudioTracks(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback);
-
   void getTrackByIndex(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback);
-
   void
   getTrackByStream(const HttpRequestPtr &req,
+                   std::function<void(const HttpResponsePtr &)> &&callback);
+  void
+  getSelectedTrack(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:

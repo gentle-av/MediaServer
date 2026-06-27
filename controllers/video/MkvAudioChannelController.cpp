@@ -1,7 +1,13 @@
 #include "MkvAudioChannelController.h"
 #include "models/MkvAudioTrackInfo.h"
+#include "services/video/VideoControlHandler.h"
 #include <format>
 #include <memory>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+}
 
 MkvAudioChannelController::MkvAudioChannelController() = default;
 MkvAudioChannelController::~MkvAudioChannelController() = default;
@@ -63,14 +69,22 @@ void MkvAudioChannelController::getAudioTracks(
   auto reader = openReader(filepath, callback);
   if (!reader)
     return;
+  int selectedStream = -1;
+  std::string selectedParam = req->getParameter("selected");
+  if (!selectedParam.empty()) {
+    selectedStream = std::stoi(selectedParam);
+  }
   Json::Value response;
   response["success"] = true;
   response["count"] = reader->getTrackCount();
   Json::Value tracks(Json::arrayValue);
   for (const auto &track : reader->getAudioTracks()) {
-    tracks.append(trackToJson(track));
+    auto jsonTrack = trackToJson(track);
+    jsonTrack["is_selected"] = (track.stream_index == selectedStream);
+    tracks.append(jsonTrack);
   }
   response["tracks"] = tracks;
+  response["selected_audio_stream"] = selectedStream;
   sendSuccess(std::move(callback), response);
 }
 
@@ -131,5 +145,15 @@ void MkvAudioChannelController::getTrackByStream(
   Json::Value response;
   response["success"] = true;
   response["track"] = trackToJson(trackOpt.value());
+  sendSuccess(std::move(callback), response);
+}
+
+void MkvAudioChannelController::getSelectedTrack(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  Json::Value response;
+  response["success"] = false;
+  response["error"] = "Not implemented - use /api/video/status instead";
+  response["selected_audio_stream"] = -1;
   sendSuccess(std::move(callback), response);
 }

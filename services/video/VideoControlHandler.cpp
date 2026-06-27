@@ -127,7 +127,30 @@ VideoControlHandler::handleGetProperty(const std::string &propertyName,
   playbackService.getProperty(activeSocket, propertyName, value);
   response["success"] = true;
   response["property"] = propertyName;
-  response["value"] = value;
+  if (!value.empty()) {
+    Json::Value jsonValue;
+    Json::Reader reader;
+    if (reader.parse(value, jsonValue)) {
+      if (jsonValue.isMember("data")) {
+        response["value"] = jsonValue["data"];
+      } else {
+        response["value"] = jsonValue;
+      }
+    } else {
+      try {
+        if (propertyName == "audio" || propertyName == "aid") {
+          int intValue = std::stoi(value);
+          response["value"] = intValue;
+        } else {
+          response["value"] = value;
+        }
+      } catch (...) {
+        response["value"] = value;
+      }
+    }
+  } else {
+    response["value"] = Json::Value();
+  }
   return response;
 }
 
