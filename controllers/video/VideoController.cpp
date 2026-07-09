@@ -188,7 +188,25 @@ void VideoController::clearThumbnailCache(
 void VideoController::getPlaybackStatus(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+  {
+    std::lock_guard<std::mutex> lock(statusMutex_);
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       now - statusCache_.timestamp)
+                       .count();
+    if (statusCache_.isValid && elapsed < 200) {
+      auto resp = HttpResponse::newHttpJsonResponse(statusCache_.data);
+      callback(resp);
+      return;
+    }
+  }
   auto response = PlaybackStatus::getInstance().getStatus(activeSocket_);
+  {
+    std::lock_guard<std::mutex> lock(statusMutex_);
+    statusCache_.data = response;
+    statusCache_.timestamp = std::chrono::steady_clock::now();
+    statusCache_.isValid = true;
+  }
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
 }

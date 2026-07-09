@@ -86,4 +86,13 @@ private:
   void forceStop();
   std::string getIconForFile(const std::string &ext);
   static std::string activeSocket_;
+
+  struct CachedStatus {
+    Json::Value data;
+    std::chrono::steady_clock::time_point timestamp;
+    bool isValid = false;
+  };
+
+  CachedStatus statusCache_;
+  std::mutex statusMutex_;
 };
