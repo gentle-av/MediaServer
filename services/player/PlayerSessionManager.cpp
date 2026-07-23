@@ -26,8 +26,21 @@ void PlayerSessionManager::launchMpv(const std::string &socketPath) {
   unlink(socketPath.c_str());
   std::string escapedSocket = escapeForShell(socketPath);
   std::string cmd = "mpv --input-ipc-server=" + escapedSocket +
-                    " --idle --no-video --ao=alsa --no-terminal --really-quiet "
-                    "> /dev/null 2>&1 &";
+                    " --idle --no-video --ao=alsa --no-terminal --really-quiet"
+                    " --hwdec=auto-safe"
+                    " --vo=gpu"
+                    " --gpu-api=opengl"
+                    " --target-peak=100"
+                    " --tone-mapping=hable"
+                    " --tone-mapping-param=default"
+                    " --target-colorspace-hint=no"
+                    " --scale=bilinear"
+                    " --dscale=bilinear"
+                    " --cscale=bilinear"
+                    " --vd-lavc-dr=yes"
+                    " --vd-lavc-threads=8"
+                    " --video-latency-hacks=yes"
+                    " > /dev/null 2>&1 &";
   system(cmd.c_str());
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
