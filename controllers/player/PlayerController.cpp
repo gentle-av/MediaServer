@@ -142,19 +142,38 @@ PlayerController::~PlayerController() {
 }
 
 void PlayerController::startMpvIfNeeded() {
+  std::cout << "[DEBUG] startMpvIfNeeded: Checking if MPV is alive..."
+            << std::endl;
+  std::cout << "[DEBUG] startMpvIfNeeded: Current socket: " << socketPath_
+            << std::endl;
   if (!sessionManager_->isProcessAlive(socketPath_)) {
-    if (!socketPath_.empty())
+    std::cout << "[DEBUG] startMpvIfNeeded: MPV not alive, starting..."
+              << std::endl;
+    if (!socketPath_.empty()) {
+      std::cout << "[DEBUG] startMpvIfNeeded: Clearing old socket: "
+                << socketPath_ << std::endl;
       socketPath_.clear();
+    }
     socketPath_ = sessionManager_->generateSocketPath();
+    std::cout << "[DEBUG] startMpvIfNeeded: Generated new socket: "
+              << socketPath_ << std::endl;
     sessionManager_->launchMpv(socketPath_);
+    std::cout << "[DEBUG] startMpvIfNeeded: launchMpv returned" << std::endl;
     commandSender_->setSocketPath(socketPath_);
+    std::cout << "[DEBUG] startMpvIfNeeded: Socket path set in command sender"
+              << std::endl;
     if (!autoAdvanceTracker_->isRunning()) {
+      std::cout << "[DEBUG] startMpvIfNeeded: Starting auto-advance tracker"
+                << std::endl;
       stopAutoAdvance_ = false;
       auto tracks = tracklistManager_->getTrackList();
       autoAdvanceTracker_->start(stopAutoAdvance_, isPlaying_, tracks,
                                  currentIndex_);
     }
     resetIdleTimer();
+    std::cout << "[DEBUG] startMpvIfNeeded: Complete" << std::endl;
+  } else {
+    std::cout << "[DEBUG] startMpvIfNeeded: MPV already alive" << std::endl;
   }
 }
 
@@ -258,27 +277,42 @@ void PlayerController::handlePrevious(
 void PlayerController::handleSetPlaylist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+  std::cout << "[DEBUG] handleSetPlaylist: Called" << std::endl;
   try {
     Json::Value json = parseBody(req);
     if (!json.isMember("tracks") || !json["tracks"].isArray()) {
+      std::cout << "[ERROR] handleSetPlaylist: Missing tracks array"
+                << std::endl;
       callback(drogon::HttpResponse::newHttpJsonResponse(
           jsonResponse(false, "Missing tracks array parameter")));
       return;
     }
     std::vector<std::string> tracks;
     for (const auto &track : json["tracks"]) {
-      if (track.isString())
-        tracks.push_back(drogon::utils::urlDecode(track.asString()));
+      if (track.isString()) {
+        std::string decoded = drogon::utils::urlDecode(track.asString());
+        tracks.push_back(decoded);
+        std::cout << "[DEBUG] handleSetPlaylist: Track added: " << decoded
+                  << std::endl;
+      }
     }
+    std::cout << "[DEBUG] handleSetPlaylist: Total tracks: " << tracks.size()
+              << std::endl;
     tracklistManager_->setTrackList(tracks);
+    std::cout << "[DEBUG] handleSetPlaylist: Track list set" << std::endl;
     if (!tracks.empty()) {
+      std::cout << "[DEBUG] handleSetPlaylist: Starting MPV if needed"
+                << std::endl;
       startMpvIfNeeded();
+      std::cout << "[DEBUG] handleSetPlaylist: Loading track 0" << std::endl;
       loadTrack(0);
     }
     resetIdleTimer();
     callback(drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(true, "Playlist set")));
   } catch (const std::exception &e) {
+    std::cerr << "[ERROR] handleSetPlaylist: Exception: " << e.what()
+              << std::endl;
     callback(drogon::HttpResponse::newHttpJsonResponse(
         jsonResponse(false, e.what())));
   }

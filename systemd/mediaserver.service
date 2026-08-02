@@ -1,0 +1,23 @@
+[Unit]
+Description=MediaServer - Multimedia Streaming Service
+After=network.target sound.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/MediaServer
+WorkingDirectory=%h/.local/bin
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mediaserver
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=default.target

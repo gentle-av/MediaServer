@@ -4,14 +4,38 @@
 #include <thread>
 
 PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
-  mpv = mpv_create();
-  mpv_set_option_string(mpv, "vo", "gpu-next");
-  mpv_set_option_string(mpv, "hwdec", "auto-safe");
-  mpv_set_option_string(mpv, "config", "no");
-  mpv_set_option_string(mpv, "really-quiet", "yes");
-  int fullscreen = 1;
-  mpv_set_option(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
-  mpv_initialize(mpv);
+  try {
+    mpv = mpv_create();
+    if (!mpv) {
+      std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
+      return;
+    }
+    mpv_set_option_string(mpv, "vo", "gpu");
+    mpv_set_option_string(mpv, "hwdec", "no");
+    mpv_set_option_string(mpv, "vd-lavc-threads", "2");
+    mpv_set_option_string(mpv, "demuxer-readahead-secs", "1");
+    mpv_set_option_string(mpv, "cache-secs", "2");
+    mpv_set_option_string(mpv, "audio-device", "alsa");
+    mpv_set_option_string(mpv, "audio-buffer", "0.5");
+    mpv_set_option_string(mpv, "config", "no");
+    mpv_set_option_string(mpv, "really-quiet", "yes");
+    int initResult = mpv_initialize(mpv);
+    if (initResult < 0) {
+      std::cerr << "[ERROR] mpv_initialize failed with code: " << initResult
+                << std::endl;
+      mpv_terminate_destroy(mpv);
+      mpv = nullptr;
+      return;
+    }
+    std::cout << "[DEBUG] mpv initialized successfully" << std::endl;
+  } catch (const std::exception &e) {
+    std::cerr << "[ERROR] Exception in PlaybackService constructor: "
+              << e.what() << std::endl;
+    if (mpv) {
+      mpv_terminate_destroy(mpv);
+      mpv = nullptr;
+    }
+  }
 }
 
 PlaybackService::~PlaybackService() {
