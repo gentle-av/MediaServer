@@ -1,6 +1,8 @@
 #include "controllers/music/MusicController.h"
 #include "controllers/player/PlayerController.h"
 #include "profilers/Profiler.h"
+#include "services/player/AudioOutputSwitcher.h"
+#include "services/system/AlsaMixer.h"
 #include <csignal>
 #include <drogon/drogon.h>
 #include <memory>
@@ -19,6 +21,8 @@ void signalHandler(int signal) {
 int main(int argc, char *argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
+  AlsaMixer::getInstance();
+  AudioOutputSwitcher switcher;
   Profiler profiler(argc, argv);
   g_profiler = &profiler;
   profiler.applyToDrogon(drogon::app());

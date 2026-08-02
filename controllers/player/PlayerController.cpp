@@ -127,7 +127,6 @@ PlayerController::PlayerController() {
       [this](int index) { loadTrack(index); });
   volumeController_ = std::make_unique<Volumer>();
   outputSwitcher_ = std::make_unique<AudioOutputSwitcher>();
-  system("amixer set Master 45% 2>/dev/null");
 }
 
 PlayerController::~PlayerController() {
@@ -179,6 +178,8 @@ void PlayerController::startMpvIfNeeded() {
 
 void PlayerController::loadTrack(int index) {
   if (!tracklistManager_->hasTrack(index))
+    return;
+  if (index < 0 || index > 10000)
     return;
   currentIndex_ = index;
   isPlaying_ = true;

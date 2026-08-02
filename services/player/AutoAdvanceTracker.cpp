@@ -35,12 +35,14 @@ void AutoAdvanceTracker::run(std::atomic<bool> &stopFlag,
                              std::vector<std::string> &tracks,
                              std::atomic<int> &currentIndex) {
   bool wasPlaying = false;
-  bool trackFinished = false;
+  double lastTrackTime = 0;
   int finishCount = 0;
   while (!stopFlag && running_) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     if (stopFlag || currentIndex < 0 || currentIndex >= (int)tracks.size())
       continue;
+    if (stopFlag)
+      break;
     std::string pauseResp =
         sendCommand_(R"({"command": ["get_property", "pause"]})");
     std::string timeResp =
@@ -72,11 +74,10 @@ void AutoAdvanceTracker::run(std::atomic<bool> &stopFlag,
     }
     if (!isPaused && currentTime > 0) {
       wasPlaying = true;
+      lastTrackTime = currentTime;
     }
-    if (wasPlaying && !isPaused && currentTime == 0 && duration == 0) {
-      trackFinished = true;
-    }
-    if (trackFinished) {
+    if (wasPlaying && !isPaused && currentTime < 0.5 && duration > 0 &&
+        currentTime != lastTrackTime) {
       finishCount++;
       std::cout << "[AutoAdvance] track finished, count=" << finishCount
                 << std::endl;
@@ -84,15 +85,22 @@ void AutoAdvanceTracker::run(std::atomic<bool> &stopFlag,
         if (currentIndex + 1 < (int)tracks.size()) {
           std::cout << "[AutoAdvance] switching to next track" << std::endl;
           loadTrack_(currentIndex + 1);
+          finishCount = 0;
+          wasPlaying = false;
+          lastTrackTime = 0;
         } else {
           std::cout << "[AutoAdvance] end of playlist" << std::endl;
           isPlaying = false;
           currentIndex = -1;
+          finishCount = 0;
+          wasPlaying = false;
+          break;
         }
-        trackFinished = false;
-        finishCount = 0;
-        wasPlaying = false;
       }
+    }
+    if (isPaused) {
+      finishCount = 0;
+      wasPlaying = false;
     }
   }
 }

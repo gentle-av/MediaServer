@@ -13,7 +13,7 @@ public:
   std::vector<std::string> getAvailableOutputs() const;
 
 private:
-  std::string currentOutput_;
-  mutable std::mutex mutex_;
+  std::string currentOutput;
+  mutable std::mutex mutex;
   void detectCurrentOutput();
 };

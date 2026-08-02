@@ -26,13 +26,12 @@ private:
   AlsaMixer &operator=(const AlsaMixer &) = delete;
   bool executeAmixer(const std::string &command);
   int parseVolumeFromOutput(const std::string &output);
-  std::string getCurrentOutputInternal();
   void detectCurrentOutput();
 
-  std::mutex mutex_;
-  std::string controlName_;
-  int currentVolume_;
-  bool muted_;
-  std::string currentOutput_;
-  static const std::vector<std::string> availableOutputs_;
+  std::mutex mutex;
+  std::string controlName;
+  int currentVolume;
+  bool muted;
+  std::string currentOutput;
+  static const std::vector<std::string> availableOutputs;
 };

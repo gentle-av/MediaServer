@@ -20,7 +20,6 @@ static std::string escapeForShell(const std::string &arg) {
 }
 
 PlayerSessionManager::PlayerSessionManager() = default;
-
 PlayerSessionManager::~PlayerSessionManager() = default;
 
 void PlayerSessionManager::launchMpv(const std::string &socketPath) {
@@ -30,13 +29,13 @@ void PlayerSessionManager::launchMpv(const std::string &socketPath) {
   std::cout << "[DEBUG] launchMpv: Unlinked existing socket" << std::endl;
   std::string escapedSocket = escapeForShell(socketPath);
   std::string cmd = "mpv --input-ipc-server=" + escapedSocket +
-                    " --idle --no-video --no-audio-display" + " --ao=pipewire" +
+                    " --idle --no-video --ao=alsa" +
                     " --no-terminal --really-quiet" +
                     " 2>&1 | logger -t mpv-server &";
   std::cout << "[DEBUG] launchMpv: Executing command: " << cmd << std::endl;
   int result = system(cmd.c_str());
   std::cout << "[DEBUG] launchMpv: system() returned: " << result << std::endl;
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   if (access(socketPath.c_str(), F_OK) == 0) {
     std::cout << "[DEBUG] launchMpv: Socket created successfully: "
               << socketPath << std::endl;
@@ -80,20 +79,14 @@ void PlayerSessionManager::stopMpv(std::string &socketPath,
 }
 
 bool PlayerSessionManager::isProcessAlive(const std::string &socketPath) {
-  std::cout << "[DEBUG] isProcessAlive: Checking socket: " << socketPath
-            << std::endl;
   if (socketPath.empty()) {
-    std::cout << "[DEBUG] isProcessAlive: Socket path empty" << std::endl;
     return false;
   }
   if (access(socketPath.c_str(), F_OK) != 0) {
-    std::cout << "[DEBUG] isProcessAlive: Socket file does not exist"
-              << std::endl;
     return false;
   }
   std::string escapedSocket = escapeForShell(socketPath);
   std::string cmd = "pgrep -f 'mpv.*" + escapedSocket + "' 2>/dev/null";
-  std::cout << "[DEBUG] isProcessAlive: Checking process: " << cmd << std::endl;
   std::array<char, 128> buffer;
   std::string result;
   FILE *pipe = popen(cmd.c_str(), "r");
@@ -102,10 +95,7 @@ bool PlayerSessionManager::isProcessAlive(const std::string &socketPath) {
       result += buffer.data();
     pclose(pipe);
   }
-  bool alive = !result.empty();
-  std::cout << "[DEBUG] isProcessAlive: Process " << (alive ? "alive" : "dead")
-            << std::endl;
-  return alive;
+  return !result.empty();
 }
 
 std::string PlayerSessionManager::generateSocketPath() {

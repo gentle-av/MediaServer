@@ -5,9 +5,9 @@
 AudioOutputSwitcher::AudioOutputSwitcher() { detectCurrentOutput(); }
 
 bool AudioOutputSwitcher::switchToSpeakers() {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(mutex);
   if (AlsaMixer::getInstance().switchToSpeakers()) {
-    currentOutput_ = "speakers";
+    currentOutput = "speakers";
     std::cout << "[AudioOutputSwitcher] Switched to speakers" << std::endl;
     return true;
   }
@@ -15,9 +15,9 @@ bool AudioOutputSwitcher::switchToSpeakers() {
 }
 
 bool AudioOutputSwitcher::switchToHeadphones() {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(mutex);
   if (AlsaMixer::getInstance().switchToHeadphones()) {
-    currentOutput_ = "headphones";
+    currentOutput = "headphones";
     std::cout << "[AudioOutputSwitcher] Switched to headphones" << std::endl;
     return true;
   }
@@ -25,24 +25,23 @@ bool AudioOutputSwitcher::switchToHeadphones() {
 }
 
 std::string AudioOutputSwitcher::getCurrentOutput() {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(mutex);
   std::string realOutput = AlsaMixer::getInstance().getCurrentOutput();
-  if (realOutput != currentOutput_) {
+  if (realOutput != currentOutput) {
     std::cout << "[AudioOutputSwitcher] State mismatch - real: " << realOutput
-              << ", cached: " << currentOutput_ << std::endl;
-    currentOutput_ = realOutput;
+              << ", cached: " << currentOutput << std::endl;
+    currentOutput = realOutput;
   }
-  return currentOutput_;
+  return currentOutput;
 }
 
 std::vector<std::string> AudioOutputSwitcher::getAvailableOutputs() const {
-  // getAvailableOutputs() в AlsaMixer - не статический, нужен экземпляр
   return AlsaMixer::getInstance().getAvailableOutputs();
 }
 
 void AudioOutputSwitcher::detectCurrentOutput() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  currentOutput_ = AlsaMixer::getInstance().getCurrentOutput();
-  std::cout << "[AudioOutputSwitcher] Initial output: " << currentOutput_
+  std::lock_guard<std::mutex> lock(mutex);
+  currentOutput = AlsaMixer::getInstance().getCurrentOutput();
+  std::cout << "[AudioOutputSwitcher] Initial output: " << currentOutput
             << std::endl;
 }
