@@ -10,15 +10,26 @@ PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
       std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
       return;
     }
-    mpv_set_option_string(mpv, "vo", "gpu");
+    mpv_set_option_string(mpv, "vo", "gpu-next");
+    mpv_set_option_string(mpv, "gpu-api", "opengl");
     mpv_set_option_string(mpv, "hwdec", "no");
-    mpv_set_option_string(mpv, "vd-lavc-threads", "2");
-    mpv_set_option_string(mpv, "demuxer-readahead-secs", "1");
-    mpv_set_option_string(mpv, "cache-secs", "2");
+    mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
+    mpv_set_option_string(mpv, "dither", "fruit");
+    mpv_set_option_string(mpv, "correct-downscaling", "yes");
+    mpv_set_option_string(mpv, "linear-downscaling", "yes");
+    mpv_set_option_string(mpv, "video-rotate", "0");
+    mpv_set_option_string(mpv, "video-unscaled", "no");
+    mpv_set_option_string(mpv, "fullscreen", "yes");
     mpv_set_option_string(mpv, "audio-device", "alsa");
     mpv_set_option_string(mpv, "audio-buffer", "0.5");
+    mpv_set_option_string(mpv, "audio-exclusive", "no");
+    mpv_set_option_string(mpv, "audio-channels", "stereo");
     mpv_set_option_string(mpv, "config", "no");
     mpv_set_option_string(mpv, "really-quiet", "yes");
+    mpv_set_option_string(mpv, "cache", "yes");
+    mpv_set_option_string(mpv, "cache-secs", "2");
+    mpv_set_option_string(mpv, "demuxer-readahead-secs", "1");
+    mpv_set_option_string(mpv, "vd-lavc-threads", "2");
     int initResult = mpv_initialize(mpv);
     if (initResult < 0) {
       std::cerr << "[ERROR] mpv_initialize failed with code: " << initResult
@@ -27,7 +38,8 @@ PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
       mpv = nullptr;
       return;
     }
-    std::cout << "[DEBUG] mpv initialized successfully" << std::endl;
+    std::cout << "[DEBUG] mpv initialized successfully with gpu-next"
+              << std::endl;
   } catch (const std::exception &e) {
     std::cerr << "[ERROR] Exception in PlaybackService constructor: "
               << e.what() << std::endl;
@@ -109,6 +121,8 @@ void PlaybackService::openVideo(const std::string &path,
     activeSocket = "libmpv-internal";
     int pause = 0;
     mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+    int fullscreen = 1;
+    mpv_set_property(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
     cache.clear();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
