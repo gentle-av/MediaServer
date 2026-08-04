@@ -10,7 +10,7 @@ PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
       std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
       return;
     }
-    mpv_set_option_string(mpv, "vo", "gpu-next");
+    mpv_set_option_string(mpv, "vo", "gpu");
     mpv_set_option_string(mpv, "gpu-api", "opengl");
     mpv_set_option_string(mpv, "hwdec", "no");
     mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
