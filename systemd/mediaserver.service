@@ -1,23 +1,21 @@
 [Unit]
 Description=MediaServer - Multimedia Streaming Service
-After=network.target sound.target
-Wants=network.target
+After=network.target sound.target graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/MediaServer
+Environment="DISPLAY=:0"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+Environment="WAYLAND_DISPLAY=wayland-0"
+Environment="PULSE_SERVER=unix:/run/user/1000/pulse/native"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+ExecStart=/bin/bash -c 'source ~/.profile; ~/.local/bin/MediaServer --profile test'
 WorkingDirectory=%h/.local/bin
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=mediaserver
-NoNewPrivileges=yes
-PrivateTmp=yes
-PrivateDevices=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
 
 [Install]
 WantedBy=default.target

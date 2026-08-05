@@ -11,7 +11,7 @@ PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
       return;
     }
     mpv_set_option_string(mpv, "vo", "gpu");
-    mpv_set_option_string(mpv, "gpu-api", "opengl");
+    mpv_set_option_string(mpv, "gpu-api", "vulkan");
     mpv_set_option_string(mpv, "hwdec", "no");
     mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
     mpv_set_option_string(mpv, "dither", "fruit");
