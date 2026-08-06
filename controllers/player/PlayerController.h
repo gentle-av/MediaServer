@@ -152,4 +152,5 @@ private:
   std::atomic<bool> stopAutoAdvance_{false};
   std::unique_ptr<std::thread> idleTimerThread_;
   std::mutex timerMutex_;
+  mpv_handle *mpvHandle_ = nullptr;
 };

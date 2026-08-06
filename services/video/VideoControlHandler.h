@@ -1,6 +1,10 @@
 #pragma once
 
+#include <atomic>
+#include <functional>
 #include <json/json.h>
+#include <mutex>
+#include <queue>
 #include <string>
 
 class VideoControlHandler {
@@ -16,7 +20,17 @@ public:
                                 const std::string &activeSocket);
   Json::Value handleSetAudioTrack(int stream_index,
                                   const std::string &activeSocket);
+  void asyncSeek(double seekTime, std::function<void(Json::Value)> callback,
+                 std::string &activeSocket);
 
 private:
   VideoControlHandler() = default;
+  struct SeekCommand {
+    double time;
+    std::function<void(Json::Value)> callback;
+    std::string socket;
+  };
+  std::atomic<bool> isSeeking_{false};
+  std::mutex seekMutex_;
+  std::queue<SeekCommand> pendingSeeks_;
 };

@@ -2,7 +2,9 @@
 #include "FileSystemService.h"
 #include "PlaybackService.h"
 #include <atomic>
+#include <cmath>
 #include <mutex>
+#include <thread>
 
 VideoControlHandler &VideoControlHandler::getInstance() {
   static VideoControlHandler instance;
@@ -106,11 +108,53 @@ Json::Value VideoControlHandler::handleSeek(double seekTime,
     response["error"] = "MPV process is dead";
     return response;
   }
+  if (std::isnan(seekTime) || std::isinf(seekTime) || seekTime < 0) {
+    response["success"] = false;
+    response["error"] = "Invalid seek time";
+    return response;
+  }
   std::string seekResponse;
   bool result = playbackService.seek(activeSocket, seekTime, seekResponse);
   response["success"] = result;
   response["time"] = seekTime;
   return response;
+}
+
+void VideoControlHandler::asyncSeek(double seekTime,
+                                    std::function<void(Json::Value)> callback,
+                                    std::string &activeSocket) {
+  if (isSeeking_) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Seek already in progress";
+    callback(response);
+    return;
+  }
+  if (std::isnan(seekTime) || std::isinf(seekTime) || seekTime < 0) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Invalid seek time";
+    callback(response);
+    return;
+  }
+  isSeeking_ = true;
+  std::thread([this, seekTime, callback, activeSocket]() {
+    auto &playbackService = PlaybackService::getInstance();
+    Json::Value response;
+    if (!playbackService.checkProcessAlive(activeSocket)) {
+      response["success"] = false;
+      response["error"] = "MPV process is dead";
+      isSeeking_ = false;
+      callback(response);
+      return;
+    }
+    std::string seekResponse;
+    bool result = playbackService.seek(activeSocket, seekTime, seekResponse);
+    response["success"] = result;
+    response["time"] = seekTime;
+    isSeeking_ = false;
+    callback(response);
+  }).detach();
 }
 
 Json::Value

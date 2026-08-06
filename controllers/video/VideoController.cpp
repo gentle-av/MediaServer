@@ -47,10 +47,8 @@ void VideoController::listFiles(
     }
   }
   if (!fsService.isPathAllowed(requestPath)) {
-    std::cout << "[DEBUG] Path not allowed: " << requestPath << std::endl;
     requestPath = "/mnt/video";
   }
-  std::cout << "[DEBUG] listFiles final path: " << requestPath << std::endl;
   if (!fsService.fileExists(requestPath) ||
       !fsService.isDirectory(requestPath)) {
     Json::Value response;
@@ -62,8 +60,6 @@ void VideoController::listFiles(
     return;
   }
   Json::Value result = fsService.listDirectory(requestPath);
-  std::cout << "[DEBUG] listFiles returning result for path: " << requestPath
-            << std::endl;
   auto resp = HttpResponse::newHttpJsonResponse(result);
   callback(resp);
 }
@@ -188,6 +184,16 @@ void VideoController::clearThumbnailCache(
 void VideoController::getPlaybackStatus(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+  if (statusRequestInProgress_.exchange(true)) {
+    std::lock_guard<std::mutex> lock(statusMutex_);
+    if (statusCache_.isValid) {
+      auto resp = HttpResponse::newHttpJsonResponse(statusCache_.data);
+      statusRequestInProgress_ = false;
+      callback(resp);
+      return;
+    }
+    statusRequestInProgress_ = false;
+  }
   {
     std::lock_guard<std::mutex> lock(statusMutex_);
     auto now = std::chrono::steady_clock::now();
@@ -196,6 +202,7 @@ void VideoController::getPlaybackStatus(
                        .count();
     if (statusCache_.isValid && elapsed < 200) {
       auto resp = HttpResponse::newHttpJsonResponse(statusCache_.data);
+      statusRequestInProgress_ = false;
       callback(resp);
       return;
     }
@@ -208,6 +215,7 @@ void VideoController::getPlaybackStatus(
     statusCache_.isValid = true;
   }
   auto resp = HttpResponse::newHttpJsonResponse(response);
+  statusRequestInProgress_ = false;
   callback(resp);
 }
 
@@ -258,6 +266,31 @@ void VideoController::seekMpv(
       VideoControlHandler::getInstance().handleSeek(seekTime, activeSocket_);
   auto resp = HttpResponse::newHttpJsonResponse(response);
   callback(resp);
+}
+
+void VideoController::fastSeek(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto json = req->getJsonObject();
+  if (!json || !json->isMember("time")) {
+    Json::Value response;
+    response["success"] = false;
+    response["error"] = "Missing 'time' parameter";
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k400BadRequest);
+    callback(resp);
+    return;
+  }
+  double seekTime = (*json)["time"].asDouble();
+  if (seekTime < 0)
+    seekTime = 0;
+  VideoControlHandler::getInstance().asyncSeek(
+      seekTime,
+      [callback](Json::Value result) {
+        auto resp = HttpResponse::newHttpJsonResponse(result);
+        callback(resp);
+      },
+      activeSocket_);
 }
 
 void VideoController::getMpvProperty(
@@ -342,7 +375,6 @@ void VideoController::getThumbnailPost(
   std::string videoPath = (*json)["path"].asString();
   int width = json->isMember("width") ? (*json)["width"].asInt() : 320;
   int quality = json->isMember("quality") ? (*json)["quality"].asInt() : 85;
-
   if (width < 50)
     width = 50;
   if (width > 1920)

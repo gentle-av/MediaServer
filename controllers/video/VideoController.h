@@ -1,8 +1,11 @@
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
+#include <mutex>
 #include <string>
 
 class Profiler;
@@ -26,6 +29,7 @@ public:
   ADD_METHOD_TO(VideoController::getPlaybackStatus, "/api/video/status", Get);
   ADD_METHOD_TO(VideoController::controlMpv, "/api/mpv/control", Post);
   ADD_METHOD_TO(VideoController::seekMpv, "/api/mpv/seek", Post);
+  ADD_METHOD_TO(VideoController::fastSeek, "/api/mpv/seek-fast", Post);
   ADD_METHOD_TO(VideoController::getMpvProperty, "/api/mpv/property/{name}",
                 Get);
   ADD_METHOD_TO(VideoController::closeVideo, "/api/video/close", Post);
@@ -62,6 +66,8 @@ public:
                   std::function<void(const HttpResponsePtr &)> &&callback);
   void seekMpv(const HttpRequestPtr &req,
                std::function<void(const HttpResponsePtr &)> &&callback);
+  void fastSeek(const HttpRequestPtr &req,
+                std::function<void(const HttpResponsePtr &)> &&callback);
   void getMpvProperty(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback,
                       const std::string &propertyName);
@@ -79,20 +85,13 @@ public:
 
 private:
   Profiler *profiler_ = nullptr;
-  std::string getMimeType(const std::string &extension);
-  Json::Value getFileInfo(const fs::path &path);
-  bool isVideoFile(const std::string &filename);
-  std::string formatFileSize(uintmax_t size);
-  void forceStop();
-  std::string getIconForFile(const std::string &ext);
   static std::string activeSocket_;
-
   struct CachedStatus {
     Json::Value data;
     std::chrono::steady_clock::time_point timestamp;
     bool isValid = false;
   };
-
   CachedStatus statusCache_;
   std::mutex statusMutex_;
+  std::atomic<bool> statusRequestInProgress_{false};
 };

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <mpv/client.h>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -21,17 +23,21 @@ public:
                    std::string &value);
   bool checkProcessAlive(const std::string &activeSocket);
   bool setAudioTrack(int stream_index);
+  void setSeekInProgress(bool inProgress) { seekInProgress_ = inProgress; }
+  bool isSeekInProgress() const { return seekInProgress_.load(); }
 
 private:
   PlaybackService();
   PlaybackService(const PlaybackService &) = delete;
   PlaybackService &operator=(const PlaybackService &) = delete;
+  std::string getCachedOrFetch(const std::string &property);
   mpv_handle *mpv;
   bool isPlaying;
   std::unordered_map<
       std::string,
       std::pair<std::string, std::chrono::steady_clock::time_point>>
       cache;
-  static constexpr auto CACHE_TTL = std::chrono::milliseconds(200);
-  std::string getCachedOrFetch(const std::string &property);
+  static constexpr auto CACHE_TTL = std::chrono::milliseconds(100);
+  std::atomic<bool> seekInProgress_{false};
+  std::mutex mpvMutex;
 };

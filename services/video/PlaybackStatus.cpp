@@ -37,6 +37,12 @@ Json::Value PlaybackStatus::getStatus(const std::string &activeSocket) {
     response["reason"] = "process_dead";
     return response;
   }
+  if (playbackService.isSeekInProgress()) {
+    response["success"] = true;
+    response["playing"] = true;
+    response["seeking"] = true;
+    return response;
+  }
   std::string pauseResponse;
   playbackService.getProperty(activeSocket, "pause", pauseResponse);
   bool isPaused = pauseResponse.find("\"data\":true") != std::string::npos;

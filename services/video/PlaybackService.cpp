@@ -1,52 +1,44 @@
 #include "PlaybackService.h"
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <thread>
 
 PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
-  try {
-    mpv = mpv_create();
-    if (!mpv) {
-      std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
-      return;
-    }
-    mpv_set_option_string(mpv, "vo", "gpu");
-    mpv_set_option_string(mpv, "gpu-api", "vulkan");
-    mpv_set_option_string(mpv, "hwdec", "no");
-    mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
-    mpv_set_option_string(mpv, "dither", "fruit");
-    mpv_set_option_string(mpv, "correct-downscaling", "yes");
-    mpv_set_option_string(mpv, "linear-downscaling", "yes");
-    mpv_set_option_string(mpv, "video-rotate", "0");
-    mpv_set_option_string(mpv, "video-unscaled", "no");
-    mpv_set_option_string(mpv, "fullscreen", "yes");
-    mpv_set_option_string(mpv, "audio-device", "alsa");
-    mpv_set_option_string(mpv, "audio-buffer", "0.5");
-    mpv_set_option_string(mpv, "audio-exclusive", "no");
-    mpv_set_option_string(mpv, "audio-channels", "stereo");
-    mpv_set_option_string(mpv, "config", "no");
-    mpv_set_option_string(mpv, "really-quiet", "yes");
-    mpv_set_option_string(mpv, "cache", "yes");
-    mpv_set_option_string(mpv, "cache-secs", "2");
-    mpv_set_option_string(mpv, "demuxer-readahead-secs", "1");
-    mpv_set_option_string(mpv, "vd-lavc-threads", "2");
-    int initResult = mpv_initialize(mpv);
-    if (initResult < 0) {
-      std::cerr << "[ERROR] mpv_initialize failed with code: " << initResult
-                << std::endl;
-      mpv_terminate_destroy(mpv);
-      mpv = nullptr;
-      return;
-    }
-    std::cout << "[DEBUG] mpv initialized successfully with gpu-next"
+  mpv = mpv_create();
+  if (!mpv) {
+    std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
+    return;
+  }
+  mpv_set_option_string(mpv, "vo", "gpu");
+  mpv_set_option_string(mpv, "gpu-api", "vulkan");
+  mpv_set_option_string(mpv, "hwdec", "no");
+  mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
+  mpv_set_option_string(mpv, "dither", "fruit");
+  mpv_set_option_string(mpv, "correct-downscaling", "yes");
+  mpv_set_option_string(mpv, "linear-downscaling", "yes");
+  mpv_set_option_string(mpv, "video-rotate", "0");
+  mpv_set_option_string(mpv, "video-unscaled", "no");
+  mpv_set_option_string(mpv, "fullscreen", "yes");
+  mpv_set_option_string(mpv, "audio-device", "alsa");
+  mpv_set_option_string(mpv, "audio-exclusive", "no");
+  mpv_set_option_string(mpv, "audio-buffer", "1.0");
+  mpv_set_option_string(mpv, "audio-stream-silence", "yes");
+  mpv_set_option_string(mpv, "audio-format", "s16");
+  mpv_set_option_string(mpv, "audio-channels", "stereo");
+  mpv_set_option_string(mpv, "config", "no");
+  mpv_set_option_string(mpv, "really-quiet", "yes");
+  mpv_set_option_string(mpv, "cache", "yes");
+  mpv_set_option_string(mpv, "cache-secs", "5");
+  mpv_set_option_string(mpv, "demuxer-readahead-secs", "2");
+  mpv_set_option_string(mpv, "vd-lavc-threads", "1");
+  int initResult = mpv_initialize(mpv);
+  if (initResult < 0) {
+    std::cerr << "[ERROR] mpv_initialize failed with code: " << initResult
               << std::endl;
-  } catch (const std::exception &e) {
-    std::cerr << "[ERROR] Exception in PlaybackService constructor: "
-              << e.what() << std::endl;
-    if (mpv) {
-      mpv_terminate_destroy(mpv);
-      mpv = nullptr;
-    }
+    mpv_terminate_destroy(mpv);
+    mpv = nullptr;
+    return;
   }
 }
 
@@ -70,6 +62,7 @@ std::string PlaybackService::getCachedOrFetch(const std::string &property) {
   if (!mpv || !isPlaying)
     return "";
   std::string result;
+  std::lock_guard<std::mutex> lock(mpvMutex);
   if (property == "time-pos") {
     double val;
     if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
@@ -106,8 +99,7 @@ std::string PlaybackService::getCachedOrFetch(const std::string &property) {
 
 void PlaybackService::openVideo(const std::string &path,
                                 std::string &activeSocket, bool &success) {
-  std::cerr << "[DEBUG] PlaybackService::openVideo called with path: " << path
-            << std::endl;
+  std::lock_guard<std::mutex> lock(mpvMutex);
   if (isPlaying) {
     const char *cmd[] = {"stop", nullptr};
     mpv_command(mpv, cmd);
@@ -129,6 +121,7 @@ void PlaybackService::openVideo(const std::string &path,
 }
 
 void PlaybackService::closeVideo(std::string &activeSocket) {
+  std::lock_guard<std::mutex> lock(mpvMutex);
   if (mpv && isPlaying) {
     const char *cmd[] = {"stop", nullptr};
     mpv_command(mpv, cmd);
@@ -139,6 +132,7 @@ void PlaybackService::closeVideo(std::string &activeSocket) {
 }
 
 void PlaybackService::forceStop(std::string &activeSocket) {
+  std::lock_guard<std::mutex> lock(mpvMutex);
   if (mpv && isPlaying) {
     const char *cmd[] = {"stop", nullptr};
     mpv_command(mpv, cmd);
@@ -146,7 +140,6 @@ void PlaybackService::forceStop(std::string &activeSocket) {
   }
   activeSocket.clear();
   cache.clear();
-  system("pkill -f 'mpv.*--input-ipc-server' 2>/dev/null");
 }
 
 bool PlaybackService::sendCommand(const std::string &activeSocket,
@@ -155,6 +148,7 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
   if (!mpv || !isPlaying)
     return false;
   int result = -1;
+  std::lock_guard<std::mutex> lock(mpvMutex);
   if (command == "play" ||
       command == "{\"command\":[\"set_property\", \"pause\", false]}") {
     int pause = 0;
@@ -168,6 +162,10 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
     size_t end = command.find(",", start);
     if (end != std::string::npos) {
       double seekTime = std::stod(command.substr(start, end - start));
+      if (std::isnan(seekTime) || std::isinf(seekTime) || seekTime < 0) {
+        response = "{\"error\":\"invalid seek time\"}";
+        return false;
+      }
       const char *cmd[] = {"seek", std::to_string(seekTime).c_str(), "absolute",
                            nullptr};
       result = mpv_command(mpv, cmd);
@@ -183,8 +181,8 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
   }
   response =
       result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"command failed\"}";
-  if (result >= 0) {
-    cache.clear();
+  if (result >= 0 && command.find("seek") != std::string::npos) {
+    cache["time-pos"] = {"", std::chrono::steady_clock::now()};
   }
   return result >= 0;
 }
@@ -193,13 +191,18 @@ bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
                            std::string &response) {
   if (!mpv || !isPlaying)
     return false;
+  if (std::isnan(seekTime) || std::isinf(seekTime) || seekTime < 0) {
+    response = "{\"error\":\"invalid seek time\"}";
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(mpvMutex);
   const char *cmd[] = {"seek", std::to_string(seekTime).c_str(), "absolute",
                        nullptr};
   int result = mpv_command(mpv, cmd);
   response =
       result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"seek failed\"}";
   if (result >= 0) {
-    cache.erase("time-pos");
+    cache["time-pos"] = {"", std::chrono::steady_clock::now()};
   }
   return result >= 0;
 }
@@ -219,6 +222,7 @@ bool PlaybackService::setAudioTrack(int stream_index) {
   if (!mpv || !isPlaying) {
     return false;
   }
+  std::lock_guard<std::mutex> lock(mpvMutex);
   int64_t aid = stream_index;
   int result = mpv_set_property(mpv, "aid", MPV_FORMAT_INT64, &aid);
   return result >= 0;

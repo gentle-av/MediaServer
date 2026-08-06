@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <functional>
+#include <mpv/client.h>
 #include <string>
 #include <thread>
 #include <vector>
@@ -12,10 +13,12 @@ public:
   using LoadTrackFunc = std::function<void(int)>;
   AutoAdvanceTracker(CommandSenderFunc sendCommand, LoadTrackFunc loadTrack);
   void start(std::atomic<bool> &stopFlag, std::atomic<bool> &isPlaying,
-             std::vector<std::string> &tracks, std::atomic<int> &currentIndex);
+             std::vector<std::string> &tracks, std::atomic<int> &currentIndex,
+             mpv_handle *mpv);
   void stop();
   bool isRunning() const;
   std::thread *getThread() { return thread_.get(); }
+  void setMpvHandle(mpv_handle *handle) { mpvHandle = handle; }
 
 private:
   void run(std::atomic<bool> &stopFlag, std::atomic<bool> &isPlaying,
@@ -24,4 +27,6 @@ private:
   CommandSenderFunc sendCommand_;
   LoadTrackFunc loadTrack_;
   std::atomic<bool> running_{false};
+  mpv_handle *mpvHandle = nullptr;
+  static constexpr int CHECK_INTERVAL_MS = 1000;
 };

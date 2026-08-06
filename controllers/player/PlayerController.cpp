@@ -1,4 +1,5 @@
 #include "controllers/player/PlayerController.h"
+#include <cmath>
 #include <drogon/utils/Utilities.h>
 
 void PlayerController::handleGetCurrentTime(
@@ -127,6 +128,7 @@ PlayerController::PlayerController() {
       [this](int index) { loadTrack(index); });
   volumeController_ = std::make_unique<Volumer>();
   outputSwitcher_ = std::make_unique<AudioOutputSwitcher>();
+  mpvHandle_ = nullptr;
 }
 
 PlayerController::~PlayerController() {
@@ -167,7 +169,7 @@ void PlayerController::startMpvIfNeeded() {
       stopAutoAdvance_ = false;
       auto tracks = tracklistManager_->getTrackList();
       autoAdvanceTracker_->start(stopAutoAdvance_, isPlaying_, tracks,
-                                 currentIndex_);
+                                 currentIndex_, mpvHandle_);
     }
     resetIdleTimer();
     std::cout << "[DEBUG] startMpvIfNeeded: Complete" << std::endl;
@@ -370,6 +372,11 @@ void PlayerController::handleSeek(
     return;
   }
   double position = std::max(0.0, json["position"].asDouble());
+  if (std::isnan(position) || std::isinf(position)) {
+    callback(drogon::HttpResponse::newHttpJsonResponse(
+        jsonResponse(false, "Invalid position parameter")));
+    return;
+  }
   commandSender_->sendCommand(R"({"command": ["seek", )" +
                               std::to_string(position) + R"(, "absolute"]})");
   resetIdleTimer();
