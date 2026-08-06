@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <taglib/flacfile.h>
 #include <taglib/tag.h>
@@ -16,7 +17,6 @@ public:
   std::string getAlbum() const;
   std::string getGenre() const;
   std::string getDate() const;
-
   int getTrackNumber() const;
 
   void setTitle(const std::string &title);

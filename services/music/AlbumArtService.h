@@ -12,6 +12,7 @@ public:
     std::vector<char> data;
     std::string mimeType;
   };
+
   AlbumArt getAlbumArt(const std::string &filePath);
   AlbumArt getAlbumArtByAlbum(const std::string &album,
                               const std::string &artist = "");

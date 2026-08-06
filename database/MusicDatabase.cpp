@@ -1,4 +1,4 @@
-#include "MusicDatabase.h"
+#include "database/MusicDatabase.h"
 #include <iostream>
 #include <sqlite3.h>
 
@@ -58,6 +58,7 @@ MusicDatabase::MusicDatabase(const std::string &dbPath)
 MusicDatabase::~MusicDatabase() = default;
 
 bool MusicDatabase::init() { return pImpl->init(); }
+
 void MusicDatabase::close() { pImpl.reset(); }
 
 std::vector<std::string> MusicDatabase::getAllFiles() {

@@ -1,5 +1,4 @@
 #include "services/music/AlbumArtService.h"
-#include "services/music/MetadataExtractor.h"
 
 AlbumArtService::AlbumArtService(MusicDatabase &db) : db_(db) {}
 
