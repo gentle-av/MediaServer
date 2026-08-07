@@ -3,9 +3,10 @@
 #include "database/MusicDatabase.h"
 #include "services/music/MetadataCache.h"
 #include <drogon/drogon.h>
+#include <memory>
 
 class MusicMetadataController
-    : public drogon::HttpController<MusicMetadataController> {
+    : public drogon::HttpController<MusicMetadataController, false> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicMetadataController::getFileMetadata,
@@ -18,9 +19,9 @@ public:
                 drogon::Get);
   METHOD_LIST_END
 
-  MusicMetadataController();
-  static void init(std::unique_ptr<MusicDatabase> &db,
-                   std::unique_ptr<MetadataCache> &cache);
+  MusicMetadataController() = default;
+  void init(std::shared_ptr<MusicDatabase> db,
+            std::shared_ptr<MetadataCache> cache);
 
   void getFileMetadata(
       const drogon::HttpRequestPtr &req,
@@ -36,6 +37,6 @@ public:
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
-  static MusicDatabase *db_;
-  static MetadataCache *cache_;
+  std::shared_ptr<MusicDatabase> db_;
+  std::shared_ptr<MetadataCache> cache_;
 };

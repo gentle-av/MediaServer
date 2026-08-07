@@ -2,10 +2,12 @@
 
 #include "services/system/MonitorService.h"
 #include <drogon/HttpController.h>
+#include <memory>
 
 class Profiler;
 
-class MonitorController : public drogon::HttpController<MonitorController> {
+class MonitorController
+    : public drogon::HttpController<MonitorController, false> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MonitorController::isSessionIdle, "/api/monitor/is_idle",
@@ -18,7 +20,8 @@ public:
                 drogon::Post);
   METHOD_LIST_END
 
-  void setProfiler(Profiler *profiler) { profiler_ = profiler; }
+  MonitorController() = default;
+  void init(std::shared_ptr<Profiler> profiler);
 
   void isSessionIdle(
       const drogon::HttpRequestPtr &req,
@@ -34,8 +37,6 @@ public:
       std::function<void(const drogon::HttpResponsePtr &resp)> &&callback);
 
 private:
-  Profiler *profiler_ = nullptr;
-  std::unique_ptr<MonitorService> m_service = nullptr;
-
-  void ensureService();
+  std::shared_ptr<Profiler> profiler_;
+  std::unique_ptr<MonitorService> m_service;
 };

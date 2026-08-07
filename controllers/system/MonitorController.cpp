@@ -1,21 +1,14 @@
 #include "controllers/system/MonitorController.h"
 #include "profilers/Profiler.h"
 
-extern Profiler *g_profiler;
-
-void MonitorController::ensureService() {
-  if (!m_service) {
-    m_service = std::make_unique<MonitorService>();
-  }
-  if (!profiler_) {
-    profiler_ = g_profiler;
-  }
+void MonitorController::init(std::shared_ptr<Profiler> profiler) {
+  profiler_ = profiler;
+  m_service = std::make_unique<MonitorService>();
 }
 
 void MonitorController::isSessionIdle(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &resp)> &&callback) {
-  ensureService();
   Json::Value response;
   try {
     bool isIdle = m_service->isSessionIdle();
@@ -37,7 +30,6 @@ void MonitorController::isSessionIdle(
 void MonitorController::getMonitorStatus(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &resp)> &&callback) {
-  ensureService();
   Json::Value response;
   try {
     bool isIdle = m_service->isSessionIdle();
@@ -59,7 +51,6 @@ void MonitorController::getMonitorStatus(
 void MonitorController::turnOnMonitor(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &resp)> &&callback) {
-  ensureService();
   Json::Value response;
   try {
     m_service->turnOnDisplay();
@@ -81,7 +72,6 @@ void MonitorController::turnOnMonitor(
 void MonitorController::turnOffMonitor(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &resp)> &&callback) {
-  ensureService();
   Json::Value response;
   try {
     m_service->turnOffDisplay();

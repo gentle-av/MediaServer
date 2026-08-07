@@ -1,3 +1,4 @@
+// controllers/music/MusicMetadataController.cpp
 #include "controllers/music/MusicMetadataController.h"
 #include "services/music/MetadataExtractor.h"
 #include "services/music/ResponseBuilder.h"
@@ -7,15 +8,10 @@
 
 namespace fs = std::filesystem;
 
-MusicDatabase *MusicMetadataController::db_ = nullptr;
-MetadataCache *MusicMetadataController::cache_ = nullptr;
-
-MusicMetadataController::MusicMetadataController() {}
-
-void MusicMetadataController::init(std::unique_ptr<MusicDatabase> &db,
-                                   std::unique_ptr<MetadataCache> &cache) {
-  db_ = db.get();
-  cache_ = cache.get();
+void MusicMetadataController::init(std::shared_ptr<MusicDatabase> db,
+                                   std::shared_ptr<MetadataCache> cache) {
+  db_ = db;
+  cache_ = cache;
 }
 
 void MusicMetadataController::getFileMetadata(

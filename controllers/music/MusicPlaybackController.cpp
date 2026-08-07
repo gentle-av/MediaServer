@@ -1,17 +1,16 @@
+// controllers/music/MusicPlaybackController.cpp
 #include "controllers/music/MusicPlaybackController.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
 
-std::unique_ptr<PlaylistManager> MusicPlaybackController::playlistManager_ =
+std::shared_ptr<PlaylistManager> MusicPlaybackController::playlistManager_ =
     nullptr;
 
-MusicPlaybackController::MusicPlaybackController() {}
-
 void MusicPlaybackController::init(
-    std::unique_ptr<MusicDatabase> &db,
+    std::shared_ptr<MusicDatabase> db,
     std::shared_ptr<PlayerController> playerController) {
   if (playlistManager_ == nullptr) {
-    playlistManager_ = std::make_unique<PlaylistManager>(playerController, *db);
+    playlistManager_ = std::make_shared<PlaylistManager>(playerController, *db);
   }
 }
 

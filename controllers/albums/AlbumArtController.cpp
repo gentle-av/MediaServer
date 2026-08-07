@@ -1,4 +1,4 @@
-// AlbumArtController.cpp
+// controllers/albums/AlbumArtController.cpp
 #include "controllers/albums/AlbumArtController.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
@@ -6,15 +6,8 @@
 
 namespace fs = std::filesystem;
 
-std::unique_ptr<AlbumArtService> AlbumArtController::albumArtService_ = nullptr;
-AlbumArtWriter AlbumArtController::writer_;
-
-AlbumArtController::AlbumArtController() {}
-
-void AlbumArtController::init(std::unique_ptr<MusicDatabase> &db) {
-  if (albumArtService_ == nullptr) {
-    albumArtService_ = std::make_unique<AlbumArtService>(*db);
-  }
+void AlbumArtController::init(std::shared_ptr<MusicDatabase> db) {
+  albumArtService_ = std::make_shared<AlbumArtService>(*db);
 }
 
 void AlbumArtController::options(

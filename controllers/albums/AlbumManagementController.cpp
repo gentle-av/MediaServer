@@ -1,3 +1,4 @@
+// controllers/albums/AlbumManagementController.cpp
 #include "controllers/albums/AlbumManagementController.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
@@ -9,15 +10,10 @@
 
 namespace fs = std::filesystem;
 
-MusicDatabase *AlbumManagementController::db_ = nullptr;
-MetadataCache *AlbumManagementController::cache_ = nullptr;
-
-AlbumManagementController::AlbumManagementController() {}
-
-void AlbumManagementController::init(std::unique_ptr<MusicDatabase> &db,
-                                     std::unique_ptr<MetadataCache> &cache) {
-  db_ = db.get();
-  cache_ = cache.get();
+void AlbumManagementController::init(std::shared_ptr<MusicDatabase> db,
+                                     std::shared_ptr<MetadataCache> cache) {
+  db_ = db;
+  cache_ = cache;
 }
 
 static std::vector<std::string> splitIntoArgs(const std::string &cmd) {

@@ -2,8 +2,10 @@
 
 #include "services/music/MusicScanner.h"
 #include <drogon/drogon.h>
+#include <memory>
 
-class MusicScanController : public drogon::HttpController<MusicScanController> {
+class MusicScanController
+    : public drogon::HttpController<MusicScanController, false> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicScanController::scan, "/api/music/scan", drogon::Post);
@@ -15,10 +17,10 @@ public:
                 "/api/music/rescan-status", drogon::Get);
   METHOD_LIST_END
 
-  MusicScanController();
-  static void init(std::unique_ptr<MusicDatabase> &db,
-                   std::unique_ptr<MetadataCache> &cache,
-                   std::unique_ptr<MusicScanner> &scanner);
+  MusicScanController() = default;
+  void init(std::shared_ptr<MusicDatabase> db,
+            std::shared_ptr<MetadataCache> cache,
+            std::shared_ptr<MusicScanner> scanner);
 
   void scan(const drogon::HttpRequestPtr &req,
             std::function<void(const drogon::HttpResponsePtr &)> &&callback);
@@ -33,5 +35,5 @@ public:
       std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
-  static MusicScanner *scanner_;
+  std::shared_ptr<MusicScanner> scanner_;
 };

@@ -4,8 +4,10 @@
 #include "services/music/AlbumArtService.h"
 #include "services/music/AlbumArtWriter.h"
 #include <drogon/drogon.h>
+#include <memory>
 
-class AlbumArtController : public drogon::HttpController<AlbumArtController> {
+class AlbumArtController
+    : public drogon::HttpController<AlbumArtController, false> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(AlbumArtController::getAlbumArt, "/api/music/albumart",
@@ -20,8 +22,8 @@ public:
                 drogon::Options);
   METHOD_LIST_END
 
-  AlbumArtController();
-  static void init(std::unique_ptr<MusicDatabase> &db);
+  AlbumArtController() = default;
+  void init(std::shared_ptr<MusicDatabase> db);
 
   void
   getAlbumArt(const drogon::HttpRequestPtr &req,
@@ -40,6 +42,6 @@ public:
                std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
 private:
-  static std::unique_ptr<AlbumArtService> albumArtService_;
-  static AlbumArtWriter writer_;
+  std::shared_ptr<AlbumArtService> albumArtService_;
+  AlbumArtWriter writer_;
 };

@@ -5,6 +5,7 @@
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -12,7 +13,7 @@ class Profiler;
 namespace fs = std::filesystem;
 using namespace drogon;
 
-class VideoController : public drogon::HttpController<VideoController> {
+class VideoController : public drogon::HttpController<VideoController, false> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(VideoController::getIndex, "/", Get);
@@ -39,7 +40,9 @@ public:
   ADD_METHOD_TO(VideoController::getThumbnailPost, "/api/thumbnail", Post);
   METHOD_LIST_END
 
-  void setProfiler(Profiler *profiler) { profiler_ = profiler; }
+  VideoController() = default;
+  void init(std::shared_ptr<Profiler> profiler);
+
   void getIndex(const HttpRequestPtr &req,
                 std::function<void(const HttpResponsePtr &)> &&callback);
   void serveStatic(const HttpRequestPtr &req,
@@ -84,7 +87,7 @@ public:
                      std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
-  Profiler *profiler_ = nullptr;
+  std::shared_ptr<Profiler> profiler_;
   static std::string activeSocket_;
   struct CachedStatus {
     Json::Value data;

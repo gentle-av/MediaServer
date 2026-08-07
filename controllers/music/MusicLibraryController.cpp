@@ -1,17 +1,13 @@
+// controllers/music/MusicLibraryController.cpp
 #include "controllers/music/MusicLibraryController.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
 
-MusicDatabase *MusicLibraryController::db_ = nullptr;
-MetadataCache *MusicLibraryController::cache_ = nullptr;
-
-MusicLibraryController::MusicLibraryController() {}
-
-void MusicLibraryController::init(std::unique_ptr<MusicDatabase> &db,
-                                  std::unique_ptr<MetadataCache> &cache) {
-  db_ = db.get();
-  cache_ = cache.get();
+void MusicLibraryController::init(std::shared_ptr<MusicDatabase> db,
+                                  std::shared_ptr<MetadataCache> cache) {
+  db_ = db;
+  cache_ = cache;
 }
 
 void MusicLibraryController::getTracksByArtist(

@@ -1,14 +1,11 @@
+// controllers/music/MusicScanController.cpp
 #include "controllers/music/MusicScanController.h"
 #include "services/music/ResponseBuilder.h"
 
-MusicScanner *MusicScanController::scanner_ = nullptr;
-
-MusicScanController::MusicScanController() {}
-
-void MusicScanController::init(std::unique_ptr<MusicDatabase> &db,
-                               std::unique_ptr<MetadataCache> &cache,
-                               std::unique_ptr<MusicScanner> &scanner) {
-  scanner_ = scanner.get();
+void MusicScanController::init(std::shared_ptr<MusicDatabase> db,
+                               std::shared_ptr<MetadataCache> cache,
+                               std::shared_ptr<MusicScanner> scanner) {
+  scanner_ = scanner;
 }
 
 void MusicScanController::scan(

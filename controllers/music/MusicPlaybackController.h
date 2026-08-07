@@ -3,9 +3,10 @@
 #include "controllers/player/PlayerController.h"
 #include "services/music/PlaylistManager.h"
 #include <drogon/drogon.h>
+#include <memory>
 
 class MusicPlaybackController
-    : public drogon::HttpController<MusicPlaybackController> {
+    : public drogon::HttpController<MusicPlaybackController, false> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicPlaybackController::openMusium, "/api/music/open",
@@ -16,8 +17,8 @@ public:
                 "/api/music/open/artist/{artist}", drogon::Post);
   METHOD_LIST_END
 
-  MusicPlaybackController();
-  static void init(std::unique_ptr<MusicDatabase> &db,
+  MusicPlaybackController() = default;
+  static void init(std::shared_ptr<MusicDatabase> db,
                    std::shared_ptr<PlayerController> playerController);
 
   void
@@ -33,5 +34,5 @@ public:
              const std::string &artist);
 
 private:
-  static std::unique_ptr<PlaylistManager> playlistManager_;
+  static std::shared_ptr<PlaylistManager> playlistManager_;
 };

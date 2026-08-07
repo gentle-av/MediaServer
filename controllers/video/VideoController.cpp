@@ -8,14 +8,15 @@
 #include "services/video/TrashHandler.h"
 #include "services/video/VideoControlHandler.h"
 
-extern Profiler *g_profiler;
 std::string VideoController::activeSocket_ = "";
+
+void VideoController::init(std::shared_ptr<Profiler> profiler) {
+  profiler_ = profiler;
+}
 
 void VideoController::getIndex(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  if (!profiler_)
-    profiler_ = g_profiler;
   auto resp =
       StaticFileService::getInstance().serveIndex(profiler_->getIndexPath());
   callback(resp);
@@ -25,8 +26,6 @@ void VideoController::serveStatic(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &filename) {
-  if (!profiler_)
-    profiler_ = g_profiler;
   auto resp = StaticFileService::getInstance().serveStaticFile(
       profiler_->getDocumentRoot(), filename);
   callback(resp);
