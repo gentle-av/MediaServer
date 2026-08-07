@@ -3,12 +3,35 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
 FileSystemService &FileSystemService::getInstance() {
   static FileSystemService instance;
   return instance;
+}
+
+static bool executeCommand(const std::vector<std::string> &args) {
+  if (args.empty())
+    return false;
+  std::vector<char *> argv;
+  for (const auto &arg : args) {
+    argv.push_back(const_cast<char *>(arg.c_str()));
+  }
+  argv.push_back(nullptr);
+  pid_t pid = fork();
+  if (pid == -1)
+    return false;
+  if (pid == 0) {
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 Json::Value FileSystemService::listDirectory(const std::string &path) {
@@ -63,13 +86,13 @@ Json::Value FileSystemService::listDirectory(const std::string &path) {
 }
 
 bool FileSystemService::moveToTrash(const std::string &path) {
-  std::string trashCmd = "kioclient5 move \"" + path + "\" trash:/ 2>&1";
-  return system(trashCmd.c_str()) == 0;
+  std::vector<std::string> cmd = {"kioclient5", "move", path, "trash:/"};
+  return executeCommand(cmd);
 }
 
 bool FileSystemService::deleteDirectory(const std::string &path) {
-  std::string trashCmd = "kioclient5 move \"" + path + "\" trash:/ 2>&1";
-  return system(trashCmd.c_str()) == 0;
+  std::vector<std::string> cmd = {"kioclient5", "move", path, "trash:/"};
+  return executeCommand(cmd);
 }
 
 bool FileSystemService::isVideoFile(const std::string &filename) {
