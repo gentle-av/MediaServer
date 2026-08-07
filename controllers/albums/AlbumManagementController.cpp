@@ -2,6 +2,10 @@
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
+#include <regex>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -16,35 +20,44 @@ void AlbumManagementController::init(std::unique_ptr<MusicDatabase> &db,
   cache_ = cache.get();
 }
 
-static std::string escapeShellArg(const std::string &arg) {
-  std::string escaped = arg;
-  size_t pos = 0;
-  while ((pos = escaped.find('\\', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\\");
-    pos += 2;
+static std::vector<std::string> splitIntoArgs(const std::string &cmd) {
+  std::vector<std::string> args;
+  std::regex re(R"((?:[^\s"]+|"[^"]*")+)");
+  auto begin = std::sregex_iterator(cmd.begin(), cmd.end(), re);
+  auto end = std::sregex_iterator();
+  for (auto it = begin; it != end; ++it) {
+    std::string arg = it->str();
+    if (arg.front() == '"' && arg.back() == '"') {
+      arg = arg.substr(1, arg.length() - 2);
+    }
+    args.push_back(arg);
   }
-  pos = 0;
-  while ((pos = escaped.find('"', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\"");
-    pos += 2;
+  return args;
+}
+
+static bool executeCommand(const std::vector<std::string> &args) {
+  if (args.empty())
+    return false;
+  std::vector<char *> argv;
+  for (const auto &arg : args) {
+    argv.push_back(const_cast<char *>(arg.c_str()));
   }
-  pos = 0;
-  while ((pos = escaped.find('\'', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "'\\''");
-    pos += 4;
+  argv.push_back(nullptr);
+  pid_t pid = fork();
+  if (pid == -1)
+    return false;
+  if (pid == 0) {
+    execvp(argv[0], argv.data());
+    _exit(127);
   }
-  return "'" + escaped + "'";
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 static bool moveToTrash(const std::string &path) {
-  std::string escapedPath = escapeShellArg(path);
-  std::string trashCmd =
-      "kioclient5 move " + escapedPath + " trash:/ 2>/dev/null";
-  if (system(trashCmd.c_str()) == 0) {
-    return true;
-  }
-  std::string rmCmd = "rm -rf " + escapedPath;
-  return system(rmCmd.c_str()) == 0;
+  std::vector<std::string> cmd = {"kioclient5", "move", path, "trash:/"};
+  return executeCommand(cmd);
 }
 
 void AlbumManagementController::deleteAlbum(
