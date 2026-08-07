@@ -1,22 +1,67 @@
 #include "services/player/PlayerSessionManager.h"
 #include <chrono>
 #include <iostream>
+#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
-static std::string escapeForShell(const std::string &arg) {
-  std::string escaped = arg;
-  size_t pos = 0;
-  while ((pos = escaped.find('\\', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\\");
-    pos += 2;
+static bool executeCommandNoOutput(const std::vector<std::string> &args) {
+  if (args.empty())
+    return false;
+  pid_t pid = fork();
+  if (pid == -1)
+    return false;
+  if (pid == 0) {
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
   }
-  pos = 0;
-  while ((pos = escaped.find('"', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\"");
-    pos += 2;
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static std::string
+executeCommandGetOutput(const std::vector<std::string> &args) {
+  int pipefd[2];
+  if (pipe(pipefd) == -1)
+    return "";
+  pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return "";
   }
-  return "\"" + escaped + "\"";
+  if (pid == 0) {
+    close(pipefd[0]);
+    dup2(pipefd[1], STDOUT_FILENO);
+    dup2(pipefd[1], STDERR_FILENO);
+    close(pipefd[1]);
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  close(pipefd[1]);
+  char buffer[128];
+  std::string result;
+  ssize_t n;
+  while ((n = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[n] = '\0';
+    result += buffer;
+  }
+  close(pipefd[0]);
+  int status;
+  waitpid(pid, &status, 0);
+  return result;
 }
 
 PlayerSessionManager::PlayerSessionManager() = default;
@@ -27,14 +72,12 @@ void PlayerSessionManager::launchMpv(const std::string &socketPath) {
             << std::endl;
   unlink(socketPath.c_str());
   std::cout << "[DEBUG] launchMpv: Unlinked existing socket" << std::endl;
-  std::string escapedSocket = escapeForShell(socketPath);
-  std::string cmd = "mpv --input-ipc-server=" + escapedSocket +
-                    " --idle --no-video --ao=alsa" +
-                    " --no-terminal --really-quiet" +
-                    " 2>&1 | logger -t mpv-server &";
-  std::cout << "[DEBUG] launchMpv: Executing command: " << cmd << std::endl;
-  int result = system(cmd.c_str());
-  std::cout << "[DEBUG] launchMpv: system() returned: " << result << std::endl;
+  std::vector<std::string> args = {
+      "mpv",           "--input-ipc-server=" + socketPath,
+      "--idle",        "--no-video",
+      "--ao=alsa",     "--no-terminal",
+      "--really-quiet"};
+  executeCommandNoOutput(args);
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   if (access(socketPath.c_str(), F_OK) == 0) {
     std::cout << "[DEBUG] launchMpv: Socket created successfully: "
@@ -43,14 +86,8 @@ void PlayerSessionManager::launchMpv(const std::string &socketPath) {
     std::cerr << "[ERROR] launchMpv: Socket NOT created: " << socketPath
               << std::endl;
   }
-  std::string checkCmd = "pgrep -f 'mpv.*" + escapedSocket + "' 2>/dev/null";
-  FILE *pipe = popen(checkCmd.c_str(), "r");
-  char buffer[128];
-  std::string resultStr;
-  while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
-    resultStr += buffer;
-  }
-  pclose(pipe);
+  std::vector<std::string> checkArgs = {"pgrep", "-f", "mpv.*" + socketPath};
+  std::string resultStr = executeCommandGetOutput(checkArgs);
   if (!resultStr.empty()) {
     std::cout << "[DEBUG] launchMpv: Process running with PID: " << resultStr;
   } else {
@@ -63,14 +100,35 @@ void PlayerSessionManager::stopMpv(std::string &socketPath,
                                    int &currentIndex,
                                    std::atomic<bool> &isPlaying) {
   if (!socketPath.empty()) {
-    std::string escapedSocket = escapeForShell(socketPath);
-    std::string quitCmd =
-        "timeout 2 sh -c 'echo {\"command\":[\"quit\"]} | socat - " +
-        escapedSocket + " 2>/dev/null'";
-    system(quitCmd.c_str());
+    std::vector<std::string> quitArgs = {"socat", "-", socketPath};
+    std::string quitCmd = "{\"command\":[\"quit\"]}";
+    int pipefd[2];
+    if (pipe(pipefd) != -1) {
+      pid_t pid = fork();
+      if (pid == 0) {
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        std::vector<char *> argv;
+        for (const auto &arg : quitArgs) {
+          argv.push_back(const_cast<char *>(arg.c_str()));
+        }
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+      } else if (pid > 0) {
+        close(pipefd[0]);
+        write(pipefd[1], quitCmd.c_str(), quitCmd.size());
+        close(pipefd[1]);
+        int status;
+        waitpid(pid, &status, 0);
+      }
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    system(("pkill -f 'mpv.*" + escapedSocket + "' 2>/dev/null").c_str());
-    system(("rm -f " + escapedSocket + " 2>/dev/null").c_str());
+    std::vector<std::string> pkillArgs = {"pkill", "-f", "mpv.*" + socketPath};
+    executeCommandNoOutput(pkillArgs);
+    std::vector<std::string> rmArgs = {"rm", "-f", socketPath};
+    executeCommandNoOutput(rmArgs);
     socketPath.clear();
   }
   tracks.clear();
@@ -85,16 +143,8 @@ bool PlayerSessionManager::isProcessAlive(const std::string &socketPath) {
   if (access(socketPath.c_str(), F_OK) != 0) {
     return false;
   }
-  std::string escapedSocket = escapeForShell(socketPath);
-  std::string cmd = "pgrep -f 'mpv.*" + escapedSocket + "' 2>/dev/null";
-  std::array<char, 128> buffer;
-  std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (pipe) {
-    while (fgets(buffer.data(), buffer.size(), pipe))
-      result += buffer.data();
-    pclose(pipe);
-  }
+  std::vector<std::string> args = {"pgrep", "-f", "mpv.*" + socketPath};
+  std::string result = executeCommandGetOutput(args);
   return !result.empty();
 }
 

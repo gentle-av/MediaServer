@@ -1,66 +1,116 @@
 #include "services/player/Volumer.h"
-#include <array>
-#include <cstdio>
 #include <regex>
-#include <string>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <vector>
 
-static std::string escapeForShell(const std::string &arg) {
-  std::string escaped = arg;
-  size_t pos = 0;
-  while ((pos = escaped.find('\\', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\\");
-    pos += 2;
+static bool executeCommand(const std::vector<std::string> &args,
+                           std::string &output) {
+  if (args.empty())
+    return false;
+  int pipefd[2];
+  if (pipe(pipefd) == -1)
+    return false;
+  pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return false;
   }
-  pos = 0;
-  while ((pos = escaped.find('"', pos)) != std::string::npos) {
-    escaped.replace(pos, 1, "\\\"");
-    pos += 2;
+  if (pid == 0) {
+    close(pipefd[0]);
+    dup2(pipefd[1], STDOUT_FILENO);
+    dup2(pipefd[1], STDERR_FILENO);
+    close(pipefd[1]);
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
   }
-  return "\"" + escaped + "\"";
+  close(pipefd[1]);
+  char buffer[512];
+  ssize_t n;
+  while ((n = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[n] = '\0';
+    output += buffer;
+  }
+  close(pipefd[0]);
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static int executeCommandGetOutput(const std::vector<std::string> &args) {
+  std::string output;
+  if (!executeCommand(args, output))
+    return -1;
+  std::regex volumeRegex(R"((\d+)%)");
+  std::smatch match;
+  if (std::regex_search(output, match, volumeRegex)) {
+    try {
+      return std::stoi(match[1].str());
+    } catch (...) {
+    }
+  }
+  return -1;
+}
+
+static bool executeCommandNoOutput(const std::vector<std::string> &args) {
+  int pipefd[2];
+  if (pipe(pipefd) == -1)
+    return false;
+  pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return false;
+  }
+  if (pid == 0) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  close(pipefd[0]);
+  close(pipefd[1]);
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 int Volumer::getVolume() const {
-  std::string cmd = "timeout 2 amixer get Master 2>/dev/null";
-  std::array<char, 256> buffer;
-  std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe)
-    return -1;
-  while (fgets(buffer.data(), buffer.size(), pipe))
-    result += buffer.data();
-  pclose(pipe);
-  std::regex volumeRegex(R"((\d+)%)");
-  std::smatch match;
-  if (std::regex_search(result, match, volumeRegex))
-    return std::stoi(match[1].str());
-  return -1;
+  std::vector<std::string> args = {"amixer", "get", "Master"};
+  return executeCommandGetOutput(args);
 }
 
 bool Volumer::setVolume(int volume) {
   if (volume < 0 || volume > 100)
     return false;
-  int amixerValue = percentToAmixerValue(volume);
-  std::string cmd = "timeout 2 amixer set Master " +
-                    std::to_string(amixerValue) + " 2>/dev/null";
-  return system(cmd.c_str()) == 0;
+  int amixerValue = MIN_AMIXER + (volume * (MAX_AMIXER - MIN_AMIXER) / 100);
+  std::vector<std::string> args = {"amixer", "set", "Master",
+                                   std::to_string(amixerValue)};
+  return executeCommandNoOutput(args);
 }
 
 void Volumer::increaseVolume() {
-  system("timeout 2 amixer set Master 5%+ 2>/dev/null");
+  std::vector<std::string> args = {"amixer", "set", "Master", "5%+"};
+  executeCommandNoOutput(args);
 }
 
 void Volumer::decreaseVolume() {
-  system("timeout 2 amixer set Master 5%- 2>/dev/null");
+  std::vector<std::string> args = {"amixer", "set", "Master", "5%-"};
+  executeCommandNoOutput(args);
 }
 
 void Volumer::toggleMute() {
-  system("timeout 2 amixer set Master toggle 2>/dev/null");
-}
-
-int Volumer::amixerValueToPercent(int amixerValue) const {
-  return (amixerValue - MIN_AMIXER) * 100 / (MAX_AMIXER - MIN_AMIXER);
-}
-
-int Volumer::percentToAmixerValue(int percent) const {
-  return MIN_AMIXER + (percent * (MAX_AMIXER - MIN_AMIXER) / 100);
+  std::vector<std::string> args = {"amixer", "set", "Master", "toggle"};
+  executeCommandNoOutput(args);
 }

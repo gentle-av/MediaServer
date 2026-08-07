@@ -1,9 +1,84 @@
 #include "services/system/PowerService.h"
-#include <array>
 #include <chrono>
-#include <cstdio>
-#include <cstdlib>
+#include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
+#include <vector>
+
+static bool executeCommandWithTimeout(const std::vector<std::string> &args,
+                                      std::string &output, int timeoutSec = 5) {
+  if (args.empty())
+    return false;
+  int pipefd[2];
+  if (pipe(pipefd) == -1)
+    return false;
+  pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return false;
+  }
+  if (pid == 0) {
+    close(pipefd[0]);
+    dup2(pipefd[1], STDOUT_FILENO);
+    dup2(pipefd[1], STDERR_FILENO);
+    close(pipefd[1]);
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  close(pipefd[1]);
+  char buffer[512];
+  ssize_t n;
+  auto start = std::chrono::steady_clock::now();
+  while ((n = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[n] = '\0';
+    output += buffer;
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::steady_clock::now() - start)
+                       .count();
+    if (elapsed > timeoutSec) {
+      kill(pid, SIGTERM);
+      break;
+    }
+  }
+  close(pipefd[0]);
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static bool executeCommandNoOutput(const std::vector<std::string> &args) {
+  int pipefd[2];
+  if (pipe(pipefd) == -1)
+    return false;
+  pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return false;
+  }
+  if (pid == 0) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  close(pipefd[0]);
+  close(pipefd[1]);
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
 
 PowerService::PowerService() {
   m_lastSleepCall = std::chrono::steady_clock::now();
@@ -12,39 +87,37 @@ PowerService::PowerService() {
 
 PowerService::~PowerService() {}
 
-std::string PowerService::execCommand(const std::string &cmd, int timeoutSec) {
-  std::string cmdWithTimeout =
-      "timeout " + std::to_string(timeoutSec) + " " + cmd;
-  std::array<char, 256> buffer;
+std::string PowerService::execCommand(const std::vector<std::string> &args,
+                                      int timeoutSec) {
   std::string result;
-  FILE *pipe = popen(cmdWithTimeout.c_str(), "r");
-  if (!pipe)
-    return "";
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-    result += buffer.data();
-  pclose(pipe);
+  executeCommandWithTimeout(args, result, timeoutSec);
   return result;
 }
 
 bool PowerService::isProcessAlive(const std::string &processName) {
-  std::string cmd = "pgrep -f '" + processName + "' 2>/dev/null";
-  std::string result = execCommand(cmd, 2);
+  std::vector<std::string> args = {"pgrep", "-f", processName};
+  std::string result;
+  executeCommandWithTimeout(args, result, 2);
   return !result.empty();
 }
 
 bool PowerService::ensureAdbConnected(const std::string &address,
                                       int maxAttempts) {
-  execCommand("adb start-server 2>/dev/null", 2);
+  std::vector<std::string> startArgs = {"adb", "start-server"};
+  executeCommandNoOutput(startArgs);
   for (int attempt = 0; attempt < maxAttempts; attempt++) {
-    std::string result = execCommand("adb get-state 2>/dev/null", 2);
+    std::vector<std::string> stateArgs = {"adb", "get-state"};
+    std::string result;
+    executeCommandWithTimeout(stateArgs, result, 2);
     if (result.find("device") != std::string::npos)
       return true;
-    std::string connectCmd = "adb connect " + address + " 2>&1";
-    std::string connectResult = execCommand(connectCmd, 3);
+    std::vector<std::string> connectArgs = {"adb", "connect", address};
+    std::string connectResult;
+    executeCommandWithTimeout(connectArgs, connectResult, 3);
     if (connectResult.find("connected") != std::string::npos ||
         connectResult.find("already connected") != std::string::npos) {
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
-      result = execCommand("adb get-state 2>/dev/null", 2);
+      executeCommandWithTimeout(stateArgs, result, 2);
       if (result.find("device") != std::string::npos)
         return true;
     }
@@ -54,17 +127,17 @@ bool PowerService::ensureAdbConnected(const std::string &address,
 }
 
 bool PowerService::getTVScreenState() {
-  std::string powerResult =
-      execCommand("adb shell dumpsys power 2>/dev/null | grep -E "
-                  "'mWakefulness|Display Power' | head -1",
-                  5);
-  return powerResult.find("mWakefulness=Awake") != std::string::npos ||
-         powerResult.find("Display Power: state=ON") != std::string::npos;
+  std::vector<std::string> args = {"adb", "shell", "dumpsys", "power"};
+  std::string result;
+  executeCommandWithTimeout(args, result, 5);
+  return result.find("mWakefulness=Awake") != std::string::npos ||
+         result.find("Display Power: state=ON") != std::string::npos;
 }
 
 Json::Value PowerService::adbKillServer() {
   Json::Value result;
-  execCommand("adb kill-server 2>/dev/null", 5);
+  std::vector<std::string> args = {"adb", "kill-server"};
+  executeCommandNoOutput(args);
   result["success"] = true;
   result["message"] = "ADB server killed";
   return result;
@@ -72,7 +145,8 @@ Json::Value PowerService::adbKillServer() {
 
 Json::Value PowerService::adbStartServer() {
   Json::Value result;
-  execCommand("adb start-server 2>/dev/null", 5);
+  std::vector<std::string> args = {"adb", "start-server"};
+  executeCommandNoOutput(args);
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
   result["success"] = true;
   result["message"] = "ADB server started";
@@ -81,8 +155,9 @@ Json::Value PowerService::adbStartServer() {
 
 Json::Value PowerService::adbConnect(const std::string &address) {
   Json::Value result;
-  std::string cmd = "adb connect " + address + " 2>&1";
-  std::string output = execCommand(cmd, 5);
+  std::vector<std::string> args = {"adb", "connect", address};
+  std::string output;
+  executeCommandWithTimeout(args, output, 5);
   bool success = output.find("connected") != std::string::npos ||
                  output.find("already connected") != std::string::npos;
   result["success"] = success;
@@ -94,9 +169,10 @@ Json::Value PowerService::adbConnect(const std::string &address) {
 
 Json::Value PowerService::adbKeyEvent(int keycode) {
   Json::Value result;
-  std::string cmd =
-      "adb shell input keyevent " + std::to_string(keycode) + " 2>&1";
-  std::string output = execCommand(cmd, 5);
+  std::vector<std::string> args = {"adb", "shell", "input", "keyevent",
+                                   std::to_string(keycode)};
+  std::string output;
+  executeCommandWithTimeout(args, output, 5);
   bool success = output.empty() || output.find("error") == std::string::npos;
   result["success"] = success;
   result["message"] = success ? "Key event sent" : "Failed to send key event";
@@ -106,7 +182,9 @@ Json::Value PowerService::adbKeyEvent(int keycode) {
 
 Json::Value PowerService::adbGetState() {
   Json::Value result;
-  std::string output = execCommand("adb get-state 2>&1", 5);
+  std::vector<std::string> args = {"adb", "get-state"};
+  std::string output;
+  executeCommandWithTimeout(args, output, 5);
   bool connected = output.find("device") != std::string::npos;
   result["success"] = true;
   result["state"] = output;
@@ -128,9 +206,8 @@ Json::Value PowerService::systemSleep() {
   }
   m_isGoingToSleep = true;
   m_lastSleepCall = now;
-  std::string cmd = "/usr/bin/systemctl suspend 2>/dev/null";
-  int ret = system(cmd.c_str());
-  bool success = ret == 0;
+  std::vector<std::string> args = {"/usr/bin/systemctl", "suspend"};
+  bool success = executeCommandNoOutput(args);
   result["success"] = success;
   result["message"] = success ? "System going to sleep" : "Failed to sleep";
   m_isGoingToSleep = false;
@@ -139,8 +216,11 @@ Json::Value PowerService::systemSleep() {
 
 Json::Value PowerService::getPowerStatus() {
   Json::Value result;
-  execCommand("adb start-server 2>/dev/null", 2);
-  std::string stateResult = execCommand("adb get-state 2>/dev/null", 2);
+  std::vector<std::string> startArgs = {"adb", "start-server"};
+  executeCommandNoOutput(startArgs);
+  std::vector<std::string> stateArgs = {"adb", "get-state"};
+  std::string stateResult;
+  executeCommandWithTimeout(stateArgs, stateResult, 2);
   bool tvConnected = stateResult.find("device") != std::string::npos;
   result["success"] = true;
   result["tv_connected"] = tvConnected;
@@ -152,8 +232,11 @@ Json::Value PowerService::getPowerStatus() {
 Json::Value PowerService::getTVPowerState() {
   Json::Value result;
   result["tv_address"] = DEFAULT_TV_ADDRESS;
-  execCommand("adb start-server 2>/dev/null", 2);
-  std::string stateResult = execCommand("adb get-state 2>/dev/null", 3);
+  std::vector<std::string> startArgs = {"adb", "start-server"};
+  executeCommandNoOutput(startArgs);
+  std::vector<std::string> stateArgs = {"adb", "get-state"};
+  std::string stateResult;
+  executeCommandWithTimeout(stateArgs, stateResult, 3);
   bool connected = stateResult.find("device") != std::string::npos;
   result["connected"] = connected;
   result["state"] = stateResult.empty() ? "unknown" : stateResult;
@@ -163,10 +246,9 @@ Json::Value PowerService::getTVPowerState() {
     result["error"] = "ADB not connected to TV";
     return result;
   }
-  std::string powerResult =
-      execCommand("adb shell dumpsys power 2>/dev/null | grep -E "
-                  "'mWakefulness|Display Power' | head -3",
-                  5);
+  std::vector<std::string> powerArgs = {"adb", "shell", "dumpsys", "power"};
+  std::string powerResult;
+  executeCommandWithTimeout(powerArgs, powerResult, 5);
   bool screenOn = false;
   std::string wakefulness = "Unknown";
   if (powerResult.find("mWakefulness=Awake") != std::string::npos) {

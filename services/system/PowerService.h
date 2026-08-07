@@ -20,7 +20,8 @@ public:
   Json::Value tvPowerOn();
 
 private:
-  std::string execCommand(const std::string &cmd, int timeoutSec = 5);
+  std::string execCommand(const std::vector<std::string> &args,
+                          int timeoutSec = 5);
   bool isProcessAlive(const std::string &processName);
   bool ensureAdbConnected(const std::string &address, int maxAttempts = 3);
   bool getTVScreenState();

@@ -1,14 +1,54 @@
 #include "services/video/ThumbnailService.h"
 #include "services/video/FileSystemService.h"
 #include "services/video/ThumbnailCache.h"
-#include <array>
 #include <cstdio>
 #include <filesystem>
 #include <libffmpegthumbnailer/imagetypes.h>
 #include <libffmpegthumbnailer/videothumbnailer.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 namespace fs = std::filesystem;
+
+static bool executeCommandGetOutput(const std::vector<std::string> &args,
+                                    std::string &output) {
+  if (args.empty())
+    return false;
+  int pipefd[2];
+  if (pipe(pipefd) == -1)
+    return false;
+  pid_t pid = fork();
+  if (pid == -1) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return false;
+  }
+  if (pid == 0) {
+    close(pipefd[0]);
+    dup2(pipefd[1], STDOUT_FILENO);
+    dup2(pipefd[1], STDERR_FILENO);
+    close(pipefd[1]);
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  close(pipefd[1]);
+  char buffer[128];
+  ssize_t n;
+  while ((n = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
+    buffer[n] = '\0';
+    output += buffer;
+  }
+  close(pipefd[0]);
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
 
 ThumbnailService &ThumbnailService::getInstance() {
   static ThumbnailService instance;
@@ -16,19 +56,11 @@ ThumbnailService &ThumbnailService::getInstance() {
 }
 
 bool ThumbnailService::isVideoValid(const std::string &videoPath) {
-  std::string cmd =
-      "ffprobe -v error -select_streams v:0 -show_streams -show_format \"" +
-      videoPath + "\" 2>/dev/null";
-  std::array<char, 128> buffer;
+  std::vector<std::string> args = {"ffprobe",         "-v",     "error",
+                                   "-select_streams", "v:0",    "-show_streams",
+                                   "-show_format",    videoPath};
   std::string result;
-  FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    return false;
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-    result += buffer.data();
-  }
-  pclose(pipe);
+  executeCommandGetOutput(args, result);
   return !result.empty();
 }
 
