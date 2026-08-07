@@ -14,9 +14,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
-pkg_check_modules(FFMPEGTHUMBNAILER REQUIRED libffmpegthumbnailer)
 pkg_check_modules(DBUS REQUIRED dbus-1)
-pkg_check_modules(FFMPEG REQUIRED libavformat libavcodec libavutil)
 
 add_executable(MediaServer
     main.cpp
@@ -59,9 +57,6 @@ add_executable(MediaServer
     services/video/PlaybackService.cpp
     services/video/PlaybackStatus.cpp
     services/video/StaticFileService.cpp
-    services/video/ThumbnailCache.cpp
-    services/video/ThumbnailRequestHandler.cpp
-    services/video/ThumbnailService.cpp
     services/video/TrashHandler.cpp
     services/video/VideoControlHandler.cpp
     tagger/TagEditor.cpp
@@ -74,7 +69,6 @@ target_link_libraries(MediaServer
     ${SQLITE3_LIBRARIES}
     ${MPV_LIBRARIES}
     ${LIBCURL_LIBRARIES}
-    ${FFMPEGTHUMBNAILER_LIBRARIES}
     ${DBUS_LIBRARIES}
     ${FFMPEG_LIBRARIES}
     asound

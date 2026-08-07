@@ -1,16 +1,13 @@
 #pragma once
-
 #include <atomic>
 #include <chrono>
 #include <drogon/HttpController.h>
 #include <drogon/utils/Utilities.h>
-#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <string>
 
 class Profiler;
-namespace fs = std::filesystem;
 using namespace drogon;
 
 class VideoController : public drogon::HttpController<VideoController, false> {
@@ -22,11 +19,6 @@ public:
   ADD_METHOD_TO(VideoController::listFiles, "/api/list", Post);
   ADD_METHOD_TO(VideoController::openVideo, "/api/open", Post);
   ADD_METHOD_TO(VideoController::moveToTrash, "/api/trash", Post);
-  ADD_METHOD_TO(VideoController::getThumbnail, "/api/thumbnail", Get);
-  ADD_METHOD_TO(VideoController::getThumbnailsBatch, "/api/thumbnails/batch",
-                Post);
-  ADD_METHOD_TO(VideoController::clearThumbnailCache, "/api/thumbnails/clear",
-                Post);
   ADD_METHOD_TO(VideoController::getPlaybackStatus, "/api/video/status", Get);
   ADD_METHOD_TO(VideoController::controlMpv, "/api/mpv/control", Post);
   ADD_METHOD_TO(VideoController::seekMpv, "/api/mpv/seek", Post);
@@ -37,7 +29,6 @@ public:
   ADD_METHOD_TO(VideoController::forceStopVideo, "/api/video/forceStop", Post);
   ADD_METHOD_TO(VideoController::deleteDirectory, "/api/delete-directory",
                 Post);
-  ADD_METHOD_TO(VideoController::getThumbnailPost, "/api/thumbnail", Post);
   METHOD_LIST_END
 
   VideoController() = default;
@@ -54,14 +45,6 @@ public:
                  std::function<void(const HttpResponsePtr &)> &&callback);
   void moveToTrash(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
-  void getThumbnail(const HttpRequestPtr &req,
-                    std::function<void(const HttpResponsePtr &)> &&callback);
-  void
-  getThumbnailsBatch(const HttpRequestPtr &req,
-                     std::function<void(const HttpResponsePtr &)> &&callback);
-  void
-  clearThumbnailCache(const HttpRequestPtr &req,
-                      std::function<void(const HttpResponsePtr &)> &&callback);
   void
   getPlaybackStatus(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
@@ -80,9 +63,6 @@ public:
                       std::function<void(const HttpResponsePtr &)> &&callback);
   void deleteDirectory(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback);
-  void
-  getThumbnailPost(const HttpRequestPtr &req,
-                   std::function<void(const HttpResponsePtr &)> &&callback);
   void setAudioTrack(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
 
