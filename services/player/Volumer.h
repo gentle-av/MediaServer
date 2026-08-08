@@ -13,4 +13,5 @@ public:
 private:
   static constexpr int MIN_AMIXER = 135;
   static constexpr int MAX_AMIXER = 255;
+  bool isSoundAvailable() const;
 };

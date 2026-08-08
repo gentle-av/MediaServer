@@ -246,8 +246,9 @@ void PlayerController::handlePause(
 void PlayerController::handleStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  startMpvIfNeeded();
-  commandSender_->sendCommand(R"({"command": ["stop"]})");
+  if (sessionManager_->isProcessAlive(socketPath_)) {
+    commandSender_->sendCommand(R"({"command": ["stop"]})");
+  }
   currentIndex_ = -1;
   isPlaying_ = false;
   resetIdleTimer();
@@ -341,8 +342,9 @@ void PlayerController::handleAddToPlaylist(
 void PlayerController::handleClear(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-  startMpvIfNeeded();
-  commandSender_->sendCommand(R"({"command": ["stop"]})");
+  if (sessionManager_->isProcessAlive(socketPath_)) {
+    commandSender_->sendCommand(R"({"command": ["stop"]})");
+  }
   tracklistManager_->clearTrackList();
   currentIndex_ = -1;
   isPlaying_ = false;
@@ -539,13 +541,17 @@ void PlayerController::handleForceStop(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   stopAutoAdvance_ = true;
-  if (autoAdvanceTracker_)
+  if (autoAdvanceTracker_) {
     autoAdvanceTracker_->stop();
-  if (idleTimerThread_ && idleTimerThread_->joinable())
+  }
+  if (idleTimerThread_ && idleTimerThread_->joinable()) {
     idleTimerThread_->join();
-  auto tracks = tracklistManager_->getTrackList();
-  int currentIdx = currentIndex_.load();
-  sessionManager_->stopMpv(socketPath_, tracks, currentIdx, isPlaying_);
+  }
+  if (sessionManager_->isProcessAlive(socketPath_)) {
+    auto tracks = tracklistManager_->getTrackList();
+    int currentIdx = currentIndex_.load();
+    sessionManager_->stopMpv(socketPath_, tracks, currentIdx, isPlaying_);
+  }
   callback(drogon::HttpResponse::newHttpJsonResponse(
       jsonResponse(true, "Audio force stopped")));
 }

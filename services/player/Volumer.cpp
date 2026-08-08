@@ -86,12 +86,20 @@ static bool executeCommandNoOutput(const std::vector<std::string> &args) {
   return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
+bool Volumer::isSoundAvailable() const {
+  return access("/dev/snd/controlC0", R_OK) == 0;
+}
+
 int Volumer::getVolume() const {
-  std::vector<std::string> args = {"amixer", "get", "Master"};
+  if (!isSoundAvailable())
+    return 50;
+  std::vector<std::string> args = {"timeout", "1", "amixer", "get", "Master"};
   return executeCommandGetOutput(args);
 }
 
 bool Volumer::setVolume(int volume) {
+  if (!isSoundAvailable())
+    return false;
   if (volume < 0 || volume > 100)
     return false;
   int amixerValue = MIN_AMIXER + (volume * (MAX_AMIXER - MIN_AMIXER) / 100);
@@ -101,16 +109,22 @@ bool Volumer::setVolume(int volume) {
 }
 
 void Volumer::increaseVolume() {
+  if (!isSoundAvailable())
+    return;
   std::vector<std::string> args = {"amixer", "set", "Master", "5%+"};
   executeCommandNoOutput(args);
 }
 
 void Volumer::decreaseVolume() {
+  if (!isSoundAvailable())
+    return;
   std::vector<std::string> args = {"amixer", "set", "Master", "5%-"};
   executeCommandNoOutput(args);
 }
 
 void Volumer::toggleMute() {
+  if (!isSoundAvailable())
+    return;
   std::vector<std::string> args = {"amixer", "set", "Master", "toggle"};
   executeCommandNoOutput(args);
 }

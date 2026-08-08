@@ -6,7 +6,7 @@
 #include <memory>
 
 class MusicLibraryController
-    : public drogon::HttpController<MusicLibraryController, false> {
+    : public drogon::HttpController<MusicLibraryController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicLibraryController::getTracksByArtist,

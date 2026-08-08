@@ -205,6 +205,10 @@ AlbumArtData MusicDatabase::getAlbumArt(const std::string &filePath) {
 
 std::vector<std::string> MusicDatabase::getArtists() {
   std::vector<std::string> artists;
+  if (!pImpl || !pImpl->db()) {
+    std::cerr << "[MusicDatabase] Database not initialized!" << std::endl;
+    return artists;
+  }
   const char *sql = "SELECT DISTINCT artist FROM music_files WHERE artist != "
                     "'' AND artist != 'Unknown' ORDER BY artist";
   sqlite3_stmt *stmt;

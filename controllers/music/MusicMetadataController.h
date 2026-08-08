@@ -6,7 +6,7 @@
 #include <memory>
 
 class MusicMetadataController
-    : public drogon::HttpController<MusicMetadataController, false> {
+    : public drogon::HttpController<MusicMetadataController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicMetadataController::getFileMetadata,

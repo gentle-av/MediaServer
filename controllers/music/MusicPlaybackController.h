@@ -6,7 +6,7 @@
 #include <memory>
 
 class MusicPlaybackController
-    : public drogon::HttpController<MusicPlaybackController, false> {
+    : public drogon::HttpController<MusicPlaybackController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MusicPlaybackController::openMusium, "/api/music/open",

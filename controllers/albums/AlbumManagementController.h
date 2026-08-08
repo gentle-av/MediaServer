@@ -6,7 +6,7 @@
 #include <memory>
 
 class AlbumManagementController
-    : public drogon::HttpController<AlbumManagementController, false> {
+    : public drogon::HttpController<AlbumManagementController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(AlbumManagementController::deleteAlbum,

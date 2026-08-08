@@ -3,7 +3,6 @@
 #include <mutex>
 #include <string>
 #include <vector>
-
 class AlsaMixer {
 public:
   static AlsaMixer &getInstance();
@@ -24,14 +23,15 @@ private:
   ~AlsaMixer();
   AlsaMixer(const AlsaMixer &) = delete;
   AlsaMixer &operator=(const AlsaMixer &) = delete;
-  bool executeAmixer(const std::string &command);
+  bool executeAmixer(const std::string &command, std::string &output);
   int parseVolumeFromOutput(const std::string &output);
   void detectCurrentOutput();
-
+  bool init();
   std::mutex mutex;
   std::string controlName;
   int currentVolume;
   bool muted;
   std::string currentOutput;
+  bool initialized;
   static const std::vector<std::string> availableOutputs;
 };

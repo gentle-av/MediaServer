@@ -2,7 +2,11 @@
 #include "services/system/AlsaMixer.h"
 #include <iostream>
 
-AudioOutputSwitcher::AudioOutputSwitcher() { detectCurrentOutput(); }
+AudioOutputSwitcher::AudioOutputSwitcher() {
+  if (AlsaMixer::getInstance().getVolume() >= 0) {
+    detectCurrentOutput();
+  }
+}
 
 bool AudioOutputSwitcher::switchToSpeakers() {
   std::lock_guard<std::mutex> lock(mutex);

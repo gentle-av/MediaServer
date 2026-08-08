@@ -10,7 +10,7 @@
 class Profiler;
 using namespace drogon;
 
-class VideoController : public drogon::HttpController<VideoController, false> {
+class VideoController : public drogon::HttpController<VideoController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(VideoController::getIndex, "/", Get);

@@ -23,7 +23,24 @@ static bool executeCommandNoOutput(const std::vector<std::string> &args) {
   return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
+bool MonitorService::init() {
+  if (m_initialized)
+    return true;
+  DBusError err;
+  dbus_error_init(&err);
+  DBusConnection *conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
+  if (dbus_error_is_set(&err)) {
+    dbus_error_free(&err);
+    return false;
+  }
+  dbus_connection_unref(conn);
+  m_initialized = true;
+  return true;
+}
+
 bool MonitorService::isSessionIdle() {
+  if (!init())
+    return false;
   DBusError err;
   dbus_error_init(&err);
   DBusConnection *conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
@@ -32,8 +49,8 @@ bool MonitorService::isSessionIdle() {
     return false;
   }
   DBusMessage *msg = dbus_message_new_method_call(
-      "org.gnome.Mutter.IdleMonitor", "/org/gnome/Mutter/IdleMonitor/Core",
-      "org.gnome.Mutter.IdleMonitor", "GetIdletime");
+      "org.freedesktop.ScreenSaver", "/org/freedesktop/ScreenSaver",
+      "org.freedesktop.ScreenSaver", "GetActive");
   if (!msg) {
     dbus_connection_unref(conn);
     return false;
@@ -46,25 +63,28 @@ bool MonitorService::isSessionIdle() {
     dbus_connection_unref(conn);
     return false;
   }
-  dbus_uint64_t idle_ms = 0;
-  if (dbus_message_get_args(reply, &err, DBUS_TYPE_UINT64, &idle_ms,
-                            DBUS_TYPE_INVALID)) {
-    dbus_message_unref(reply);
-    dbus_connection_unref(conn);
-    return (idle_ms > 60000);
-  }
-  dbus_error_free(&err);
+  dbus_bool_t active = false;
+  dbus_message_get_args(reply, &err, DBUS_TYPE_BOOLEAN, &active,
+                        DBUS_TYPE_INVALID);
   dbus_message_unref(reply);
   dbus_connection_unref(conn);
-  return false;
+  if (dbus_error_is_set(&err)) {
+    dbus_error_free(&err);
+    return false;
+  }
+  return active;
 }
 
 void MonitorService::turnOnDisplay() {
+  if (!init())
+    return;
   std::vector<std::string> args = {"kscreen-doctor", "--dpms", "on"};
   executeCommandNoOutput(args);
 }
 
 void MonitorService::turnOffDisplay() {
+  if (!init())
+    return;
   std::vector<std::string> args = {"kscreen-doctor", "--dpms", "off"};
   executeCommandNoOutput(args);
 }

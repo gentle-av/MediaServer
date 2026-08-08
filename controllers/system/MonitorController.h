@@ -7,7 +7,7 @@
 class Profiler;
 
 class MonitorController
-    : public drogon::HttpController<MonitorController, false> {
+    : public drogon::HttpController<MonitorController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(MonitorController::isSessionIdle, "/api/monitor/is_idle",

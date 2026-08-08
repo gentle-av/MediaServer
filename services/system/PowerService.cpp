@@ -80,13 +80,15 @@ static bool executeCommandNoOutput(const std::vector<std::string> &args) {
   return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
-PowerService::PowerService() {
-  m_lastSleepCall = std::chrono::steady_clock::now();
-  m_isGoingToSleep = false;
+PowerService::PowerService()
+    : m_lastSleepCall(std::chrono::steady_clock::now()),
+      m_isGoingToSleep(false), m_initialized(false) {
+  if (access("/dev/snd/controlC0", R_OK) == 0) {
+    m_initialized = true;
+  }
 }
 
 PowerService::~PowerService() {}
-
 std::string PowerService::execCommand(const std::vector<std::string> &args,
                                       int timeoutSec) {
   std::string result;
@@ -194,6 +196,11 @@ Json::Value PowerService::adbGetState() {
 
 Json::Value PowerService::systemSleep() {
   Json::Value result;
+  if (!m_initialized) {
+    result["success"] = false;
+    result["message"] = "Sleep blocked - sound system not available";
+    return result;
+  }
   std::lock_guard<std::mutex> lock(m_sleepMutex);
   auto now = std::chrono::steady_clock::now();
   auto elapsed =
@@ -216,6 +223,14 @@ Json::Value PowerService::systemSleep() {
 
 Json::Value PowerService::getPowerStatus() {
   Json::Value result;
+  if (!m_initialized) {
+    result["success"] = true;
+    result["tv_connected"] = false;
+    result["tv_address"] = DEFAULT_TV_ADDRESS;
+    result["media_player_running"] = false;
+    result["warning"] = "Audio system not initialized";
+    return result;
+  }
   std::vector<std::string> startArgs = {"adb", "start-server"};
   executeCommandNoOutput(startArgs);
   std::vector<std::string> stateArgs = {"adb", "get-state"};
@@ -232,6 +247,14 @@ Json::Value PowerService::getPowerStatus() {
 Json::Value PowerService::getTVPowerState() {
   Json::Value result;
   result["tv_address"] = DEFAULT_TV_ADDRESS;
+  if (!m_initialized) {
+    result["connected"] = false;
+    result["state"] = "unknown";
+    result["screen_on"] = false;
+    result["wakefulness"] = "not_initialized";
+    result["error"] = "Audio system not initialized";
+    return result;
+  }
   std::vector<std::string> startArgs = {"adb", "start-server"};
   executeCommandNoOutput(startArgs);
   std::vector<std::string> stateArgs = {"adb", "get-state"};
@@ -274,6 +297,11 @@ Json::Value PowerService::getTVPowerState() {
 
 Json::Value PowerService::tvPowerOn() {
   Json::Value result;
+  if (!m_initialized) {
+    result["success"] = false;
+    result["error"] = "Audio system not initialized";
+    return result;
+  }
   if (!ensureAdbConnected(DEFAULT_TV_ADDRESS, 3)) {
     result["success"] = false;
     result["error"] = "Failed to connect to TV via ADB";

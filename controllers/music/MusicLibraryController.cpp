@@ -1,20 +1,22 @@
-// controllers/music/MusicLibraryController.cpp
 #include "controllers/music/MusicLibraryController.h"
 #include "services/music/ResponseBuilder.h"
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
-
 void MusicLibraryController::init(std::shared_ptr<MusicDatabase> db,
                                   std::shared_ptr<MetadataCache> cache) {
   db_ = db;
   cache_ = cache;
 }
-
 void MusicLibraryController::getTracksByArtist(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback,
     const std::string &artist) {
   try {
+    if (!db_) {
+      ResponseBuilder::sendError(callback, "Database not initialized",
+                                 drogon::k500InternalServerError);
+      return;
+    }
     std::string decodedArtist = drogon::utils::urlDecode(artist);
     auto tracks = db_->getTracksByArtist(decodedArtist);
     Json::Value tracksJson(Json::arrayValue);
@@ -39,12 +41,16 @@ void MusicLibraryController::getTracksByArtist(
                                drogon::k500InternalServerError);
   }
 }
-
 void MusicLibraryController::getTracksByAlbum(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback,
     const std::string &album) {
   try {
+    if (!db_) {
+      ResponseBuilder::sendError(callback, "Database not initialized",
+                                 drogon::k500InternalServerError);
+      return;
+    }
     std::string decodedAlbum = drogon::utils::urlDecode(album);
     std::string artistFilter = req->getParameter("artist");
     auto tracks = db_->getTracksByAlbum(decodedAlbum, artistFilter);
@@ -70,11 +76,15 @@ void MusicLibraryController::getTracksByAlbum(
                                drogon::k500InternalServerError);
   }
 }
-
 void MusicLibraryController::listFiles(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
+    if (!db_) {
+      ResponseBuilder::sendError(callback, "Database not initialized",
+                                 drogon::k500InternalServerError);
+      return;
+    }
     auto allFiles = db_->getAllFiles();
     Json::Value files(Json::arrayValue);
     for (const auto &filePath : allFiles) {
@@ -107,11 +117,15 @@ void MusicLibraryController::listFiles(
                                drogon::k500InternalServerError);
   }
 }
-
 void MusicLibraryController::getArtists(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
+    if (!db_) {
+      ResponseBuilder::sendError(callback, "Database not initialized",
+                                 drogon::k500InternalServerError);
+      return;
+    }
     auto artists = db_->getArtists();
     Json::Value artistsJson(Json::arrayValue);
     for (const auto &artist : artists) {
@@ -125,11 +139,15 @@ void MusicLibraryController::getArtists(
                                drogon::k500InternalServerError);
   }
 }
-
 void MusicLibraryController::getAlbums(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
+    if (!db_) {
+      ResponseBuilder::sendError(callback, "Database not initialized",
+                                 drogon::k500InternalServerError);
+      return;
+    }
     std::string artistFilter = req->getParameter("artist");
     auto albums = db_->getAlbums(artistFilter);
     Json::Value albumsJson(Json::arrayValue);
@@ -148,11 +166,15 @@ void MusicLibraryController::getAlbums(
                                drogon::k500InternalServerError);
   }
 }
-
 void MusicLibraryController::getAlbumsPaginated(
     const drogon::HttpRequestPtr &req,
     std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
   try {
+    if (!db_) {
+      ResponseBuilder::sendError(callback, "Database not initialized",
+                                 drogon::k500InternalServerError);
+      return;
+    }
     std::string artistFilter = req->getParameter("artist");
     int page = req->getParameter("page").empty()
                    ? 1

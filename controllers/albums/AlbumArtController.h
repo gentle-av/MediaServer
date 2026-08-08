@@ -7,7 +7,7 @@
 #include <memory>
 
 class AlbumArtController
-    : public drogon::HttpController<AlbumArtController, false> {
+    : public drogon::HttpController<AlbumArtController> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(AlbumArtController::getAlbumArt, "/api/music/albumart",
