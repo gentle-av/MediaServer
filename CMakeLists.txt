@@ -75,6 +75,10 @@ set_target_properties(media_repository PROPERTIES
     SOVERSION 1
 )
 
+add_library(media_playlist SHARED
+    models/Playlist.cpp
+)
+
 # add_library(media_music SHARED
 #     services/music/AlbumArtExtractor.cpp
 #     services/music/AlbumArtService.cpp
