@@ -1,6 +1,5 @@
 #pragma once
 
-#include <drogon/drogon.h>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -22,10 +21,10 @@ struct ProfileConfig {
   std::string uploadPath;
   std::string musicDirectory;
   std::string htmlPath;
+  std::string databasePath;
 };
 
 class Profiler {
-
 public:
   Profiler(int argc, char *argv[]);
   ~Profiler() = default;
@@ -34,19 +33,37 @@ public:
   std::string getIndexPath() const { return config_.indexPath; }
   std::string getDocumentRoot() const { return config_.documentRoot; }
   std::string getHtmlPath() const { return config_.htmlPath; }
+  std::string getDatabasePath() const { return config_.databasePath; }
   int getPlayerPort() const { return config_.playerPort; }
-  void applyToDrogon(drogon::HttpAppFramework &app) const;
   void printStartupInfo() const;
 
 private:
   ProfileConfig config_;
   nlohmann::json drogonConfig_;
+  void initializeConfiguration();
   void parseCommandLine(int argc, char *argv[]);
-  void loadConfiguration();
+  void loadConfigurationFromFile();
+  void applyConfigDefaults();
+  void setDefaultConfigValues();
+  void printHelp(const char *programName) const;
+  bool loadConfigFromFile(const fs::path &configPath);
+  void parseConfigJson(const nlohmann::json &fullConfig);
+  void extractConfigValues();
+  void validateDocumentRoot();
   void findIndexFile();
+  bool findIndexFileInPaths(const std::vector<fs::path> &paths,
+                            fs::path &foundPath);
+  void validateIndexFile();
+  void logSearchPaths(const std::vector<fs::path> &paths) const;
   void setupDrogonConfig();
+  void setupDocumentRoot();
+  void setupListeners();
+  void setupAppConfig();
   fs::path findConfigFile() const;
   std::vector<fs::path> getIndexSearchPaths() const;
   std::vector<fs::path> getConfigSearchPaths() const;
-  trantor::Logger::LogLevel stringToLogLevel(const std::string &level) const;
+  size_t parseBodySize(const std::string &sizeStr) const;
+  void parseHeaderString(
+      const std::string &headerStr,
+      std::vector<std::pair<std::string, std::string>> &headers) const;
 };
