@@ -8,28 +8,30 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
-find_package(Drogon REQUIRED)
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(DBUS REQUIRED dbus-1)
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVFORMAT REQUIRED libavformat)
+pkg_check_modules(AVUTIL REQUIRED libavutil)
 
 add_executable(MediaServer
     main.cpp
-    controllers/albums/AlbumArtController.cpp
-    controllers/albums/AlbumManagementController.cpp
-    controllers/music/MusicController.cpp
-    controllers/music/MusicLibraryController.cpp
-    controllers/music/MusicMetadataController.cpp
-    controllers/music/MusicPlaybackController.cpp
-    controllers/music/MusicScanController.cpp
-    controllers/player/PlayerController.cpp
-    controllers/system/MonitorController.cpp
-    controllers/power/PowerController.cpp
-    controllers/video/VideoController.cpp
-    controllers/video/MkvAudioChannelController.cpp
+    # controllers/albums/AlbumArtController.cpp
+    # controllers/albums/AlbumManagementController.cpp
+    # controllers/music/MusicController.cpp
+    # controllers/music/MusicLibraryController.cpp
+    # controllers/music/MusicMetadataController.cpp
+    # controllers/music/MusicPlaybackController.cpp
+    # controllers/music/MusicScanController.cpp
+    # controllers/player/PlayerController.cpp
+    # controllers/system/MonitorController.cpp
+    # controllers/power/PowerController.cpp
+    # controllers/video/VideoController.cpp
+    # controllers/video/MkvAudioChannelController.cpp
     database/MusicDatabase.cpp
     models/MkvAudioTrackInfo.cpp
     services/music/AlbumArtExtractor.cpp
@@ -64,13 +66,15 @@ add_executable(MediaServer
 )
 
 target_link_libraries(MediaServer
-    Drogon::Drogon
     TagLib::TagLib
     ${SQLITE3_LIBRARIES}
     ${MPV_LIBRARIES}
     ${LIBCURL_LIBRARIES}
     ${DBUS_LIBRARIES}
     ${FFMPEG_LIBRARIES}
+    ${AVCODEC_LIBRARIES}
+    ${AVFORMAT_LIBRARIES}
+    ${AVUTIL_LIBRARIES}
     asound
     pthread
     dl

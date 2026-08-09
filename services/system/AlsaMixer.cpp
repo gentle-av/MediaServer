@@ -8,13 +8,12 @@
 
 const std::vector<std::string> AlsaMixer::availableOutputs = {"speakers",
                                                               "headphones"};
+
 AlsaMixer::AlsaMixer()
     : controlName("Master"), currentVolume(30), muted(false),
-      currentOutput("speakers"), initialized(false) {
-  init();
-}
-
+      currentOutput("speakers"), initialized(false), initAttempted(false) {}
 AlsaMixer::~AlsaMixer() {}
+
 AlsaMixer &AlsaMixer::getInstance() {
   static AlsaMixer instance;
   return instance;
@@ -23,6 +22,9 @@ AlsaMixer &AlsaMixer::getInstance() {
 bool AlsaMixer::init() {
   if (initialized)
     return true;
+  if (initAttempted)
+    return false;
+  initAttempted = true;
   if (access("/dev/snd/controlC0", R_OK) != 0) {
     std::cerr << "[AlsaMixer] No sound card found" << std::endl;
     return false;
@@ -44,6 +46,10 @@ bool AlsaMixer::init() {
 }
 
 bool AlsaMixer::executeAmixer(const std::string &command, std::string &output) {
+  if (!initAttempted)
+    init();
+  if (!initialized)
+    return false;
   std::string fullCmd = "timeout 1 amixer " + command + " 2>&1";
   FILE *pipe = popen(fullCmd.c_str(), "r");
   if (!pipe) {
@@ -229,6 +235,8 @@ std::vector<std::string> AlsaMixer::getAvailableOutputs() {
 }
 
 void AlsaMixer::detectCurrentOutput() {
+  if (!initialized)
+    return;
   std::array<char, 256> buffer;
   std::string result;
   FILE *pipe = popen(

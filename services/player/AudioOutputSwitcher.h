@@ -7,6 +7,7 @@
 class AudioOutputSwitcher {
 public:
   AudioOutputSwitcher();
+
   bool switchToSpeakers();
   bool switchToHeadphones();
   std::string getCurrentOutput();
