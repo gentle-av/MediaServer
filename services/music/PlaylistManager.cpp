@@ -2,9 +2,7 @@
 #include "services/music/MetadataExtractor.h"
 #include <drogon/drogon.h>
 
-PlaylistManager::PlaylistManager(
-    std::shared_ptr<PlayerController> playerController, MusicDatabase &db)
-    : playerController_(playerController), db_(db) {}
+PlaylistManager::PlaylistManager(MusicDatabase &db) : db_(db) {}
 
 std::vector<std::string>
 PlaylistManager::validateTracks(const std::vector<std::string> &tracks) {

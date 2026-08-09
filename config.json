@@ -10,6 +10,7 @@
             "path": "/"
           }
         ],
+        "database_path": "/home/avr/.local/share/media-explorer",
         "document_root": "/home/avr/.local/html/MediaServer/product/views",
         "upload_path": "/home/avr/.local/html/MediaServer/product/uploads",
         "client_max_body_size": "16M",
@@ -38,6 +39,7 @@
             "path": "/"
           }
         ],
+        "database_path": "/home/avr/.local/share/media-explorer",
         "document_root": "/home/avr/.local/html/MediaServer/test/views/",
         "upload_path": "/home/avr/.local/html/MediaServer/test/uploads",
         "client_max_body_size": "16M",
