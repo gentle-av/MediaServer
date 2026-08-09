@@ -41,15 +41,36 @@ set(COMMON_INCLUDES
     ${DBUS_INCLUDE_DIRS}
 )
 
-add_library(media_core SHARED
+add_library(media_tagger SHARED
+    tagger/TagEditor.cpp
+)
+
+add_library(media_metadata_extractor SHARED
+    services/music/MetadataExtractor.cpp
+)
+
+add_library(media_music_database SHARED
     database/MusicDatabase.cpp
+)
+
+add_library(media_trackinfo SHARED
     models/MkvAudioTrackInfo.cpp
 )
 
-target_include_directories(media_core PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_core ${COMMON_LIBS})
-target_compile_definitions(media_core PRIVATE TAGLIB_STATIC)
-set_target_properties(media_core PROPERTIES
+add_library(media_repository SHARED
+    repositories/MusicRepository.cpp
+)
+
+target_include_directories(media_repository PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_repository
+  ${COMMON_LIBS}
+  media_trackinfo
+  media_music_database
+  media_tagger
+  media_metadata_extractor
+)
+target_compile_definitions(media_repository PRIVATE TAGLIB_STATIC)
+set_target_properties(media_repository PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
 )
@@ -147,7 +168,10 @@ set_target_properties(media_profiler PROPERTIES
 )
 
 add_executable(MediaServer ./main.cpp)
-target_link_libraries(MediaServer PRIVATE media_profiler)
+target_link_libraries(MediaServer
+  PRIVATE
+  media_repository
+  media_profiler)
 #
 # add_library(media_controllers SHARED
 #     controllers/music/MusicScanController.cpp

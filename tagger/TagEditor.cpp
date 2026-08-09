@@ -1,4 +1,4 @@
-#include "tagger/TagEditor.h"
+#include "TagEditor.h"
 #include <algorithm>
 #include <iostream>
 #include <taglib/fileref.h>

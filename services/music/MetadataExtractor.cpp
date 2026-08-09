@@ -1,5 +1,5 @@
-#include "services/music/MetadataExtractor.h"
-#include "tagger/TagEditor.h"
+#include "MetadataExtractor.h"
+#include "../../tagger/TagEditor.h"
 #include <algorithm>
 #include <filesystem>
 #include <regex>

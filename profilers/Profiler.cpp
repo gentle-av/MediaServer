@@ -1,3 +1,4 @@
+// Profiler.cpp
 #include "profilers/Profiler.h"
 #include <fstream>
 #include <iostream>
@@ -28,6 +29,10 @@ void Profiler::setDefaultConfigValues() {
   config_.logLevel = "DEBUG";
   config_.logPath = "./logs";
   config_.uploadPath = "./uploads";
+  config_.musicDirectory = "./music";
+  config_.databasePath = "./media.db";
+  config_.htmlPath = "./views";
+  config_.documentRoot = "./views";
 }
 
 void Profiler::parseCommandLine(int argc, char *argv[]) {
@@ -53,6 +58,10 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
       config_.playerPort = std::stoi(argv[++i]);
     } else if (arg == "--address" && i + 1 < argc) {
       config_.address = argv[++i];
+    } else if (arg == "--music-dir" && i + 1 < argc) {
+      config_.musicDirectory = argv[++i];
+    } else if (arg == "--db-path" && i + 1 < argc) {
+      config_.databasePath = argv[++i];
     } else if (arg == "--help" || arg == "-h") {
       printHelp(argv[0]);
       exit(0);
@@ -69,6 +78,8 @@ void Profiler::printHelp(const char *programName) const {
             << "  --port PORT           Override web port\n"
             << "  --player-port PORT    Override player port\n"
             << "  --address ADDR        Override address\n"
+            << "  --music-dir DIR       Override music directory\n"
+            << "  --db-path PATH        Override database path\n"
             << "  --help, -h            Show help\n";
 }
 
@@ -141,22 +152,20 @@ void Profiler::extractConfigValues() {
     config_.uploadPath = app.value(
         "upload_path",
         config_.isTest ? "./uploads" : "/var/lib/media-explorer/uploads");
+    if (app.contains("database_path")) {
+      config_.databasePath = app["database_path"].get<std::string>();
+    }
+  }
+  if (drogonConfig_.contains("content") &&
+      drogonConfig_["content"].contains("music_directory")) {
+    config_.musicDirectory =
+        drogonConfig_["content"]["music_directory"].get<std::string>();
   }
   if (drogonConfig_.contains("listeners") &&
       !drogonConfig_["listeners"].empty()) {
     auto &listener = drogonConfig_["listeners"][0];
     config_.address = listener.value("address", config_.address);
     config_.port = listener.value("port", config_.port);
-  }
-  if (drogonConfig_.contains("app") &&
-      drogonConfig_["app"].contains("database_path")) {
-    config_.databasePath =
-        drogonConfig_["app"]["database_path"].get<std::string>();
-  }
-  if (drogonConfig_.contains("app") &&
-      drogonConfig_["app"].contains("music_directory")) {
-    config_.musicDirectory =
-        drogonConfig_["app"]["music_directory"].get<std::string>();
   }
   validateDocumentRoot();
 }
@@ -184,6 +193,8 @@ void Profiler::applyConfigDefaults() {
       config_.isTest ? "./logs" : "/var/log/media-explorer";
   drogonConfig_["app"]["upload_path"] =
       config_.isTest ? "./uploads" : "/var/lib/media-explorer/uploads";
+  drogonConfig_["app"]["database_path"] = config_.databasePath;
+  drogonConfig_["content"]["music_directory"] = config_.musicDirectory;
   drogonConfig_["listeners"] = nlohmann::json::array();
   drogonConfig_["listeners"].push_back(
       {{"address", config_.address}, {"port", config_.port}, {"https", false}});
@@ -274,6 +285,18 @@ void Profiler::setupAppConfig() {
       config_.documentRoot = docRoot;
       std::cout << "Configured document root: " << docRoot << std::endl;
     }
+  }
+  if (app.contains("database_path")) {
+    config_.databasePath = app["database_path"].get<std::string>();
+    std::cout << "Configured database path: " << config_.databasePath
+              << std::endl;
+  }
+  if (drogonConfig_.contains("content") &&
+      drogonConfig_["content"].contains("music_directory")) {
+    config_.musicDirectory =
+        drogonConfig_["content"]["music_directory"].get<std::string>();
+    std::cout << "Configured music directory: " << config_.musicDirectory
+              << std::endl;
   }
 }
 
@@ -370,6 +393,8 @@ void Profiler::printStartupInfo() const {
   std::cout << "Log Path: " << config_.logPath << std::endl;
   std::cout << "Log Level: " << config_.logLevel << std::endl;
   std::cout << "Threads: " << config_.threads << std::endl;
+  std::cout << "Database Path: " << config_.databasePath << std::endl;
+  std::cout << "Music Directory: " << config_.musicDirectory << std::endl;
   std::cout << "==========================================" << std::endl;
   std::cout << "Web interface: http://" << config_.address << ":"
             << config_.port << "/" << std::endl;

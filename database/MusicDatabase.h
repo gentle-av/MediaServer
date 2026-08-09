@@ -1,11 +1,8 @@
 #pragma once
 
-#include "models/MusicMetadata.h"
-#include <drogon/drogon.h>
-#include <functional>
+#include "../models/MusicMetadata.h"
 #include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
 struct AlbumArtData {
@@ -17,30 +14,27 @@ class MusicDatabase {
 public:
   explicit MusicDatabase(const std::string &dbPath);
   ~MusicDatabase();
-
   bool init();
   void close();
-  std::vector<std::string> getAllFiles();
   bool addFile(const std::string &filePath, const MusicMetadata &metadata);
   bool removeFile(const std::string &filePath);
-  bool getMetadata(const std::string &filePath, MusicMetadata &metadata);
   bool fileExists(const std::string &filePath);
+  bool getMetadata(const std::string &filePath, MusicMetadata &metadata);
+  std::vector<std::string> getAllFilePaths();
   bool saveAlbumArt(const std::string &filePath,
                     const std::vector<char> &albumArt);
   AlbumArtData getAlbumArt(const std::string &filePath);
-  std::vector<std::string> getArtists();
-  std::vector<std::tuple<std::string, std::string, std::string>>
-  getAlbums(const std::string &artistFilter = "");
-  std::vector<MusicMetadata>
-  getTracksByAlbum(const std::string &albumName,
-                   const std::string &artistName = "");
-  std::vector<MusicMetadata> getTracksByArtist(const std::string &artistName);
-  void scanDirectory(const std::string &path,
-                     std::function<void(const std::string &)> callback);
-  void forceRescan(const std::string &rootPath);
-  std::string getFilePathByAlbum(const std::string &albumName,
-                                 const std::string &artistName = "");
   bool removeAlbumArt(const std::string &filePath);
+  std::vector<MusicMetadata>
+  getTracksByArtistRaw(const std::string &artistName);
+  std::vector<MusicMetadata>
+  getTracksByAlbumRaw(const std::string &albumName,
+                      const std::string &artistName = "");
+  std::vector<std::string> getArtistsRaw();
+  std::vector<std::tuple<std::string, std::string, std::string>>
+  getAlbumsRaw(const std::string &artistFilter = "");
+  std::string getFilePathByAlbumRaw(const std::string &albumName,
+                                    const std::string &artistName = "");
 
 private:
   class Impl;

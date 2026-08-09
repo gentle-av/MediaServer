@@ -1,4 +1,4 @@
-#include "database/MusicDatabase.h"
+#include "MusicDatabase.h"
 #include <iostream>
 #include <sqlite3.h>
 
@@ -55,27 +55,11 @@ private:
 
 MusicDatabase::MusicDatabase(const std::string &dbPath)
     : pImpl(std::make_unique<Impl>(dbPath)) {}
+
 MusicDatabase::~MusicDatabase() = default;
 
 bool MusicDatabase::init() { return pImpl->init(); }
-
 void MusicDatabase::close() { pImpl.reset(); }
-
-std::vector<std::string> MusicDatabase::getAllFiles() {
-  std::vector<std::string> files;
-  const char *sql = "SELECT file_path FROM music_files";
-  sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-      const char *path =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
-      if (path)
-        files.push_back(path);
-    }
-    sqlite3_finalize(stmt);
-  }
-  return files;
-}
 
 bool MusicDatabase::addFile(const std::string &filePath,
                             const MusicMetadata &metadata) {
@@ -113,6 +97,18 @@ bool MusicDatabase::removeFile(const std::string &filePath) {
   return false;
 }
 
+bool MusicDatabase::fileExists(const std::string &filePath) {
+  const char *sql = "SELECT 1 FROM music_files WHERE file_path = ?";
+  sqlite3_stmt *stmt;
+  bool exists = false;
+  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
+    exists = (sqlite3_step(stmt) == SQLITE_ROW);
+    sqlite3_finalize(stmt);
+  }
+  return exists;
+}
+
 bool MusicDatabase::getMetadata(const std::string &filePath,
                                 MusicMetadata &metadata) {
   const char *sql = "SELECT file_path, title, artist, album, duration, track, "
@@ -142,16 +138,20 @@ bool MusicDatabase::getMetadata(const std::string &filePath,
   return false;
 }
 
-bool MusicDatabase::fileExists(const std::string &filePath) {
-  const char *sql = "SELECT 1 FROM music_files WHERE file_path = ?";
+std::vector<std::string> MusicDatabase::getAllFilePaths() {
+  std::vector<std::string> files;
+  const char *sql = "SELECT file_path FROM music_files";
   sqlite3_stmt *stmt;
-  bool exists = false;
   if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
-    exists = (sqlite3_step(stmt) == SQLITE_ROW);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *path =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      if (path)
+        files.push_back(path);
+    }
     sqlite3_finalize(stmt);
   }
-  return exists;
+  return files;
 }
 
 bool MusicDatabase::saveAlbumArt(const std::string &filePath,
@@ -203,110 +203,19 @@ AlbumArtData MusicDatabase::getAlbumArt(const std::string &filePath) {
   return result;
 }
 
-std::vector<std::string> MusicDatabase::getArtists() {
-  std::vector<std::string> artists;
-  if (!pImpl || !pImpl->db()) {
-    std::cerr << "[MusicDatabase] Database not initialized!" << std::endl;
-    return artists;
-  }
-  const char *sql = "SELECT DISTINCT artist FROM music_files WHERE artist != "
-                    "'' AND artist != 'Unknown' ORDER BY artist";
+bool MusicDatabase::removeAlbumArt(const std::string &filePath) {
+  const char *sql = "DELETE FROM album_art WHERE file_path = ?";
   sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-      const char *artist =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
-      if (artist)
-        artists.push_back(artist);
-    }
-    sqlite3_finalize(stmt);
-  }
-  return artists;
-}
-
-std::vector<std::tuple<std::string, std::string, std::string>>
-MusicDatabase::getAlbums(const std::string &artistFilter) {
-  std::vector<std::tuple<std::string, std::string, std::string>> albums;
-  std::string sql = "SELECT album, artist, MAX(year) FROM music_files WHERE "
-                    "album != '' AND album IS NOT NULL AND album != 'Unknown'";
-  if (!artistFilter.empty())
-    sql += " AND artist = ?";
-  sql += " GROUP BY album, artist ORDER BY artist, album";
-  sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) ==
-      SQLITE_OK) {
-    if (!artistFilter.empty())
-      sqlite3_bind_text(stmt, 1, artistFilter.c_str(), -1, SQLITE_TRANSIENT);
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-      std::string album =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)) ?: "";
-      std::string artist =
-          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)) ?: "";
-      std::string year = std::to_string(sqlite3_column_int(stmt, 2));
-      albums.emplace_back(album, artist, year);
-    }
-    sqlite3_finalize(stmt);
-  }
-  return albums;
-}
-
-std::vector<MusicMetadata>
-MusicDatabase::getTracksByAlbum(const std::string &albumName,
-                                const std::string &artistName) {
-  std::vector<MusicMetadata> tracks;
-  std::string sql = "SELECT file_path, title, artist, album, duration, track, "
-                    "year, genre FROM music_files WHERE album = ?";
-  if (!artistName.empty() && artistName != "Unknown") {
-    sql += " AND artist = ?";
-  }
-  sql += " ORDER BY track";
-  sqlite3_stmt *stmt = nullptr;
-  if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) !=
-      SQLITE_OK) {
-    return tracks;
-  }
-  sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_TRANSIENT);
-  if (!artistName.empty() && artistName != "Unknown") {
-    sqlite3_bind_text(stmt, 2, artistName.c_str(), -1, SQLITE_TRANSIENT);
-  }
-  tracks.reserve(100);
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    tracks.emplace_back();
-    MusicMetadata &meta = tracks.back();
-    const char *path = (const char *)sqlite3_column_text(stmt, 0);
-    const char *title = (const char *)sqlite3_column_text(stmt, 1);
-    const char *artist = (const char *)sqlite3_column_text(stmt, 2);
-    const char *album = (const char *)sqlite3_column_text(stmt, 3);
-    const char *genre = (const char *)sqlite3_column_text(stmt, 7);
-    if (path)
-      meta.filePath.assign(path);
-    if (title)
-      meta.title.assign(title);
-    if (artist)
-      meta.artist.assign(artist);
-    if (album)
-      meta.album.assign(album);
-    if (genre)
-      meta.genre.assign(genre);
-    meta.duration = sqlite3_column_int(stmt, 4);
-    meta.track = sqlite3_column_int(stmt, 5);
-    meta.year = sqlite3_column_int(stmt, 6);
-  }
+  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) != SQLITE_OK)
+    return false;
+  sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
+  bool success = (sqlite3_step(stmt) == SQLITE_DONE);
   sqlite3_finalize(stmt);
-  return tracks;
+  return success;
 }
-
-void MusicDatabase::scanDirectory(
-    const std::string &path,
-    std::function<void(const std::string &)> callback) {
-  if (callback)
-    callback(path);
-}
-
-void MusicDatabase::forceRescan(const std::string &rootPath) {}
 
 std::vector<MusicMetadata>
-MusicDatabase::getTracksByArtist(const std::string &artistName) {
+MusicDatabase::getTracksByArtistRaw(const std::string &artistName) {
   std::vector<MusicMetadata> tracks;
   const char *sql =
       "SELECT file_path, title, artist, album, duration, track, year, genre "
@@ -342,22 +251,108 @@ MusicDatabase::getTracksByArtist(const std::string &artistName) {
   return tracks;
 }
 
-std::string MusicDatabase::getFilePathByAlbum(const std::string &albumName,
-                                              const std::string &artistName) {
-  std::string sql = "SELECT file_path FROM music_files WHERE album = ?";
-  if (!artistName.empty() && artistName != "Unknown") {
+std::vector<MusicMetadata>
+MusicDatabase::getTracksByAlbumRaw(const std::string &albumName,
+                                   const std::string &artistName) {
+  std::vector<MusicMetadata> tracks;
+  std::string sql = "SELECT file_path, title, artist, album, duration, track, "
+                    "year, genre FROM music_files WHERE album = ?";
+  if (!artistName.empty() && artistName != "Unknown")
     sql += " AND artist = ?";
+  sql += " ORDER BY track";
+  sqlite3_stmt *stmt = nullptr;
+  if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) !=
+      SQLITE_OK)
+    return tracks;
+  sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_TRANSIENT);
+  if (!artistName.empty() && artistName != "Unknown")
+    sqlite3_bind_text(stmt, 2, artistName.c_str(), -1, SQLITE_TRANSIENT);
+  tracks.reserve(100);
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+    tracks.emplace_back();
+    MusicMetadata &meta = tracks.back();
+    const char *path = (const char *)sqlite3_column_text(stmt, 0);
+    const char *title = (const char *)sqlite3_column_text(stmt, 1);
+    const char *artist = (const char *)sqlite3_column_text(stmt, 2);
+    const char *album = (const char *)sqlite3_column_text(stmt, 3);
+    const char *genre = (const char *)sqlite3_column_text(stmt, 7);
+    if (path)
+      meta.filePath.assign(path);
+    if (title)
+      meta.title.assign(title);
+    if (artist)
+      meta.artist.assign(artist);
+    if (album)
+      meta.album.assign(album);
+    if (genre)
+      meta.genre.assign(genre);
+    meta.duration = sqlite3_column_int(stmt, 4);
+    meta.track = sqlite3_column_int(stmt, 5);
+    meta.year = sqlite3_column_int(stmt, 6);
   }
+  sqlite3_finalize(stmt);
+  return tracks;
+}
+
+std::vector<std::string> MusicDatabase::getArtistsRaw() {
+  std::vector<std::string> artists;
+  if (!pImpl || !pImpl->db())
+    return artists;
+  const char *sql = "SELECT DISTINCT artist FROM music_files WHERE artist != "
+                    "'' AND artist != 'Unknown' ORDER BY artist";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) == SQLITE_OK) {
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *artist =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      if (artist)
+        artists.push_back(artist);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return artists;
+}
+
+std::vector<std::tuple<std::string, std::string, std::string>>
+MusicDatabase::getAlbumsRaw(const std::string &artistFilter) {
+  std::vector<std::tuple<std::string, std::string, std::string>> albums;
+  std::string sql = "SELECT album, artist, MAX(year) FROM music_files WHERE "
+                    "album != '' AND album IS NOT NULL AND album != 'Unknown'";
+  if (!artistFilter.empty())
+    sql += " AND artist = ?";
+  sql += " GROUP BY album, artist ORDER BY artist, album";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) ==
+      SQLITE_OK) {
+    if (!artistFilter.empty())
+      sqlite3_bind_text(stmt, 1, artistFilter.c_str(), -1, SQLITE_TRANSIENT);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      std::string album =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)) ?: "";
+      std::string artist =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)) ?: "";
+      std::string year = std::to_string(sqlite3_column_int(stmt, 2));
+      albums.emplace_back(album, artist, year);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return albums;
+}
+
+std::string
+MusicDatabase::getFilePathByAlbumRaw(const std::string &albumName,
+                                     const std::string &artistName) {
+  std::string sql = "SELECT file_path FROM music_files WHERE album = ?";
+  if (!artistName.empty() && artistName != "Unknown")
+    sql += " AND artist = ?";
   sql += " LIMIT 1";
   sqlite3_stmt *stmt = nullptr;
   if (sqlite3_prepare_v2(pImpl->db(), sql.c_str(), -1, &stmt, nullptr) !=
-      SQLITE_OK) {
+      SQLITE_OK)
     return "";
-  }
   sqlite3_bind_text(stmt, 1, albumName.c_str(), -1, SQLITE_TRANSIENT);
-  if (!artistName.empty() && artistName != "Unknown") {
+  if (!artistName.empty() && artistName != "Unknown")
     sqlite3_bind_text(stmt, 2, artistName.c_str(), -1, SQLITE_TRANSIENT);
-  }
   std::string result;
   if (sqlite3_step(stmt) == SQLITE_ROW) {
     const char *path =
@@ -367,15 +362,4 @@ std::string MusicDatabase::getFilePathByAlbum(const std::string &albumName,
   }
   sqlite3_finalize(stmt);
   return result;
-}
-
-bool MusicDatabase::removeAlbumArt(const std::string &filePath) {
-  const char *sql = "DELETE FROM album_art WHERE file_path = ?";
-  sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), sql, -1, &stmt, nullptr) != SQLITE_OK)
-    return false;
-  sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
-  bool success = (sqlite3_step(stmt) == SQLITE_DONE);
-  sqlite3_finalize(stmt);
-  return success;
 }

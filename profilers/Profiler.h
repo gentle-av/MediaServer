@@ -34,6 +34,7 @@ public:
   std::string getDocumentRoot() const { return config_.documentRoot; }
   std::string getHtmlPath() const { return config_.htmlPath; }
   std::string getDatabasePath() const { return config_.databasePath; }
+  std::string getMusicDirectory() const { return config_.musicDirectory; }
   int getPlayerPort() const { return config_.playerPort; }
   void printStartupInfo() const;
 

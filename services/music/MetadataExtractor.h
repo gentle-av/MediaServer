@@ -1,6 +1,6 @@
 #pragma once
 
-#include "models/MusicMetadata.h"
+#include "../../models/MusicMetadata.h"
 #include <string>
 #include <taglib/tstring.h>
 #include <vector>
