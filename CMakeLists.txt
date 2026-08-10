@@ -79,6 +79,14 @@ add_library(media_playlist SHARED
     models/Playlist.cpp
 )
 
+add_library(media_playlist_database SHARED
+    database/PlaylistDatabase.cpp
+)
+
+target_link_libraries(media_playlist_database PRIVATE
+    media_playlist
+)
+
 add_library(media_playlist_repository SHARED
     repositories/PlaylistRepository.cpp
 )
