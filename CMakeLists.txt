@@ -79,6 +79,14 @@ add_library(media_playlist SHARED
     models/Playlist.cpp
 )
 
+add_library(media_playlist_repository SHARED
+    repositories/PlaylistRepository.cpp
+)
+
+target_link_libraries(media_playlist_repository PRIVATE
+    media_playlist
+)
+
 add_library(media_profiler SHARED
     profilers/Profiler.cpp
 )
@@ -95,4 +103,6 @@ target_link_libraries(MediaServer
     PRIVATE
     media_repository
     media_profiler
+    media_playlist
+    media_playlist_repository
 )
