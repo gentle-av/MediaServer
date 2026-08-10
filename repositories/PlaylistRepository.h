@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../database/MusicDatabase.h"
+#include "../database/PlaylistDatabase.h"
 #include "../models/Playlist.h"
+#include "MusicRepository.h"
 #include <chrono>
 #include <functional>
 #include <future>
@@ -14,40 +15,29 @@
 
 class PlaylistRepository {
 public:
-  explicit PlaylistRepository(MusicDatabase &db);
+  explicit PlaylistRepository(PlaylistDatabase &db, MusicRepository &musicRepo);
   ~PlaylistRepository() = default;
 
   std::vector<std::string> getPlaylistNames() const;
-
   std::shared_ptr<const Playlist> getPlaylist(const std::string &name) const;
-
   bool hasPlaylist(const std::string &name) const;
-
   bool savePlaylist(const std::string &name, const Playlist &playlist);
   bool savePlaylist(const std::string &name, Playlist &&playlist);
-
   bool deletePlaylist(const std::string &name);
-
   bool renamePlaylist(const std::string &oldName, const std::string &newName);
-
   bool createPlaylistFromArtist(const std::string &name,
                                 const std::string &artistName);
-
   bool createPlaylistFromAlbum(const std::string &name,
                                const std::string &albumName,
                                const std::string &artistName = "");
-
   bool createPlaylistFromSearch(const std::string &name,
                                 const std::string &query);
-
   bool importPlaylist(const std::string &filePath);
   bool exportPlaylist(const std::string &name,
                       const std::string &filePath) const;
-
   void invalidateAll();
   void setTTL(std::chrono::seconds ttl) { defaultTTL_ = ttl; }
   size_t getCacheSize() const;
-
   std::shared_future<bool> scanPlaylistDirectoryAsync(
       const std::string &playlistDir,
       std::function<void(int total, int processed)> progressCallback = nullptr);
@@ -82,7 +72,8 @@ private:
       std::function<void(int total, int processed)> progressCallback,
       std::stop_token stopToken);
 
-  MusicDatabase &db_;
+  PlaylistDatabase &db_;
+  MusicRepository &musicRepo_;
   std::chrono::seconds defaultTTL_{60};
   mutable std::shared_mutex mutex_;
   mutable CachedPlaylistList playlistListCache_;

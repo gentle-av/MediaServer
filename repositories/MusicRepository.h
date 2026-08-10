@@ -14,7 +14,7 @@
 
 class MusicRepository {
 public:
-  explicit MusicRepository(MusicDatabase &db);
+  explicit MusicRepository(std::unique_ptr<MusicDatabase> db);
   ~MusicRepository() = default;
 
   std::vector<std::string> getArtists() const;
@@ -79,7 +79,7 @@ private:
       std::function<void(int total, int processed)> progressCallback,
       std::stop_token stopToken);
 
-  MusicDatabase &db_;
+  std::unique_ptr<MusicDatabase> db;
   std::chrono::seconds defaultTTL_{60};
   mutable std::shared_mutex mutex_;
   mutable CachedArtists artistsCache_;

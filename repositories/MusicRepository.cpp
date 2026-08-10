@@ -6,7 +6,8 @@
 
 namespace fs = std::filesystem;
 
-MusicRepository::MusicRepository(MusicDatabase &db) : db_(db) {}
+MusicRepository::MusicRepository(std::unique_ptr<MusicDatabase> db)
+    : db(std::move(db)) {}
 
 bool MusicRepository::isExpired(
     const std::chrono::steady_clock::time_point &timestamp) const {
@@ -24,7 +25,7 @@ std::vector<std::string> MusicRepository::getArtists() const {
 }
 
 void MusicRepository::refreshArtistsCache() const {
-  auto artists = db_.getArtistsRaw();
+  auto artists = db->getArtistsRaw();
   std::unique_lock lock(mutex_);
   artistsCache_.data = artists;
   artistsCache_.timestamp = std::chrono::steady_clock::now();
@@ -45,7 +46,7 @@ MusicRepository::getAlbums(const std::string &artistFilter) const {
 
 void MusicRepository::refreshAlbumsCache(
     const std::string &artistFilter) const {
-  auto albums = db_.getAlbumsRaw(artistFilter);
+  auto albums = db->getAlbumsRaw(artistFilter);
   std::unique_lock lock(mutex_);
   albumsCache_.data = albums;
   albumsCache_.filter = artistFilter;
@@ -72,7 +73,7 @@ MusicRepository::getTracksByArtist(const std::string &artistName) const {
 
 std::shared_ptr<const std::vector<MusicMetadata>>
 MusicRepository::loadTracksByArtistFromDB(const std::string &artistName) const {
-  auto tracks = db_.getTracksByArtistRaw(artistName);
+  auto tracks = db->getTracksByArtistRaw(artistName);
   return std::make_shared<const std::vector<MusicMetadata>>(std::move(tracks));
 }
 
@@ -99,7 +100,7 @@ MusicRepository::getTracksByAlbum(const std::string &albumName,
 std::shared_ptr<const std::vector<MusicMetadata>>
 MusicRepository::loadTracksByAlbumFromDB(const std::string &albumName,
                                          const std::string &artistName) const {
-  auto tracks = db_.getTracksByAlbumRaw(albumName, artistName);
+  auto tracks = db->getTracksByAlbumRaw(albumName, artistName);
   return std::make_shared<const std::vector<MusicMetadata>>(std::move(tracks));
 }
 
@@ -123,12 +124,12 @@ void MusicRepository::refreshAllTracksCache() const {
 
 std::shared_ptr<const std::vector<MusicMetadata>>
 MusicRepository::loadAllTracksFromDB() const {
-  auto paths = db_.getAllFilePaths();
+  auto paths = db->getAllFilePaths();
   auto tracks = std::make_shared<std::vector<MusicMetadata>>();
   tracks->reserve(paths.size());
   for (const auto &path : paths) {
     MusicMetadata meta;
-    if (db_.getMetadata(path, meta))
+    if (db->getMetadata(path, meta))
       tracks->push_back(meta);
   }
   return tracks;
@@ -146,7 +147,7 @@ MusicRepository::getTrack(const std::string &filePath) const {
   }
   lock.unlock();
   MusicMetadata meta;
-  if (db_.getMetadata(filePath, meta))
+  if (db->getMetadata(filePath, meta))
     return meta;
   return std::nullopt;
 }
@@ -167,14 +168,14 @@ void MusicRepository::forEachArtist(
 
 bool MusicRepository::addTrack(const std::string &filePath,
                                const MusicMetadata &metadata) {
-  bool success = db_.addFile(filePath, metadata);
+  bool success = db->addFile(filePath, metadata);
   if (success)
     invalidateAll();
   return success;
 }
 
 bool MusicRepository::removeTrack(const std::string &filePath) {
-  bool success = db_.removeFile(filePath);
+  bool success = db->removeFile(filePath);
   if (success)
     invalidateAll();
   return success;
@@ -182,7 +183,7 @@ bool MusicRepository::removeTrack(const std::string &filePath) {
 
 bool MusicRepository::updateTrack(const std::string &filePath,
                                   const MusicMetadata &metadata) {
-  bool success = db_.removeFile(filePath) && db_.addFile(filePath, metadata);
+  bool success = db->removeFile(filePath) && db->addFile(filePath, metadata);
   if (success)
     invalidateAll();
   return success;
@@ -265,7 +266,7 @@ bool MusicRepository::doScanMusicDirectory(
     }
     std::cout << "[MusicRepository] Found " << allFiles.size() << " music files"
               << std::endl;
-    auto existingPaths = db_.getAllFilePaths();
+    auto existingPaths = db->getAllFilePaths();
     std::unordered_set<std::string> existingSet(existingPaths.begin(),
                                                 existingPaths.end());
     std::unordered_set<std::string> foundSet;
@@ -281,11 +282,11 @@ bool MusicRepository::doScanMusicDirectory(
         MusicMetadata metadata;
         if (MetadataExtractor::extractMetadata(path, metadata)) {
           metadata.filePath = path;
-          if (db_.addFile(path, metadata)) {
+          if (db->addFile(path, metadata)) {
             added++;
             std::vector<char> albumArt;
             if (MetadataExtractor::extractAlbumArt(path, albumArt)) {
-              db_.saveAlbumArt(path, albumArt);
+              db->saveAlbumArt(path, albumArt);
             }
           }
         } else {
@@ -303,7 +304,7 @@ bool MusicRepository::doScanMusicDirectory(
       if (stopToken.stop_requested())
         return false;
       if (foundSet.find(path) == foundSet.end()) {
-        if (db_.removeFile(path))
+        if (db->removeFile(path))
           removed++;
       }
     }

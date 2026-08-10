@@ -112,5 +112,6 @@ target_link_libraries(MediaServer
     media_repository
     media_profiler
     media_playlist
+    media_playlist_database
     media_playlist_repository
 )
