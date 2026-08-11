@@ -35,7 +35,7 @@ public:
   bool updateTrack(const std::string &filePath, const MusicMetadata &metadata);
 
   void invalidateAll();
-  void setTTL(std::chrono::seconds ttl) { defaultTTL_ = ttl; }
+  void setTTL(std::chrono::seconds ttl) { defaultTTL = ttl; }
   size_t getCacheSize() const;
 
   std::shared_future<bool> scanMusicDirectoryAsync(
@@ -80,17 +80,17 @@ private:
       std::stop_token stopToken);
 
   std::unique_ptr<MusicDatabase> db;
-  std::chrono::seconds defaultTTL_{60};
-  mutable std::shared_mutex mutex_;
-  mutable CachedArtists artistsCache_;
-  mutable CachedAlbums albumsCache_;
-  mutable std::unordered_map<std::string, CachedTracks> tracksByArtistCache_;
-  mutable std::unordered_map<std::string, CachedTracks> tracksByAlbumCache_;
-  mutable CachedTracks allTracksCache_;
+  std::chrono::seconds defaultTTL{60};
+  mutable std::shared_mutex mutex;
+  mutable CachedArtists artistsCache;
+  mutable CachedAlbums albumsCache;
+  mutable std::unordered_map<std::string, CachedTracks> tracksByArtistCache;
+  mutable std::unordered_map<std::string, CachedTracks> tracksByAlbumCache;
+  mutable CachedTracks allTracksCache;
 
-  std::jthread scanThread_;
-  std::stop_source stopSource_;
-  std::promise<bool> scanPromise_;
-  std::shared_future<bool> scanFuture_;
-  mutable std::mutex scanMutex_;
+  std::jthread scanThread;
+  std::stop_source stopSource;
+  std::promise<bool> scanPromise;
+  std::shared_future<bool> scanFuture;
+  mutable std::mutex scanMutex;
 };

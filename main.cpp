@@ -6,6 +6,14 @@
 #include <memory>
 
 int main(int argc, char *argv[]) {
-  std::unique_ptr<Profiler> profiler = std::make_unique<Profiler>(argc, argv);
-  std::shared_ptr < return 0;
+  auto profiler = std::make_unique<Profiler>(argc, argv);
+  auto musicDatabase = std::make_unique<MusicDatabase>(
+      profiler->getDatabasePath() + "/music.db");
+  auto musicRepository =
+      std::make_unique<MusicRepository>(std::move(musicDatabase));
+  auto playlistDatabase = std::make_unique<PlaylistDatabase>(
+      profiler->getDatabasePath() + "/playlists.db");
+  auto playlistRepository = std::make_unique<PlaylistRepository>(
+      std::move(playlistDatabase), std::move(musicRepository));
+  return 0;
 }

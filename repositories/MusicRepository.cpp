@@ -11,63 +11,63 @@ MusicRepository::MusicRepository(std::unique_ptr<MusicDatabase> db)
 
 bool MusicRepository::isExpired(
     const std::chrono::steady_clock::time_point &timestamp) const {
-  return std::chrono::steady_clock::now() - timestamp > defaultTTL_;
+  return std::chrono::steady_clock::now() - timestamp > defaultTTL;
 }
 
 std::vector<std::string> MusicRepository::getArtists() const {
-  std::shared_lock lock(mutex_);
-  if (!artistsCache_.data.empty() && !isExpired(artistsCache_.timestamp))
-    return artistsCache_.data;
+  std::shared_lock lock(mutex);
+  if (!artistsCache.data.empty() && !isExpired(artistsCache.timestamp))
+    return artistsCache.data;
   lock.unlock();
   refreshArtistsCache();
-  std::shared_lock readLock(mutex_);
-  return artistsCache_.data;
+  std::shared_lock readLock(mutex);
+  return artistsCache.data;
 }
 
 void MusicRepository::refreshArtistsCache() const {
   auto artists = db->getArtistsRaw();
-  std::unique_lock lock(mutex_);
-  artistsCache_.data = artists;
-  artistsCache_.timestamp = std::chrono::steady_clock::now();
+  std::unique_lock lock(mutex);
+  artistsCache.data = artists;
+  artistsCache.timestamp = std::chrono::steady_clock::now();
 }
 
 std::vector<std::tuple<std::string, std::string, std::string>>
 MusicRepository::getAlbums(const std::string &artistFilter) const {
-  std::shared_lock lock(mutex_);
-  if (!albumsCache_.data.empty() && !isExpired(albumsCache_.timestamp) &&
-      albumsCache_.filter == artistFilter) {
-    return albumsCache_.data;
+  std::shared_lock lock(mutex);
+  if (!albumsCache.data.empty() && !isExpired(albumsCache.timestamp) &&
+      albumsCache.filter == artistFilter) {
+    return albumsCache.data;
   }
   lock.unlock();
   refreshAlbumsCache(artistFilter);
-  std::shared_lock readLock(mutex_);
-  return albumsCache_.data;
+  std::shared_lock readLock(mutex);
+  return albumsCache.data;
 }
 
 void MusicRepository::refreshAlbumsCache(
     const std::string &artistFilter) const {
   auto albums = db->getAlbumsRaw(artistFilter);
-  std::unique_lock lock(mutex_);
-  albumsCache_.data = albums;
-  albumsCache_.filter = artistFilter;
-  albumsCache_.timestamp = std::chrono::steady_clock::now();
+  std::unique_lock lock(mutex);
+  albumsCache.data = albums;
+  albumsCache.filter = artistFilter;
+  albumsCache.timestamp = std::chrono::steady_clock::now();
 }
 
 std::shared_ptr<const std::vector<MusicMetadata>>
 MusicRepository::getTracksByArtist(const std::string &artistName) const {
-  std::shared_lock lock(mutex_);
-  auto it = tracksByArtistCache_.find(artistName);
-  if (it != tracksByArtistCache_.end() && !isExpired(it->second.timestamp) &&
+  std::shared_lock lock(mutex);
+  auto it = tracksByArtistCache.find(artistName);
+  if (it != tracksByArtistCache.end() && !isExpired(it->second.timestamp) &&
       it->second.data) {
     return it->second.data;
   }
   lock.unlock();
   auto tracks = loadTracksByArtistFromDB(artistName);
-  std::unique_lock writeLock(mutex_);
+  std::unique_lock writeLock(mutex);
   CachedTracks cache;
   cache.data = tracks;
   cache.timestamp = std::chrono::steady_clock::now();
-  tracksByArtistCache_[artistName] = cache;
+  tracksByArtistCache[artistName] = cache;
   return tracks;
 }
 
@@ -81,19 +81,19 @@ std::shared_ptr<const std::vector<MusicMetadata>>
 MusicRepository::getTracksByAlbum(const std::string &albumName,
                                   const std::string &artistName) const {
   std::string key = albumName + "|" + artistName;
-  std::shared_lock lock(mutex_);
-  auto it = tracksByAlbumCache_.find(key);
-  if (it != tracksByAlbumCache_.end() && !isExpired(it->second.timestamp) &&
+  std::shared_lock lock(mutex);
+  auto it = tracksByAlbumCache.find(key);
+  if (it != tracksByAlbumCache.end() && !isExpired(it->second.timestamp) &&
       it->second.data) {
     return it->second.data;
   }
   lock.unlock();
   auto tracks = loadTracksByAlbumFromDB(albumName, artistName);
-  std::unique_lock writeLock(mutex_);
+  std::unique_lock writeLock(mutex);
   CachedTracks cache;
   cache.data = tracks;
   cache.timestamp = std::chrono::steady_clock::now();
-  tracksByAlbumCache_[key] = cache;
+  tracksByAlbumCache[key] = cache;
   return tracks;
 }
 
@@ -106,20 +106,20 @@ MusicRepository::loadTracksByAlbumFromDB(const std::string &albumName,
 
 std::shared_ptr<const std::vector<MusicMetadata>>
 MusicRepository::getAllTracks() const {
-  std::shared_lock lock(mutex_);
-  if (allTracksCache_.data && !isExpired(allTracksCache_.timestamp))
-    return allTracksCache_.data;
+  std::shared_lock lock(mutex);
+  if (allTracksCache.data && !isExpired(allTracksCache.timestamp))
+    return allTracksCache.data;
   lock.unlock();
   refreshAllTracksCache();
-  std::shared_lock readLock(mutex_);
-  return allTracksCache_.data;
+  std::shared_lock readLock(mutex);
+  return allTracksCache.data;
 }
 
 void MusicRepository::refreshAllTracksCache() const {
   auto tracks = loadAllTracksFromDB();
-  std::unique_lock lock(mutex_);
-  allTracksCache_.data = tracks;
-  allTracksCache_.timestamp = std::chrono::steady_clock::now();
+  std::unique_lock lock(mutex);
+  allTracksCache.data = tracks;
+  allTracksCache.timestamp = std::chrono::steady_clock::now();
 }
 
 std::shared_ptr<const std::vector<MusicMetadata>>
@@ -137,9 +137,9 @@ MusicRepository::loadAllTracksFromDB() const {
 
 std::optional<MusicMetadata>
 MusicRepository::getTrack(const std::string &filePath) const {
-  std::shared_lock lock(mutex_);
-  auto it = tracksByArtistCache_.find(filePath);
-  if (it != tracksByArtistCache_.end() && it->second.data) {
+  std::shared_lock lock(mutex);
+  auto it = tracksByArtistCache.find(filePath);
+  if (it != tracksByArtistCache.end() && it->second.data) {
     for (const auto &track : *it->second.data) {
       if (track.filePath == filePath)
         return track;
@@ -190,26 +190,26 @@ bool MusicRepository::updateTrack(const std::string &filePath,
 }
 
 void MusicRepository::invalidateAll() {
-  std::unique_lock lock(mutex_);
+  std::unique_lock lock(mutex);
   invalidateAllLocked();
 }
 
 void MusicRepository::invalidateAllLocked() {
-  artistsCache_.data.clear();
-  albumsCache_.data.clear();
-  tracksByArtistCache_.clear();
-  tracksByAlbumCache_.clear();
-  allTracksCache_.data.reset();
+  artistsCache.data.clear();
+  albumsCache.data.clear();
+  tracksByArtistCache.clear();
+  tracksByAlbumCache.clear();
+  allTracksCache.data.reset();
 }
 
 size_t MusicRepository::getCacheSize() const {
-  std::shared_lock lock(mutex_);
-  size_t size = tracksByArtistCache_.size() + tracksByAlbumCache_.size();
-  if (!artistsCache_.data.empty())
+  std::shared_lock lock(mutex);
+  size_t size = tracksByArtistCache.size() + tracksByAlbumCache.size();
+  if (!artistsCache.data.empty())
     size++;
-  if (!albumsCache_.data.empty())
+  if (!albumsCache.data.empty())
     size++;
-  if (allTracksCache_.data)
+  if (allTracksCache.data)
     size++;
   return size;
 }
@@ -226,22 +226,22 @@ bool MusicRepository::isMusicFile(const std::string &path) const {
 std::shared_future<bool> MusicRepository::scanMusicDirectoryAsync(
     const std::string &musicDir,
     std::function<void(int total, int processed)> progressCallback) {
-  std::lock_guard<std::mutex> lock(scanMutex_);
-  if (scanFuture_.valid()) {
-    auto status = scanFuture_.wait_for(std::chrono::milliseconds(0));
+  std::lock_guard<std::mutex> lock(scanMutex);
+  if (scanFuture.valid()) {
+    auto status = scanFuture.wait_for(std::chrono::milliseconds(0));
     if (status == std::future_status::timeout) {
       return std::shared_future<bool>();
     }
   }
-  stopSource_ = std::stop_source{};
-  scanPromise_ = std::promise<bool>();
-  scanFuture_ = scanPromise_.get_future().share();
-  scanThread_ = std::jthread([this, musicDir,
-                              progressCallback](std::stop_token stopToken) {
+  stopSource = std::stop_source{};
+  scanPromise = std::promise<bool>();
+  scanFuture = scanPromise.get_future().share();
+  scanThread = std::jthread([this, musicDir,
+                             progressCallback](std::stop_token stopToken) {
     bool success = doScanMusicDirectory(musicDir, progressCallback, stopToken);
-    scanPromise_.set_value(success);
+    scanPromise.set_value(success);
   });
-  return scanFuture_;
+  return scanFuture;
 }
 
 bool MusicRepository::doScanMusicDirectory(
@@ -309,7 +309,7 @@ bool MusicRepository::doScanMusicDirectory(
       }
     }
     {
-      std::unique_lock lock(mutex_);
+      std::unique_lock lock(mutex);
       invalidateAllLocked();
     }
     std::cout << "[MusicRepository] Scan completed: added " << added
@@ -322,18 +322,18 @@ bool MusicRepository::doScanMusicDirectory(
   }
 }
 
-void MusicRepository::cancelScan() { stopSource_.request_stop(); }
+void MusicRepository::cancelScan() { stopSource.request_stop(); }
 
 bool MusicRepository::isScanning() const {
-  std::lock_guard<std::mutex> lock(scanMutex_);
-  return scanFuture_.valid() &&
-         scanFuture_.wait_for(std::chrono::milliseconds(0)) ==
+  std::lock_guard<std::mutex> lock(scanMutex);
+  return scanFuture.valid() &&
+         scanFuture.wait_for(std::chrono::milliseconds(0)) ==
              std::future_status::timeout;
 }
 
 void MusicRepository::waitForScan() {
-  std::lock_guard<std::mutex> lock(scanMutex_);
-  if (scanFuture_.valid()) {
-    scanFuture_.wait();
+  std::lock_guard<std::mutex> lock(scanMutex);
+  if (scanFuture.valid()) {
+    scanFuture.wait();
   }
 }

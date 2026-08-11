@@ -158,11 +158,11 @@ bool MusicDatabase::saveAlbumArt(const std::string &filePath,
                                  const std::vector<char> &albumArt) {
   std::string mimeType = "image/jpeg";
   if (albumArt.size() >= 8) {
-    if (albumArt[0] == 0xFF && albumArt[1] == 0xD8)
+    if (albumArt[0] == (char)0xFF && albumArt[1] == (char)0xD8)
       mimeType = "image/jpeg";
-    else if (albumArt[0] == 0x89 && albumArt[1] == 0x50)
+    else if (albumArt[0] == (char)0x89 && albumArt[1] == (char)0x50)
       mimeType = "image/png";
-    else if (albumArt[0] == 0x47 && albumArt[1] == 0x49)
+    else if (albumArt[0] == (char)0x47 && albumArt[1] == (char)0x49)
       mimeType = "image/gif";
   }
   const char *sql = "INSERT OR REPLACE INTO album_art (file_path, art_data, "

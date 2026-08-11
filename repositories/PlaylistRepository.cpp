@@ -5,38 +5,39 @@
 
 namespace fs = std::filesystem;
 
-PlaylistRepository::PlaylistRepository(PlaylistDatabase &db,
-                                       MusicRepository &musicRepo)
-    : db_(db), musicRepo_(musicRepo) {}
+PlaylistRepository::PlaylistRepository(
+    std::unique_ptr<PlaylistDatabase> db,
+    std::unique_ptr<MusicRepository> musicRepo)
+    : db(std::move(db)), musicRepo(std::move(musicRepo)) {}
 
 bool PlaylistRepository::isExpired(
     const std::chrono::steady_clock::time_point &timestamp) const {
-  return std::chrono::steady_clock::now() - timestamp > defaultTTL_;
+  return std::chrono::steady_clock::now() - timestamp > defaultTTL;
 }
 
 std::vector<std::string> PlaylistRepository::getPlaylistNames() const {
-  std::shared_lock lock(mutex_);
-  if (!playlistListCache_.data.empty() &&
-      !isExpired(playlistListCache_.timestamp))
-    return playlistListCache_.data;
+  std::shared_lock lock(mutex);
+  if (!playlistListCache.data.empty() &&
+      !isExpired(playlistListCache.timestamp))
+    return playlistListCache.data;
   lock.unlock();
   refreshPlaylistListCache();
-  std::shared_lock readLock(mutex_);
-  return playlistListCache_.data;
+  std::shared_lock readLock(mutex);
+  return playlistListCache.data;
 }
 
 void PlaylistRepository::refreshPlaylistListCache() const {
   auto playlists = loadAllPlaylistNamesFromDB();
-  std::unique_lock lock(mutex_);
-  playlistListCache_.data = playlists;
-  playlistListCache_.timestamp = std::chrono::steady_clock::now();
+  std::unique_lock lock(mutex);
+  playlistListCache.data = playlists;
+  playlistListCache.timestamp = std::chrono::steady_clock::now();
 }
 
 std::shared_ptr<const Playlist>
 PlaylistRepository::getPlaylist(const std::string &name) const {
-  std::shared_lock lock(mutex_);
-  auto it = playlistCache_.find(name);
-  if (it != playlistCache_.end() && !isExpired(it->second.timestamp) &&
+  std::shared_lock lock(mutex);
+  auto it = playlistCache.find(name);
+  if (it != playlistCache.end() && !isExpired(it->second.timestamp) &&
       it->second.data) {
     return it->second.data;
   }
@@ -45,16 +46,16 @@ PlaylistRepository::getPlaylist(const std::string &name) const {
   if (!playlist) {
     return nullptr;
   }
-  std::unique_lock writeLock(mutex_);
+  std::unique_lock writeLock(mutex);
   CachedPlaylist cache;
   cache.data = playlist;
   cache.timestamp = std::chrono::steady_clock::now();
-  playlistCache_[name] = cache;
+  playlistCache[name] = cache;
   return playlist;
 }
 
 bool PlaylistRepository::hasPlaylist(const std::string &name) const {
-  return db_.playlistExists(name);
+  return db->playlistExists(name);
 }
 
 bool PlaylistRepository::savePlaylist(const std::string &name,
@@ -104,7 +105,7 @@ bool PlaylistRepository::renamePlaylist(const std::string &oldName,
 
 bool PlaylistRepository::createPlaylistFromArtist(
     const std::string &name, const std::string &artistName) {
-  auto tracks = musicRepo_.getTracksByArtist(artistName);
+  auto tracks = musicRepo->getTracksByArtist(artistName);
   if (!tracks || tracks->empty()) {
     return false;
   }
@@ -115,7 +116,7 @@ bool PlaylistRepository::createPlaylistFromArtist(
 bool PlaylistRepository::createPlaylistFromAlbum(
     const std::string &name, const std::string &albumName,
     const std::string &artistName) {
-  auto tracks = musicRepo_.getTracksByAlbum(albumName, artistName);
+  auto tracks = musicRepo->getTracksByAlbum(albumName, artistName);
   if (!tracks || tracks->empty()) {
     return false;
   }
@@ -125,7 +126,7 @@ bool PlaylistRepository::createPlaylistFromAlbum(
 
 bool PlaylistRepository::createPlaylistFromSearch(const std::string &name,
                                                   const std::string &query) {
-  auto allTracks = musicRepo_.getAllTracks();
+  auto allTracks = musicRepo->getAllTracks();
   if (!allTracks || allTracks->empty()) {
     return false;
   }
@@ -187,26 +188,26 @@ bool PlaylistRepository::exportPlaylist(const std::string &name,
 }
 
 void PlaylistRepository::invalidateAll() {
-  std::unique_lock lock(mutex_);
+  std::unique_lock lock(mutex);
   invalidateAllLocked();
 }
 
 void PlaylistRepository::invalidateAllLocked() {
-  playlistListCache_.data.clear();
-  playlistCache_.clear();
+  playlistListCache.data.clear();
+  playlistCache.clear();
 }
 
 size_t PlaylistRepository::getCacheSize() const {
-  std::shared_lock lock(mutex_);
-  size_t size = playlistCache_.size();
-  if (!playlistListCache_.data.empty())
+  std::shared_lock lock(mutex);
+  size_t size = playlistCache.size();
+  if (!playlistListCache.data.empty())
     size++;
   return size;
 }
 
 std::shared_ptr<const Playlist>
 PlaylistRepository::loadPlaylistFromDB(const std::string &name) const {
-  auto result = db_.loadPlaylist(name);
+  auto result = db->loadPlaylist(name);
   if (!result.has_value()) {
     return nullptr;
   }
@@ -215,16 +216,16 @@ PlaylistRepository::loadPlaylistFromDB(const std::string &name) const {
 
 std::vector<std::string>
 PlaylistRepository::loadAllPlaylistNamesFromDB() const {
-  return db_.getAllPlaylistNames();
+  return db->getAllPlaylistNames();
 }
 
 bool PlaylistRepository::savePlaylistToDB(const std::string &name,
                                           const Playlist &playlist) {
-  return db_.savePlaylist(name, playlist);
+  return db->savePlaylist(name, playlist);
 }
 
 bool PlaylistRepository::deletePlaylistFromDB(const std::string &name) {
-  return db_.deletePlaylist(name);
+  return db->deletePlaylist(name);
 }
 
 bool PlaylistRepository::isPlaylistFile(const std::string &path) const {
@@ -239,23 +240,23 @@ bool PlaylistRepository::isPlaylistFile(const std::string &path) const {
 std::shared_future<bool> PlaylistRepository::scanPlaylistDirectoryAsync(
     const std::string &playlistDir,
     std::function<void(int total, int processed)> progressCallback) {
-  std::lock_guard<std::mutex> lock(scanMutex_);
-  if (scanFuture_.valid()) {
-    auto status = scanFuture_.wait_for(std::chrono::milliseconds(0));
+  std::lock_guard<std::mutex> lock(scanMutex);
+  if (scanFuture.valid()) {
+    auto status = scanFuture.wait_for(std::chrono::milliseconds(0));
     if (status == std::future_status::timeout) {
       return std::shared_future<bool>();
     }
   }
-  stopSource_ = std::stop_source{};
-  scanPromise_ = std::promise<bool>();
-  scanFuture_ = scanPromise_.get_future().share();
-  scanThread_ = std::jthread(
+  stopSource = std::stop_source{};
+  scanPromise = std::promise<bool>();
+  scanFuture = scanPromise.get_future().share();
+  scanThread = std::jthread(
       [this, playlistDir, progressCallback](std::stop_token stopToken) {
         bool success =
             doScanPlaylistDirectory(playlistDir, progressCallback, stopToken);
-        scanPromise_.set_value(success);
+        scanPromise.set_value(success);
       });
-  return scanFuture_;
+  return scanFuture;
 }
 
 bool PlaylistRepository::doScanPlaylistDirectory(
@@ -306,7 +307,7 @@ bool PlaylistRepository::doScanPlaylistDirectory(
         progressCallback(total, processed);
     }
     {
-      std::unique_lock lock(mutex_);
+      std::unique_lock lock(mutex);
       invalidateAllLocked();
     }
     std::cout << "[PlaylistRepository] Scan completed: imported " << imported
@@ -318,18 +319,18 @@ bool PlaylistRepository::doScanPlaylistDirectory(
   }
 }
 
-void PlaylistRepository::cancelScan() { stopSource_.request_stop(); }
+void PlaylistRepository::cancelScan() { stopSource.request_stop(); }
 
 bool PlaylistRepository::isScanning() const {
-  std::lock_guard<std::mutex> lock(scanMutex_);
-  return scanFuture_.valid() &&
-         scanFuture_.wait_for(std::chrono::milliseconds(0)) ==
+  std::lock_guard<std::mutex> lock(scanMutex);
+  return scanFuture.valid() &&
+         scanFuture.wait_for(std::chrono::milliseconds(0)) ==
              std::future_status::timeout;
 }
 
 void PlaylistRepository::waitForScan() {
-  std::lock_guard<std::mutex> lock(scanMutex_);
-  if (scanFuture_.valid()) {
-    scanFuture_.wait();
+  std::lock_guard<std::mutex> lock(scanMutex);
+  if (scanFuture.valid()) {
+    scanFuture.wait();
   }
 }
