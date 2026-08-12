@@ -4,43 +4,7 @@
 #include <iostream>
 #include <thread>
 
-PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {
-  mpv = mpv_create();
-  if (!mpv) {
-    std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
-    return;
-  }
-  mpv_set_option_string(mpv, "vo", "gpu");
-  mpv_set_option_string(mpv, "gpu-api", "vulkan");
-  mpv_set_option_string(mpv, "hwdec", "no");
-  mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
-  mpv_set_option_string(mpv, "dither", "fruit");
-  mpv_set_option_string(mpv, "correct-downscaling", "yes");
-  mpv_set_option_string(mpv, "linear-downscaling", "yes");
-  mpv_set_option_string(mpv, "video-rotate", "0");
-  mpv_set_option_string(mpv, "video-unscaled", "no");
-  mpv_set_option_string(mpv, "fullscreen", "yes");
-  mpv_set_option_string(mpv, "audio-device", "alsa");
-  mpv_set_option_string(mpv, "audio-exclusive", "no");
-  mpv_set_option_string(mpv, "audio-buffer", "1.0");
-  mpv_set_option_string(mpv, "audio-stream-silence", "yes");
-  mpv_set_option_string(mpv, "audio-format", "s16");
-  mpv_set_option_string(mpv, "audio-channels", "stereo");
-  mpv_set_option_string(mpv, "config", "no");
-  mpv_set_option_string(mpv, "really-quiet", "yes");
-  mpv_set_option_string(mpv, "cache", "yes");
-  mpv_set_option_string(mpv, "cache-secs", "5");
-  mpv_set_option_string(mpv, "demuxer-readahead-secs", "2");
-  mpv_set_option_string(mpv, "vd-lavc-threads", "1");
-  int initResult = mpv_initialize(mpv);
-  if (initResult < 0) {
-    std::cerr << "[ERROR] mpv_initialize failed with code: " << initResult
-              << std::endl;
-    mpv_terminate_destroy(mpv);
-    mpv = nullptr;
-    return;
-  }
-}
+PlaybackService::PlaybackService() : mpv(nullptr), isPlaying(false) {}
 
 PlaybackService::~PlaybackService() {
   if (mpv) {
@@ -53,53 +17,98 @@ PlaybackService &PlaybackService::getInstance() {
   return instance;
 }
 
-std::string PlaybackService::getCachedOrFetch(const std::string &property) {
-  auto now = std::chrono::steady_clock::now();
-  auto it = cache.find(property);
-  if (it != cache.end() && (now - it->second.second) < CACHE_TTL) {
-    return it->second.first;
+void PlaybackService::setCommonOptions() {
+  mpv_set_option_string(mpv, "config", "no");
+  mpv_set_option_string(mpv, "really-quiet", "yes");
+  mpv_set_option_string(mpv, "audio-device", "alsa");
+  mpv_set_option_string(mpv, "audio-exclusive", "no");
+  mpv_set_option_string(mpv, "audio-buffer", "1.0");
+  mpv_set_option_string(mpv, "audio-stream-silence", "yes");
+  mpv_set_option_string(mpv, "audio-format", "s16");
+  mpv_set_option_string(mpv, "audio-channels", "stereo");
+  mpv_set_option_string(mpv, "cache", "yes");
+}
+
+void PlaybackService::setAudioOptions() {
+  std::cout << "AUDIO PLAYING!!!!\n";
+  mpv_set_option_string(mpv, "vo", "null");
+  mpv_set_option_string(mpv, "video", "no");
+  mpv_set_option_string(mpv, "wid", "0");
+  mpv_set_option_string(mpv, "fullscreen", "no");
+  mpv_set_option_string(mpv, "osd-level", "0");
+  mpv_set_option_string(mpv, "terminal", "no");
+  mpv_set_option_string(mpv, "msg-level", "all=no");
+  mpv_set_option_string(mpv, "cache-secs", "2");
+  mpv_set_option_string(mpv, "demuxer-readahead-secs", "1");
+  mpv_set_option_string(mpv, "no-keepaspect-window", "");
+  mpv_set_option_string(mpv, "no-ontop", "");
+  mpv_set_option_string(mpv, "no-border", "");
+  mpv_set_option_string(mpv, "no-osc", "");
+  mpv_set_option_string(mpv, "no-osd-bar", "");
+  mpv_set_option_string(mpv, "no-window-dragging", "");
+  mpv_set_option_string(mpv, "geometry", "0x0");
+  mpv_set_option_string(mpv, "autofit", "0x0");
+  mpv_set_option_string(mpv, "gpu-context", "null");
+}
+
+void PlaybackService::setVideoOptions() {
+  std::cout << "VIDEO PLAYING!!!!\n";
+  mpv_set_option_string(mpv, "vo", "gpu");
+  mpv_set_option_string(mpv, "gpu-api", "vulkan");
+  mpv_set_option_string(mpv, "hwdec", "no");
+  mpv_set_option_string(mpv, "scale", "ewa_lanczossharp");
+  mpv_set_option_string(mpv, "dither", "fruit");
+  mpv_set_option_string(mpv, "correct-downscaling", "yes");
+  mpv_set_option_string(mpv, "linear-downscaling", "yes");
+  mpv_set_option_string(mpv, "video-rotate", "0");
+  mpv_set_option_string(mpv, "video-unscaled", "no");
+  mpv_set_option_string(mpv, "fullscreen", "yes");
+  mpv_set_option_string(mpv, "cache-secs", "5");
+  mpv_set_option_string(mpv, "demuxer-readahead-secs", "2");
+  mpv_set_option_string(mpv, "vd-lavc-threads", "1");
+}
+
+void PlaybackService::configureMpv(PlaybackMode mode) {
+  if (mpv) {
+    mpv_terminate_destroy(mpv);
+    mpv = nullptr;
   }
-  if (!mpv || !isPlaying)
-    return "";
-  std::string result;
-  std::lock_guard<std::mutex> lock(mpvMutex);
-  if (property == "time-pos") {
-    double val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
-      result = "{\"data\":" + std::to_string(val) + "}";
-    }
-  } else if (property == "duration") {
-    double val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
-      result = "{\"data\":" + std::to_string(val) + "}";
-    }
-  } else if (property == "pause") {
-    int val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_FLAG, &val) >= 0) {
-      result = val ? "{\"data\":true}" : "{\"data\":false}";
-    }
-  } else if (property == "path") {
-    const char *val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_STRING, &val) >= 0 &&
-        val) {
-      result = "{\"data\":\"" + std::string(val) + "\"}";
-      mpv_free((void *)val);
-    }
-  } else if (property == "aid") {
-    int64_t val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val) >= 0) {
-      result = "{\"data\":" + std::to_string(val) + "}";
-    }
+  mpv = mpv_create();
+  if (!mpv) {
+    std::cerr << "[ERROR] Failed to create mpv handle" << std::endl;
+    return;
   }
-  if (!result.empty()) {
-    cache[property] = {result, now};
+  currentMode = mode;
+  if (mode == PlaybackMode::AudioOnly) {
+    setAudioOptions();
+  } else {
+    setVideoOptions();
   }
-  return result;
+  setCommonOptions();
+  int initResult = mpv_initialize(mpv);
+  if (initResult < 0) {
+    std::cerr << "[ERROR] mpv_initialize failed with code: " << initResult
+              << std::endl;
+    mpv_terminate_destroy(mpv);
+    mpv = nullptr;
+  }
 }
 
 void PlaybackService::openVideo(const std::string &path,
-                                std::string &activeSocket, bool &success) {
+                                std::string &activeSocket, bool &success,
+                                PlaybackMode mode) {
   std::lock_guard<std::mutex> lock(mpvMutex);
+  if (mpv && currentMode != mode) {
+    mpv_terminate_destroy(mpv);
+    mpv = nullptr;
+  }
+  if (!mpv) {
+    configureMpv(mode);
+  }
+  if (!mpv) {
+    success = false;
+    return;
+  }
   if (isPlaying) {
     const char *cmd[] = {"stop", nullptr};
     mpv_command(mpv, cmd);
@@ -113,8 +122,10 @@ void PlaybackService::openVideo(const std::string &path,
     activeSocket = "libmpv-internal";
     int pause = 0;
     mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
-    int fullscreen = 1;
-    mpv_set_property(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
+    if (mode == PlaybackMode::Video) {
+      int fullscreen = 1;
+      mpv_set_property(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
+    }
     cache.clear();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
@@ -219,11 +230,54 @@ bool PlaybackService::checkProcessAlive(const std::string &activeSocket) {
 }
 
 bool PlaybackService::setAudioTrack(int stream_index) {
-  if (!mpv || !isPlaying) {
+  if (!mpv || !isPlaying)
     return false;
-  }
   std::lock_guard<std::mutex> lock(mpvMutex);
   int64_t aid = stream_index;
   int result = mpv_set_property(mpv, "aid", MPV_FORMAT_INT64, &aid);
   return result >= 0;
+}
+
+std::string PlaybackService::getCachedOrFetch(const std::string &property) {
+  auto now = std::chrono::steady_clock::now();
+  auto it = cache.find(property);
+  if (it != cache.end() && (now - it->second.second) < CACHE_TTL) {
+    return it->second.first;
+  }
+  if (!mpv || !isPlaying)
+    return "";
+  std::string result;
+  std::lock_guard<std::mutex> lock(mpvMutex);
+  if (property == "time-pos") {
+    double val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  } else if (property == "duration") {
+    double val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  } else if (property == "pause") {
+    int val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_FLAG, &val) >= 0) {
+      result = val ? "{\"data\":true}" : "{\"data\":false}";
+    }
+  } else if (property == "path") {
+    const char *val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_STRING, &val) >= 0 &&
+        val) {
+      result = "{\"data\":\"" + std::string(val) + "\"}";
+      mpv_free((void *)val);
+    }
+  } else if (property == "aid") {
+    int64_t val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  }
+  if (!result.empty()) {
+    cache[property] = {result, now};
+  }
+  return result;
 }

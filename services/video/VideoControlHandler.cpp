@@ -12,7 +12,8 @@ VideoControlHandler &VideoControlHandler::getInstance() {
 }
 
 Json::Value VideoControlHandler::handleOpen(const std::string &path,
-                                            std::string &activeSocket) {
+                                            std::string &activeSocket,
+                                            bool audioOnly) {
   auto &playbackService = PlaybackService::getInstance();
   auto &fsService = FileSystemService::getInstance();
   static std::mutex videoMutex;
@@ -36,11 +37,14 @@ Json::Value VideoControlHandler::handleOpen(const std::string &path,
   }
   isOpening = true;
   bool success = false;
-  playbackService.openVideo(path, activeSocket, success);
+  PlaybackMode mode = audioOnly ? PlaybackMode::AudioOnly : PlaybackMode::Video;
+  playbackService.openVideo(path, activeSocket, success, mode);
   isOpening = false;
   response["success"] = success;
   response["socket"] = activeSocket;
-  response["message"] = success ? "Video playing" : "Failed to start mpv";
+  response["message"] = success
+                            ? (audioOnly ? "Audio playing" : "Video playing")
+                            : "Failed to start mpv";
   return response;
 }
 

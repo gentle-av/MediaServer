@@ -10,7 +10,8 @@
 class VideoControlHandler {
 public:
   static VideoControlHandler &getInstance();
-  Json::Value handleOpen(const std::string &path, std::string &activeSocket);
+  Json::Value handleOpen(const std::string &path, std::string &activeSocket,
+                         bool audioOnly = false);
   Json::Value handleClose(std::string &activeSocket);
   Json::Value handleForceStop(std::string &activeSocket);
   Json::Value handleControl(const std::string &command,

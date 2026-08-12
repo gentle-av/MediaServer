@@ -7,12 +7,14 @@
 #include <string>
 #include <unordered_map>
 
+enum class PlaybackMode { Video, AudioOnly };
+
 class PlaybackService {
 public:
   static PlaybackService &getInstance();
   ~PlaybackService();
   void openVideo(const std::string &path, std::string &activeSocket,
-                 bool &success);
+                 bool &success, PlaybackMode mode = PlaybackMode::Video);
   void closeVideo(std::string &activeSocket);
   void forceStop(std::string &activeSocket);
   bool sendCommand(const std::string &activeSocket, const std::string &command,
@@ -31,8 +33,13 @@ private:
   PlaybackService(const PlaybackService &) = delete;
   PlaybackService &operator=(const PlaybackService &) = delete;
   std::string getCachedOrFetch(const std::string &property);
+  void configureMpv(PlaybackMode mode);
+  void setCommonOptions();
+  void setAudioOptions();
+  void setVideoOptions();
   mpv_handle *mpv;
   bool isPlaying;
+  PlaybackMode currentMode = PlaybackMode::Video;
   std::unordered_map<
       std::string,
       std::pair<std::string, std::chrono::steady_clock::time_point>>

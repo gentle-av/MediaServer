@@ -96,7 +96,7 @@ bool PlaylistManager::loadTrack(int index) {
   const auto &track = currentPlaylist_[index];
   currentIndex_ = index;
   Json::Value response =
-      videoControl_.handleOpen(track.filePath, activeSocket_);
+      videoControl_.handleOpen(track.filePath, activeSocket_, true);
   bool success = response.get("success", false).asBool();
   if (success) {
     std::cout << "[PlaylistManager] Playing track " << index + 1 << "/"
