@@ -2,14 +2,11 @@
 
 #include "../database/PlaylistDatabase.h"
 #include "../models/Playlist.h"
-#include "MusicRepository.h"
+#include "../repositories/MusicRepository.h"
 #include <chrono>
-#include <functional>
-#include <future>
 #include <memory>
 #include <shared_mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -19,27 +16,39 @@ public:
                               std::unique_ptr<MusicRepository> musicRepo);
   ~PlaylistRepository() = default;
 
-  std::vector<std::string> getPlaylistNames() const;
-  std::shared_ptr<const Playlist> getPlaylist(const std::string &name) const;
-  bool hasPlaylist(const std::string &name) const;
   bool savePlaylist(const std::string &name, const Playlist &playlist);
   bool savePlaylist(const std::string &name, Playlist &&playlist);
+
+  std::shared_ptr<const Playlist> loadPlaylist(const std::string &name) const;
   bool deletePlaylist(const std::string &name);
   bool renamePlaylist(const std::string &oldName, const std::string &newName);
-  bool createPlaylistFromArtist(const std::string &name,
-                                const std::string &artistName);
-  bool createPlaylistFromAlbum(const std::string &name,
-                               const std::string &albumName,
-                               const std::string &artistName = "");
-  bool createPlaylistFromSearch(const std::string &name,
-                                const std::string &query);
-  bool importPlaylist(const std::string &filePath);
-  bool exportPlaylist(const std::string &name,
-                      const std::string &filePath) const;
+  bool playlistExists(const std::string &name) const;
+
+  std::vector<std::string> getAllPlaylistNames() const;
+  int getTrackCount(const std::string &name) const;
+
+  Playlist createFromArtist(const std::string &artistName) const;
+  Playlist createFromAlbum(const std::string &albumName,
+                           const std::string &artistName = "") const;
+  Playlist createFromSearch(const std::string &query) const;
+  Playlist createFromFilePaths(const std::vector<std::string> &paths) const;
+
+  bool createAndSaveFromArtist(const std::string &name,
+                               const std::string &artistName);
+  bool createAndSaveFromAlbum(const std::string &name,
+                              const std::string &albumName,
+                              const std::string &artistName = "");
+  bool createAndSaveFromSearch(const std::string &name,
+                               const std::string &query);
+
+  bool importFromFile(const std::string &filePath);
+  bool exportToFile(const std::string &name, const std::string &filePath) const;
+
   void invalidateAll();
   void setTTL(std::chrono::seconds ttl) { defaultTTL = ttl; }
   size_t getCacheSize() const;
-  std::shared_future<bool> scanPlaylistDirectoryAsync(
+
+  std::shared_future<bool> scanDirectoryAsync(
       const std::string &playlistDir,
       std::function<void(int total, int processed)> progressCallback = nullptr);
   void cancelScan();
@@ -47,37 +56,37 @@ public:
   void waitForScan();
 
 private:
-  struct CachedPlaylist {
-    std::shared_ptr<const Playlist> data;
-    std::chrono::steady_clock::time_point timestamp;
-  };
-
-  struct CachedPlaylistList {
-    std::vector<std::string> data;
-    std::chrono::steady_clock::time_point timestamp;
-  };
-
   bool isExpired(const std::chrono::steady_clock::time_point &timestamp) const;
   void refreshPlaylistListCache() const;
   void invalidateAllLocked();
 
+  bool saveToDatabase(const std::string &name, const Playlist &playlist);
   std::shared_ptr<const Playlist>
-  loadPlaylistFromDB(const std::string &name) const;
-  std::vector<std::string> loadAllPlaylistNamesFromDB() const;
-  bool savePlaylistToDB(const std::string &name, const Playlist &playlist);
-  bool deletePlaylistFromDB(const std::string &name);
+  loadFromDatabase(const std::string &name) const;
+  bool deleteFromDatabase(const std::string &name);
 
   bool isPlaylistFile(const std::string &path) const;
-  bool doScanPlaylistDirectory(
+  bool doScanDirectory(
       const std::string &playlistDir,
       std::function<void(int total, int processed)> progressCallback,
       std::stop_token stopToken);
 
   std::unique_ptr<PlaylistDatabase> db;
   std::unique_ptr<MusicRepository> musicRepo;
+
   std::chrono::seconds defaultTTL{60};
   mutable std::shared_mutex mutex;
+
+  struct CachedPlaylistList {
+    std::vector<std::string> data;
+    std::chrono::steady_clock::time_point timestamp;
+  };
   mutable CachedPlaylistList playlistListCache;
+
+  struct CachedPlaylist {
+    std::shared_ptr<const Playlist> data;
+    std::chrono::steady_clock::time_point timestamp;
+  };
   mutable std::unordered_map<std::string, CachedPlaylist> playlistCache;
 
   std::jthread scanThread;

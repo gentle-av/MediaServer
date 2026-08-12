@@ -15,7 +15,7 @@ bool PlaylistRepository::isExpired(
   return std::chrono::steady_clock::now() - timestamp > defaultTTL;
 }
 
-std::vector<std::string> PlaylistRepository::getPlaylistNames() const {
+std::vector<std::string> PlaylistRepository::getAllPlaylistNames() const {
   std::shared_lock lock(mutex);
   if (!playlistListCache.data.empty() &&
       !isExpired(playlistListCache.timestamp))
@@ -27,14 +27,14 @@ std::vector<std::string> PlaylistRepository::getPlaylistNames() const {
 }
 
 void PlaylistRepository::refreshPlaylistListCache() const {
-  auto playlists = loadAllPlaylistNamesFromDB();
+  auto playlists = db->getAllPlaylistNames();
   std::unique_lock lock(mutex);
   playlistListCache.data = playlists;
   playlistListCache.timestamp = std::chrono::steady_clock::now();
 }
 
 std::shared_ptr<const Playlist>
-PlaylistRepository::getPlaylist(const std::string &name) const {
+PlaylistRepository::loadPlaylist(const std::string &name) const {
   std::shared_lock lock(mutex);
   auto it = playlistCache.find(name);
   if (it != playlistCache.end() && !isExpired(it->second.timestamp) &&
@@ -42,7 +42,7 @@ PlaylistRepository::getPlaylist(const std::string &name) const {
     return it->second.data;
   }
   lock.unlock();
-  auto playlist = loadPlaylistFromDB(name);
+  auto playlist = loadFromDatabase(name);
   if (!playlist) {
     return nullptr;
   }
@@ -54,13 +54,17 @@ PlaylistRepository::getPlaylist(const std::string &name) const {
   return playlist;
 }
 
-bool PlaylistRepository::hasPlaylist(const std::string &name) const {
+int PlaylistRepository::getTrackCount(const std::string &name) const {
+  return db->getTrackCount(name);
+}
+
+bool PlaylistRepository::playlistExists(const std::string &name) const {
   return db->playlistExists(name);
 }
 
 bool PlaylistRepository::savePlaylist(const std::string &name,
                                       const Playlist &playlist) {
-  bool success = savePlaylistToDB(name, playlist);
+  bool success = saveToDatabase(name, playlist);
   if (success) {
     invalidateAll();
   }
@@ -69,7 +73,7 @@ bool PlaylistRepository::savePlaylist(const std::string &name,
 
 bool PlaylistRepository::savePlaylist(const std::string &name,
                                       Playlist &&playlist) {
-  bool success = savePlaylistToDB(name, playlist);
+  bool success = saveToDatabase(name, playlist);
   if (success) {
     invalidateAll();
   }
@@ -77,7 +81,7 @@ bool PlaylistRepository::savePlaylist(const std::string &name,
 }
 
 bool PlaylistRepository::deletePlaylist(const std::string &name) {
-  bool success = deletePlaylistFromDB(name);
+  bool success = deleteFromDatabase(name);
   if (success) {
     invalidateAll();
   }
@@ -86,49 +90,46 @@ bool PlaylistRepository::deletePlaylist(const std::string &name) {
 
 bool PlaylistRepository::renamePlaylist(const std::string &oldName,
                                         const std::string &newName) {
-  if (oldName == newName || hasPlaylist(newName)) {
+  if (oldName == newName || playlistExists(newName)) {
     return false;
   }
-  auto playlist = loadPlaylistFromDB(oldName);
+  auto playlist = loadFromDatabase(oldName);
   if (!playlist) {
     return false;
   }
-  if (!deletePlaylistFromDB(oldName)) {
+  if (!deleteFromDatabase(oldName)) {
     return false;
   }
-  bool success = savePlaylistToDB(newName, *playlist);
+  bool success = saveToDatabase(newName, *playlist);
   if (success) {
     invalidateAll();
   }
   return success;
 }
 
-bool PlaylistRepository::createPlaylistFromArtist(
-    const std::string &name, const std::string &artistName) {
+Playlist
+PlaylistRepository::createFromArtist(const std::string &artistName) const {
   auto tracks = musicRepo->getTracksByArtist(artistName);
   if (!tracks || tracks->empty()) {
-    return false;
+    return Playlist(std::vector<MusicMetadata>{});
   }
-  Playlist playlist(*tracks);
-  return savePlaylist(name, playlist);
+  return Playlist(*tracks);
 }
 
-bool PlaylistRepository::createPlaylistFromAlbum(
-    const std::string &name, const std::string &albumName,
-    const std::string &artistName) {
+Playlist
+PlaylistRepository::createFromAlbum(const std::string &albumName,
+                                    const std::string &artistName) const {
   auto tracks = musicRepo->getTracksByAlbum(albumName, artistName);
   if (!tracks || tracks->empty()) {
-    return false;
+    return Playlist(std::vector<MusicMetadata>{});
   }
-  Playlist playlist(*tracks);
-  return savePlaylist(name, playlist);
+  return Playlist(*tracks);
 }
 
-bool PlaylistRepository::createPlaylistFromSearch(const std::string &name,
-                                                  const std::string &query) {
+Playlist PlaylistRepository::createFromSearch(const std::string &query) const {
   auto allTracks = musicRepo->getAllTracks();
   if (!allTracks || allTracks->empty()) {
-    return false;
+    return Playlist(std::vector<MusicMetadata>{});
   }
   std::vector<MusicMetadata> matchingTracks;
   std::string queryLower = query;
@@ -138,33 +139,70 @@ bool PlaylistRepository::createPlaylistFromSearch(const std::string &name,
     std::string titleLower = track.title;
     std::string artistLower = track.artist;
     std::string albumLower = track.album;
-    std::string genreLower = track.genre;
     std::transform(titleLower.begin(), titleLower.end(), titleLower.begin(),
                    ::tolower);
     std::transform(artistLower.begin(), artistLower.end(), artistLower.begin(),
                    ::tolower);
     std::transform(albumLower.begin(), albumLower.end(), albumLower.begin(),
                    ::tolower);
-    std::transform(genreLower.begin(), genreLower.end(), genreLower.begin(),
-                   ::tolower);
     if (titleLower.find(queryLower) != std::string::npos ||
         artistLower.find(queryLower) != std::string::npos ||
-        albumLower.find(queryLower) != std::string::npos ||
-        genreLower.find(queryLower) != std::string::npos) {
+        albumLower.find(queryLower) != std::string::npos) {
       matchingTracks.push_back(track);
     }
   }
-  if (matchingTracks.empty()) {
-    return false;
-  }
-  Playlist playlist(std::move(matchingTracks));
-  return savePlaylist(name, playlist);
+  return Playlist(std::move(matchingTracks));
 }
 
-bool PlaylistRepository::importPlaylist(const std::string &filePath) {
+Playlist PlaylistRepository::createFromFilePaths(
+    const std::vector<std::string> &paths) const {
+  std::vector<MusicMetadata> tracks;
+  tracks.reserve(paths.size());
+  for (const auto &path : paths) {
+    auto track = musicRepo->getTrack(path);
+    if (track.has_value()) {
+      tracks.push_back(track.value());
+    } else {
+      MusicMetadata meta;
+      meta.filePath = path;
+      tracks.push_back(meta);
+    }
+  }
+  return Playlist(std::move(tracks));
+}
+
+bool PlaylistRepository::createAndSaveFromArtist(
+    const std::string &name, const std::string &artistName) {
+  auto playlist = createFromArtist(artistName);
+  if (playlist.empty()) {
+    return false;
+  }
+  return savePlaylist(name, std::move(playlist));
+}
+
+bool PlaylistRepository::createAndSaveFromAlbum(const std::string &name,
+                                                const std::string &albumName,
+                                                const std::string &artistName) {
+  auto playlist = createFromAlbum(albumName, artistName);
+  if (playlist.empty()) {
+    return false;
+  }
+  return savePlaylist(name, std::move(playlist));
+}
+
+bool PlaylistRepository::createAndSaveFromSearch(const std::string &name,
+                                                 const std::string &query) {
+  auto playlist = createFromSearch(query);
+  if (playlist.empty()) {
+    return false;
+  }
+  return savePlaylist(name, std::move(playlist));
+}
+
+bool PlaylistRepository::importFromFile(const std::string &filePath) {
   fs::path path(filePath);
   std::string name = path.stem().string();
-  if (hasPlaylist(name)) {
+  if (playlistExists(name)) {
     std::cerr << "[PlaylistRepository] Playlist already exists: " << name
               << std::endl;
     return false;
@@ -175,12 +213,12 @@ bool PlaylistRepository::importPlaylist(const std::string &filePath) {
               << std::endl;
     return false;
   }
-  return savePlaylist(name, playlist);
+  return savePlaylist(name, std::move(playlist));
 }
 
-bool PlaylistRepository::exportPlaylist(const std::string &name,
-                                        const std::string &filePath) const {
-  auto playlist = getPlaylist(name);
+bool PlaylistRepository::exportToFile(const std::string &name,
+                                      const std::string &filePath) const {
+  auto playlist = loadPlaylist(name);
   if (!playlist) {
     return false;
   }
@@ -206,7 +244,7 @@ size_t PlaylistRepository::getCacheSize() const {
 }
 
 std::shared_ptr<const Playlist>
-PlaylistRepository::loadPlaylistFromDB(const std::string &name) const {
+PlaylistRepository::loadFromDatabase(const std::string &name) const {
   auto result = db->loadPlaylist(name);
   if (!result.has_value()) {
     return nullptr;
@@ -214,17 +252,12 @@ PlaylistRepository::loadPlaylistFromDB(const std::string &name) const {
   return std::make_shared<const Playlist>(std::move(result.value()));
 }
 
-std::vector<std::string>
-PlaylistRepository::loadAllPlaylistNamesFromDB() const {
-  return db->getAllPlaylistNames();
-}
-
-bool PlaylistRepository::savePlaylistToDB(const std::string &name,
-                                          const Playlist &playlist) {
+bool PlaylistRepository::saveToDatabase(const std::string &name,
+                                        const Playlist &playlist) {
   return db->savePlaylist(name, playlist);
 }
 
-bool PlaylistRepository::deletePlaylistFromDB(const std::string &name) {
+bool PlaylistRepository::deleteFromDatabase(const std::string &name) {
   return db->deletePlaylist(name);
 }
 
@@ -237,7 +270,7 @@ bool PlaylistRepository::isPlaylistFile(const std::string &path) const {
   return extensions.find(ext) != extensions.end();
 }
 
-std::shared_future<bool> PlaylistRepository::scanPlaylistDirectoryAsync(
+std::shared_future<bool> PlaylistRepository::scanDirectoryAsync(
     const std::string &playlistDir,
     std::function<void(int total, int processed)> progressCallback) {
   std::lock_guard<std::mutex> lock(scanMutex);
@@ -250,16 +283,15 @@ std::shared_future<bool> PlaylistRepository::scanPlaylistDirectoryAsync(
   stopSource = std::stop_source{};
   scanPromise = std::promise<bool>();
   scanFuture = scanPromise.get_future().share();
-  scanThread = std::jthread(
-      [this, playlistDir, progressCallback](std::stop_token stopToken) {
-        bool success =
-            doScanPlaylistDirectory(playlistDir, progressCallback, stopToken);
-        scanPromise.set_value(success);
-      });
+  scanThread = std::jthread([this, playlistDir,
+                             progressCallback](std::stop_token stopToken) {
+    bool success = doScanDirectory(playlistDir, progressCallback, stopToken);
+    scanPromise.set_value(success);
+  });
   return scanFuture;
 }
 
-bool PlaylistRepository::doScanPlaylistDirectory(
+bool PlaylistRepository::doScanDirectory(
     const std::string &playlistDir,
     std::function<void(int total, int processed)> progressCallback,
     std::stop_token stopToken) {
@@ -267,7 +299,7 @@ bool PlaylistRepository::doScanPlaylistDirectory(
     if (stopToken.stop_requested())
       return false;
     if (!fs::exists(playlistDir) || !fs::is_directory(playlistDir)) {
-      std::cerr << "[PlaylistRepository] Playlist directory does not exist: "
+      std::cerr << "[PlaylistRepository] Directory does not exist: "
                 << playlistDir << std::endl;
       return false;
     }
@@ -281,7 +313,7 @@ bool PlaylistRepository::doScanPlaylistDirectory(
     }
     std::cout << "[PlaylistRepository] Found " << allFiles.size()
               << " playlist files" << std::endl;
-    auto existingNames = loadAllPlaylistNamesFromDB();
+    auto existingNames = db->getAllPlaylistNames();
     std::unordered_set<std::string> existingSet(existingNames.begin(),
                                                 existingNames.end());
     int total = static_cast<int>(allFiles.size());
@@ -294,12 +326,12 @@ bool PlaylistRepository::doScanPlaylistDirectory(
       fs::path filePath(path);
       std::string name = filePath.stem().string();
       if (existingSet.find(name) == existingSet.end()) {
-        if (importPlaylist(path)) {
+        if (importFromFile(path)) {
           imported++;
         } else {
           errors++;
-          std::cerr << "[PlaylistRepository] Failed to import playlist: "
-                    << path << std::endl;
+          std::cerr << "[PlaylistRepository] Failed to import: " << path
+                    << std::endl;
         }
       }
       processed++;
@@ -311,7 +343,7 @@ bool PlaylistRepository::doScanPlaylistDirectory(
       invalidateAllLocked();
     }
     std::cout << "[PlaylistRepository] Scan completed: imported " << imported
-              << ", errors " << errors << " files" << std::endl;
+              << ", errors " << errors << std::endl;
     return true;
   } catch (const std::exception &e) {
     std::cerr << "[PlaylistRepository] Scan error: " << e.what() << std::endl;

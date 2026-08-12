@@ -17,6 +17,7 @@ pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVFORMAT REQUIRED libavformat)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
+pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
 set(COMMON_LIBS
     TagLib::TagLib
@@ -27,6 +28,7 @@ set(COMMON_LIBS
     ${AVCODEC_LIBRARIES}
     ${AVFORMAT_LIBRARIES}
     ${AVUTIL_LIBRARIES}
+    ${JSONCPP_LIBRARIES}
     asound
     pthread
     dl
@@ -39,6 +41,7 @@ set(COMMON_INCLUDES
     ${MPV_INCLUDE_DIRS}
     ${LIBCURL_INCLUDE_DIRS}
     ${DBUS_INCLUDE_DIRS}
+    ${JSONCPP_INCLUDE_DIRS}
 )
 
 add_library(media_tagger SHARED
@@ -93,6 +96,62 @@ add_library(media_playlist_repository SHARED
 
 target_link_libraries(media_playlist_repository PRIVATE
     media_playlist
+    media_repository
+)
+
+add_library(media_filesystem SHARED
+    services/video/FileSystemService.cpp
+    services/video/TrashHandler.cpp
+)
+
+target_include_directories(media_filesystem PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_filesystem ${COMMON_LIBS})
+
+add_library(media_playback SHARED
+    services/video/PlaybackService.cpp
+    services/video/PlaybackStatus.cpp
+    services/player/AutoAdvanceTracker.cpp
+)
+
+target_include_directories(media_playback PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_playback
+    media_filesystem
+    ${COMMON_LIBS}
+)
+
+add_library(media_alsa SHARED
+    services/system/AlsaMixer.cpp
+)
+
+target_include_directories(media_alsa PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_alsa ${COMMON_LIBS})
+
+add_library(media_video_control SHARED
+    services/video/VideoControlHandler.cpp
+)
+
+target_include_directories(media_video_control PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_video_control
+    media_playback
+    media_filesystem
+    media_alsa
+    ${COMMON_LIBS}
+)
+
+add_library(media_playlist_manager SHARED
+    services/music/PlaylistManager.cpp
+)
+
+target_include_directories(media_playlist_manager PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_playlist_manager PRIVATE
+    media_playlist
+    media_playlist_repository
+    media_repository
+    media_video_control
+    media_playback
+    media_filesystem
+    media_alsa
+    ${COMMON_LIBS}
 )
 
 add_library(media_profiler SHARED
@@ -114,4 +173,10 @@ target_link_libraries(MediaServer
     media_playlist
     media_playlist_database
     media_playlist_repository
+    media_playlist_manager
+    media_video_control
+    media_playback
+    media_filesystem
+    media_alsa
+    ${COMMON_LIBS}
 )
