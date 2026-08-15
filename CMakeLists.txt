@@ -165,6 +165,24 @@ set_target_properties(media_profiler PROPERTIES
     SOVERSION 1
 )
 
+add_library(media_video_thumbnailer SHARED
+    services/video/VideoThumbnailer.cpp
+)
+
+# Добавляем зависимости для VideoThumbnailer
+target_include_directories(media_video_thumbnailer PRIVATE
+    ${COMMON_INCLUDES}
+    ${AVCODEC_INCLUDE_DIRS}
+    ${AVFORMAT_INCLUDE_DIRS}
+    ${AVUTIL_INCLUDE_DIRS}
+)
+target_link_libraries(media_video_thumbnailer PRIVATE
+    ${AVCODEC_LIBRARIES}
+    ${AVFORMAT_LIBRARIES}
+    ${AVUTIL_LIBRARIES}
+    ${COMMON_LIBS}
+)
+
 add_executable(MediaServer ./main.cpp)
 target_link_libraries(MediaServer
     PRIVATE
@@ -178,5 +196,6 @@ target_link_libraries(MediaServer
     media_playback
     media_filesystem
     media_alsa
+    media_video_thumbnailer
     ${COMMON_LIBS}
 )

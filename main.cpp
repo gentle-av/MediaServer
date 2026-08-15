@@ -1,79 +1,88 @@
-#include "database/MusicDatabase.h"
-#include "database/PlaylistDatabase.h"
-#include "profilers/Profiler.h"
-#include "repositories/MusicRepository.h"
-#include "repositories/PlaylistRepository.h"
-#include "services/music/PlaylistManager.h"
+#include "services/video/VideoThumbnailer.h"
 #include <chrono>
+#include <filesystem>
 #include <iostream>
-#include <memory>
-#include <thread>
+#include <string>
+
+namespace fs = std::filesystem;
+
+void printUsage(const char *programName) {
+  std::cout << "Usage: " << programName
+            << " <video_file> [output_path] [time_seconds]\n";
+  std::cout << "  video_file    - Path to the video file\n";
+  std::cout << "  output_path   - Output image path (default: thumbnail.ppm)\n";
+  std::cout
+      << "  time_seconds  - Time in seconds to extract frame (default: 10.0)\n";
+  std::cout << "\nExample: " << programName << " video.mp4 preview.ppm 15.5\n";
+}
+
+bool fileExists(const std::string &path) {
+  return fs::exists(path) && fs::is_regular_file(path);
+}
 
 int main(int argc, char *argv[]) {
-  auto profiler = std::make_unique<Profiler>(argc, argv);
-  auto musicDatabase = std::make_unique<MusicDatabase>(
-      profiler->getDatabasePath() + "/music.db");
-  musicDatabase->init();
-  auto musicRepository =
-      std::make_unique<MusicRepository>(std::move(musicDatabase));
-  std::string musicDir = profiler->getMusicDirectory();
-  std::cout << "Scanning music directory: " << musicDir << std::endl;
-  auto scanFuture = musicRepository->scanMusicDirectoryAsync(
-      musicDir, [](int total, int processed) {
-        std::cout << "\rProgress: " << processed << "/" << total
-                  << " files scanned" << std::flush;
-      });
-  bool scanSuccess = scanFuture.get();
-  std::cout << "\nScan completed: " << (scanSuccess ? "SUCCESS" : "FAILED")
-            << std::endl;
-  auto allTracks = musicRepository->getAllTracks();
-  if (!allTracks || allTracks->empty()) {
-    std::cout << "No tracks found in database!" << std::endl;
+  std::string videoPath;
+  std::string outputPath = "thumbnail.ppm";
+  double timeInSeconds = 10.0;
+
+  if (argc < 2) {
+    printUsage(argv[0]);
     return 1;
   }
-  std::cout << "Found " << allTracks->size() << " tracks in database\n";
-  for (size_t i = 0; i < std::min(size_t(5), allTracks->size()); ++i) {
-    const auto &track = (*allTracks)[i];
-    std::cout << " - " << track.title << " by " << track.artist << " ("
-              << track.album << ")" << std::endl;
+
+  videoPath = argv[1];
+
+  if (argc >= 3) {
+    outputPath = argv[2];
   }
-  auto playlistDatabase = std::make_unique<PlaylistDatabase>(
-      profiler->getDatabasePath() + "/playlists.db");
-  playlistDatabase->init();
-  auto playlistRepository = std::make_unique<PlaylistRepository>(
-      std::move(playlistDatabase), std::move(musicRepository));
-  PlaylistManager playlistManager;
-  std::string searchQuery = "Metallica";
-  std::cout << "\nSearching for: " << searchQuery << std::endl;
-  auto playlist = playlistRepository->createFromSearch(searchQuery);
-  if (playlist.empty()) {
-    std::cout << "No tracks found for: " << searchQuery << std::endl;
-    return 1;
-  }
-  std::cout << "Found " << playlist.size() << " tracks" << std::endl;
-  playlistRepository->savePlaylist("New Playlist", playlist);
-  std::cout << "\nStarting playback..." << std::endl;
-  playlistManager.setLoopMode(true);
-  playlistManager.playPlaylist(playlist);
-  std::cout << "\n=== Playback Controls ===" << std::endl;
-  std::cout << "Playlist: New Playlist (" << playlist.size() << " tracks)"
-            << std::endl;
-  std::cout << "Loop mode: ON" << std::endl;
-  for (int i = 0; i < 30; ++i) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    auto status = playlistManager.getStatus();
-    if (status.get("playing", false).asBool()) {
-      double current = status.get("currentTime", 0.0).asDouble();
-      double duration = status.get("duration", 0.0).asDouble();
-      bool paused = status.get("paused", false).asBool();
-      std::cout << "\r[" << (paused ? "PAUSED" : "PLAYING") << "] " << current
-                << "s / " << duration << "s" << std::flush;
-    } else {
-      std::cout << "\r[STOPPED] Waiting for track..." << std::flush;
+
+  if (argc >= 4) {
+    try {
+      timeInSeconds = std::stod(argv[3]);
+    } catch (const std::exception &e) {
+      std::cerr << "Invalid time format: " << argv[3] << "\n";
+      return 1;
     }
   }
-  std::cout << "\n\nStopping playback..." << std::endl;
-  playlistManager.stop();
-  std::cout << "Done." << std::endl;
-  return 0;
+
+  if (!fileExists(videoPath)) {
+    std::cerr << "Error: Video file not found: " << videoPath << "\n";
+    return 1;
+  }
+
+  std::cout << "========================================\n";
+  std::cout << "Video Thumbnailer Test\n";
+  std::cout << "========================================\n";
+  std::cout << "Video file:   " << videoPath << "\n";
+  std::cout << "Output file:  " << outputPath << "\n";
+  std::cout << "Time:         " << timeInSeconds << " seconds\n";
+  std::cout << "========================================\n\n";
+
+  VideoThumbnailer thumbnailer;
+
+  auto startTime = std::chrono::high_resolution_clock::now();
+
+  bool success =
+      thumbnailer.extractThumbnail(videoPath, outputPath, timeInSeconds);
+
+  auto endTime = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+      endTime - startTime);
+
+  std::cout << "\n========================================\n";
+  if (success) {
+    std::cout << "✓ Thumbnail extraction SUCCESSFUL\n";
+    std::cout << "  Output file: " << outputPath << "\n";
+
+    if (fileExists(outputPath)) {
+      auto fileSize = fs::file_size(outputPath);
+      std::cout << "  File size:   " << fileSize << " bytes\n";
+    }
+  } else {
+    std::cout << "✗ Thumbnail extraction FAILED\n";
+  }
+  std::cout << "  Time:        " << duration.count() << " ms\n";
+  std::cout << "========================================\n";
+
+  return success ? 0 : 1;
 }
