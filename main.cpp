@@ -1,88 +1,73 @@
-#include "services/video/VideoThumbnailer.h"
+#include "controllers/music/MusicScanController.h"
+#include "database/MusicDatabase.h"
+#include "profilers/Profiler.h"
+#include "repositories/MusicRepository.h"
 #include <chrono>
-#include <filesystem>
+#include <csignal>
+#include <html-server/app/App.h>
+#include <html-server/templates/WebApplication.h>
 #include <iostream>
-#include <string>
+#include <memory>
+#include <thread>
 
-namespace fs = std::filesystem;
+std::atomic<bool> running{true};
 
-void printUsage(const char *programName) {
-  std::cout << "Usage: " << programName
-            << " <video_file> [output_path] [time_seconds]\n";
-  std::cout << "  video_file    - Path to the video file\n";
-  std::cout << "  output_path   - Output image path (default: thumbnail.ppm)\n";
-  std::cout
-      << "  time_seconds  - Time in seconds to extract frame (default: 10.0)\n";
-  std::cout << "\nExample: " << programName << " video.mp4 preview.ppm 15.5\n";
-}
-
-bool fileExists(const std::string &path) {
-  return fs::exists(path) && fs::is_regular_file(path);
+void signalHandler(int signal) {
+  (void)signal;
+  running = false;
 }
 
 int main(int argc, char *argv[]) {
-  std::string videoPath;
-  std::string outputPath = "thumbnail.ppm";
-  double timeInSeconds = 10.0;
+  std::signal(SIGINT, signalHandler);
+  std::signal(SIGTERM, signalHandler);
 
-  if (argc < 2) {
-    printUsage(argv[0]);
-    return 1;
-  }
+  try {
+    Profiler profiler(argc, argv);
+    auto config = profiler.getConfig();
 
-  videoPath = argv[1];
-
-  if (argc >= 3) {
-    outputPath = argv[2];
-  }
-
-  if (argc >= 4) {
-    try {
-      timeInSeconds = std::stod(argv[3]);
-    } catch (const std::exception &e) {
-      std::cerr << "Invalid time format: " << argv[3] << "\n";
+    auto db = std::make_unique<MusicDatabase>(config.databasePath);
+    if (!db->init()) {
+      std::cerr << "Failed to initialize database" << std::endl;
       return 1;
     }
-  }
+    MusicRepository repository(std::move(db));
 
-  if (!fileExists(videoPath)) {
-    std::cerr << "Error: Video file not found: " << videoPath << "\n";
+    App::Config appConfig;
+    appConfig.port = config.port;
+    appConfig.documentRoot = config.documentRoot;
+    appConfig.staticDir = config.documentRoot + "/static";
+    appConfig.templateDir = config.documentRoot + "/templates";
+    appConfig.indexFile = "index.html";
+    appConfig.enableCache = true;
+    appConfig.charset = "utf-8";
+
+    App app(appConfig);
+    MusicScanController controller(app, repository, config.musicDirectory);
+    controller.register_routes();
+
+    if (!app.start()) {
+      std::cerr << "Failed to start server: " << app.getLastError()
+                << std::endl;
+      return 1;
+    }
+
+    profiler.printStartupInfo();
+    std::cout << "Available endpoints:" << std::endl;
+    std::cout << "  GET  /api/music/scan - Start music scan" << std::endl;
+    std::cout << "  GET  /api/music/force-rescan - Force rescan music directory"
+              << std::endl;
+    std::cout << "  POST /api/music/remove-missing - Remove missing tracks"
+              << std::endl;
+
+    while (running) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    app.stop();
+    std::cout << "Server stopped" << std::endl;
+    return 0;
+  } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     return 1;
   }
-
-  std::cout << "========================================\n";
-  std::cout << "Video Thumbnailer Test\n";
-  std::cout << "========================================\n";
-  std::cout << "Video file:   " << videoPath << "\n";
-  std::cout << "Output file:  " << outputPath << "\n";
-  std::cout << "Time:         " << timeInSeconds << " seconds\n";
-  std::cout << "========================================\n\n";
-
-  VideoThumbnailer thumbnailer;
-
-  auto startTime = std::chrono::high_resolution_clock::now();
-
-  bool success =
-      thumbnailer.extractThumbnail(videoPath, outputPath, timeInSeconds);
-
-  auto endTime = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-      endTime - startTime);
-
-  std::cout << "\n========================================\n";
-  if (success) {
-    std::cout << "✓ Thumbnail extraction SUCCESSFUL\n";
-    std::cout << "  Output file: " << outputPath << "\n";
-
-    if (fileExists(outputPath)) {
-      auto fileSize = fs::file_size(outputPath);
-      std::cout << "  File size:   " << fileSize << " bytes\n";
-    }
-  } else {
-    std::cout << "✗ Thumbnail extraction FAILED\n";
-  }
-  std::cout << "  Time:        " << duration.count() << " ms\n";
-  std::cout << "========================================\n";
-
-  return success ? 0 : 1;
 }

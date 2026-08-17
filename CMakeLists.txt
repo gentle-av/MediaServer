@@ -10,6 +10,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(HtmlServer REQUIRED)
+find_package(OpenSSL REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
@@ -29,6 +31,13 @@ set(COMMON_LIBS
     ${AVFORMAT_LIBRARIES}
     ${AVUTIL_LIBRARIES}
     ${JSONCPP_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    HtmlServer::AppCore
+    HtmlServer::AuthCore
+    HtmlServer::FileServerCore
+    HtmlServer::JsonCore
+    HtmlServer::Interfaces
+    HtmlServer::Concepts
     asound
     pthread
     dl
@@ -169,7 +178,6 @@ add_library(media_video_thumbnailer SHARED
     services/video/VideoThumbnailer.cpp
 )
 
-# Добавляем зависимости для VideoThumbnailer
 target_include_directories(media_video_thumbnailer PRIVATE
     ${COMMON_INCLUDES}
     ${AVCODEC_INCLUDE_DIRS}
@@ -183,9 +191,23 @@ target_link_libraries(media_video_thumbnailer PRIVATE
     ${COMMON_LIBS}
 )
 
+add_library(media_music_scan_controller SHARED
+    controllers/music/MusicScanController.cpp
+)
+
+target_include_directories(media_music_scan_controller PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_music_scan_controller
+    media_repository
+    ${COMMON_LIBS}
+)
+
 add_executable(MediaServer ./main.cpp)
+
+target_include_directories(MediaServer PRIVATE ${COMMON_INCLUDES})
+
 target_link_libraries(MediaServer
     PRIVATE
+    media_music_scan_controller
     media_repository
     media_profiler
     media_playlist
