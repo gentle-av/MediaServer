@@ -1,4 +1,4 @@
-#include "services/music/MetadataCache.h"
+#include "MetadataCache.h"
 
 MetadataCache::MetadataCache(size_t maxSize) : maxSize_(maxSize) {}
 

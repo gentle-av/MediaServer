@@ -1,7 +1,9 @@
+#include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicScanController.h"
 #include "database/MusicDatabase.h"
 #include "profilers/Profiler.h"
 #include "repositories/MusicRepository.h"
+#include "services/music/MetadataCache.h"
 #include <chrono>
 #include <csignal>
 #include <html-server/app/App.h>
@@ -39,8 +41,13 @@ int main(int argc, char *argv[]) {
     appConfig.charset = "utf-8";
 
     App app(appConfig);
-    MusicScanController controller(app, repository, config.musicDirectory);
-    controller.register_routes();
+
+    auto cache = std::make_shared<MetadataCache>(500);
+    MusicLibraryController libraryController(app, repository, cache);
+    libraryController.register_routes();
+
+    MusicScanController scanController(app, repository, config.musicDirectory);
+    scanController.register_routes();
 
     if (!app.start()) {
       std::cerr << "Failed to start server: " << app.getLastError()
@@ -50,6 +57,17 @@ int main(int argc, char *argv[]) {
 
     profiler.printStartupInfo();
     std::cout << "Available endpoints:" << std::endl;
+    std::cout
+        << "  GET  /api/music/tracks/artist/{artist} - Get tracks by artist"
+        << std::endl;
+    std::cout << "  GET  /api/music/tracks/album/{album} - Get tracks by album"
+              << std::endl;
+    std::cout << "  GET  /api/music/list - List all music files" << std::endl;
+    std::cout << "  GET  /api/music/artists - Get all artists" << std::endl;
+    std::cout << "  GET  /api/music/albums - Get all albums" << std::endl;
+    std::cout
+        << "  GET  /api/music/albums/paginated - Get albums with pagination"
+        << std::endl;
     std::cout << "  GET  /api/music/force-rescan - Force rescan music directory"
               << std::endl;
     std::cout << "  POST /api/music/remove-missing - Remove missing tracks"

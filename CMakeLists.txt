@@ -59,6 +59,7 @@ add_library(media_tagger SHARED
 
 add_library(media_metadata_extractor SHARED
     services/music/MetadataExtractor.cpp
+    services/music/MetadataCache.cpp
 )
 
 add_library(media_music_database SHARED
@@ -201,12 +202,23 @@ target_link_libraries(media_music_scan_controller
     ${COMMON_LIBS}
 )
 
+add_library(media_music_library_controller SHARED
+    controllers/music/MusicLibraryController.cpp
+)
+
+target_include_directories(media_music_library_controller PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_music_library_controller
+    media_repository
+    ${COMMON_LIBS}
+)
+
 add_executable(MediaServer ./main.cpp)
 
 target_include_directories(MediaServer PRIVATE ${COMMON_INCLUDES})
 
 target_link_libraries(MediaServer
     PRIVATE
+    media_music_library_controller
     media_music_scan_controller
     media_repository
     media_profiler
@@ -219,5 +231,6 @@ target_link_libraries(MediaServer
     media_filesystem
     media_alsa
     media_video_thumbnailer
+    media_metadata_extractor
     ${COMMON_LIBS}
 )

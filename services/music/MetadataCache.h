@@ -1,6 +1,6 @@
 #pragma once
 
-#include "models/MusicMetadata.h"
+#include "../../models/MusicMetadata.h"
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
