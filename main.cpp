@@ -12,10 +12,7 @@
 
 std::atomic<bool> running{true};
 
-void signalHandler(int signal) {
-  (void)signal;
-  running = false;
-}
+void signalHandler(int) { running = false; }
 
 int main(int argc, char *argv[]) {
   std::signal(SIGINT, signalHandler);
@@ -53,7 +50,6 @@ int main(int argc, char *argv[]) {
 
     profiler.printStartupInfo();
     std::cout << "Available endpoints:" << std::endl;
-    std::cout << "  GET  /api/music/scan - Start music scan" << std::endl;
     std::cout << "  GET  /api/music/force-rescan - Force rescan music directory"
               << std::endl;
     std::cout << "  POST /api/music/remove-missing - Remove missing tracks"
