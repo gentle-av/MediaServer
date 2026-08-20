@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MusicMetadata.h"
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,15 +20,19 @@ public:
 
   std::optional<MusicMetadata> getTrack(int index) const;
   std::vector<MusicMetadata> getAllTracks() const;
-  int getCurrentIndex() const { return currentIndex_; }
+  int getCurrentIndex() const { return currentIndex; }
   void setCurrentIndex(int index);
-  size_t size() const { return tracks_.size(); }
-  bool empty() const { return tracks_.empty(); }
+  size_t size() const { return tracks.size(); }
+  bool empty() const { return tracks.empty(); }
 
   bool save(const std::string &filePath) const;
   bool load(const std::string &filePath);
 
+  bool removeByFilePath(const std::string &filePath);
+  int removeMissingTracks(std::function<bool(const std::string &)> fileExists);
+  bool hasTrack(const std::string &filePath) const;
+
 private:
-  std::vector<MusicMetadata> tracks_;
-  int currentIndex_ = -1;
+  std::vector<MusicMetadata> tracks;
+  int currentIndex = -1;
 };

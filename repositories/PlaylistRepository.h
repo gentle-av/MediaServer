@@ -55,7 +55,22 @@ public:
   bool isScanning() const;
   void waitForScan();
 
+  void validateAllPlaylists();
+  void validatePlaylist(const std::string &name);
+  void onTrackRemoved(const std::string &filePath);
+
+  MusicRepository *getMusicRepository() const { return musicRepo.get(); }
+
 private:
+  struct CachedPlaylistList {
+    std::vector<std::string> data;
+    std::chrono::steady_clock::time_point timestamp;
+  };
+  struct CachedPlaylist {
+    std::shared_ptr<const Playlist> data;
+    std::chrono::steady_clock::time_point timestamp;
+  };
+
   bool isExpired(const std::chrono::steady_clock::time_point &timestamp) const;
   void refreshPlaylistListCache() const;
   void invalidateAllLocked();
@@ -76,17 +91,7 @@ private:
 
   std::chrono::seconds defaultTTL{60};
   mutable std::shared_mutex mutex;
-
-  struct CachedPlaylistList {
-    std::vector<std::string> data;
-    std::chrono::steady_clock::time_point timestamp;
-  };
   mutable CachedPlaylistList playlistListCache;
-
-  struct CachedPlaylist {
-    std::shared_ptr<const Playlist> data;
-    std::chrono::steady_clock::time_point timestamp;
-  };
   mutable std::unordered_map<std::string, CachedPlaylist> playlistCache;
 
   std::jthread scanThread;

@@ -1,3 +1,4 @@
+// PlaylistRepository.cpp - добавление конструктора с подпиской
 #include "PlaylistRepository.h"
 #include <filesystem>
 #include <iostream>
@@ -8,7 +9,11 @@ namespace fs = std::filesystem;
 PlaylistRepository::PlaylistRepository(
     std::unique_ptr<PlaylistDatabase> db,
     std::unique_ptr<MusicRepository> musicRepo)
-    : db(std::move(db)), musicRepo(std::move(musicRepo)) {}
+    : db(std::move(db)), musicRepo(std::move(musicRepo)) {
+  this->musicRepo->subscribe(
+      "track_removed",
+      [this](const std::string &filePath) { onTrackRemoved(filePath); });
+}
 
 bool PlaylistRepository::isExpired(
     const std::chrono::steady_clock::time_point &timestamp) const {
@@ -364,5 +369,53 @@ void PlaylistRepository::waitForScan() {
   std::lock_guard<std::mutex> lock(scanMutex);
   if (scanFuture.valid()) {
     scanFuture.wait();
+  }
+}
+
+void PlaylistRepository::validateAllPlaylists() {
+  auto playlistNames = getAllPlaylistNames();
+  for (const auto &name : playlistNames) {
+    validatePlaylist(name);
+  }
+}
+
+void PlaylistRepository::validatePlaylist(const std::string &name) {
+  auto playlist = loadPlaylist(name);
+  if (!playlist) {
+    return;
+  }
+  auto tracks = playlist->getAllTracks();
+  std::vector<std::string> pathsToRemove;
+  for (const auto &track : tracks) {
+    auto existingTrack = musicRepo->getTrack(track.filePath);
+    if (!existingTrack.has_value()) {
+      pathsToRemove.push_back(track.filePath);
+    }
+  }
+  if (!pathsToRemove.empty()) {
+    Playlist cleanedPlaylist(*playlist);
+    for (const auto &path : pathsToRemove) {
+      cleanedPlaylist.removeByFilePath(path);
+    }
+    savePlaylist(name, cleanedPlaylist);
+    std::cout << "[PlaylistRepository] Cleaned playlist '" << name
+              << "': removed " << pathsToRemove.size() << " missing tracks"
+              << std::endl;
+  }
+}
+
+void PlaylistRepository::onTrackRemoved(const std::string &filePath) {
+  std::unique_lock lock(mutex);
+  for (auto &[name, cached] : playlistCache) {
+    if (cached.data) {
+      Playlist updatedPlaylist(*cached.data);
+      if (updatedPlaylist.removeByFilePath(filePath)) {
+        cached.data = std::make_shared<Playlist>(updatedPlaylist);
+        cached.timestamp = std::chrono::steady_clock::now();
+        saveToDatabase(name, updatedPlaylist);
+        std::cout << "[PlaylistRepository] Updated playlist '" << name
+                  << "' after track removal" << std::endl;
+      }
+    }
   }
 }

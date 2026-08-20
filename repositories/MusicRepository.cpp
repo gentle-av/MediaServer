@@ -1,3 +1,4 @@
+// MusicRepository.cpp - изменения
 #include "MusicRepository.h"
 #include "../services/music/MetadataExtractor.h"
 #include <filesystem>
@@ -176,8 +177,10 @@ bool MusicRepository::addTrack(const std::string &filePath,
 
 bool MusicRepository::removeTrack(const std::string &filePath) {
   bool success = db->removeFile(filePath);
-  if (success)
+  if (success) {
     invalidateAll();
+    eventBus.publish("track_removed", filePath);
+  }
   return success;
 }
 
@@ -192,6 +195,7 @@ bool MusicRepository::updateTrack(const std::string &filePath,
 void MusicRepository::invalidateAll() {
   std::unique_lock lock(mutex);
   invalidateAllLocked();
+  eventBus.publish("cache_invalidated");
 }
 
 void MusicRepository::invalidateAllLocked() {
@@ -300,18 +304,25 @@ bool MusicRepository::doScanMusicDirectory(
         progressCallback(total, processed);
     }
     int removed = 0;
+    std::vector<std::string> removedPaths;
     for (const auto &path : existingSet) {
       if (stopToken.stop_requested())
         return false;
       if (foundSet.find(path) == foundSet.end()) {
-        if (db->removeFile(path))
+        if (db->removeFile(path)) {
           removed++;
+          removedPaths.push_back(path);
+        }
       }
     }
     {
       std::unique_lock lock(mutex);
       invalidateAllLocked();
     }
+    for (const auto &path : removedPaths) {
+      eventBus.publish("track_removed", path);
+    }
+    eventBus.publish("scan_completed");
     std::cout << "[MusicRepository] Scan completed: added " << added
               << ", removed " << removed << ", errors " << errors << " files"
               << std::endl;

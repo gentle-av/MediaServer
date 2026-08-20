@@ -1,16 +1,17 @@
+// MusicScanController.cpp - изменения
 #include "MusicScanController.h"
 #include <filesystem>
 
 MusicScanController::MusicScanController(App &app, MusicRepository &repo,
+                                         PlaylistRepository &playlistRepo,
                                          const std::string &musicDir)
     : RestController<App>(app), musicRepository(repo),
-      musicDirectory(musicDir) {}
+      playlistRepository(playlistRepo), musicDirectory(musicDir) {}
 
 void MusicScanController::register_all_routes() {
   this->app_.get("/api/music/force-rescan",
                  [this](const App::RequestType &req) -> App::ResponseType {
                    App::ResponseType res;
-
                    if (musicRepository.isScanning()) {
                      auto error =
                          this->error_response(409, "Scan already in progress");
@@ -18,21 +19,17 @@ void MusicScanController::register_all_routes() {
                      res.setJsonContent(error.dump());
                      return res;
                    }
-
                    std::string musicDir = musicDirectory;
                    auto queryDir = req.getQuery("dir");
                    if (!queryDir.empty()) {
                      musicDir = queryDir;
                    }
-
                    musicRepository.scanMusicDirectoryAsync(
                        musicDir, [](int total, int processed) {});
-
                    nlohmann::json response =
                        this->success_response("Force rescan started");
                    response["scanning"] = true;
                    response["directory"] = musicDir;
-
                    res.setJsonContent(response.dump());
                    res.setStatus(200);
                    return res;
@@ -65,7 +62,7 @@ void MusicScanController::register_all_routes() {
                              e.what());
           }
         });
-        musicRepository.invalidateAll();
+        playlistRepository.validateAllPlaylists();
         nlohmann::json response =
             this->success_response("Missing tracks removal completed");
         response["removed_count"] = removedTracks.size();
@@ -75,4 +72,23 @@ void MusicScanController::register_all_routes() {
         res.setStatus(200);
         return res;
       });
+  this->app_.post("/api/music/validate-playlists",
+                  [this](const App::RequestType &req) -> App::ResponseType {
+                    App::ResponseType res;
+                    try {
+                      int totalPlaylists =
+                          playlistRepository.getAllPlaylistNames().size();
+                      playlistRepository.validateAllPlaylists();
+                      nlohmann::json response =
+                          this->success_response("Playlists validated");
+                      response["total_playlists"] = totalPlaylists;
+                      res.setJsonContent(response.dump());
+                      res.setStatus(200);
+                    } catch (const std::exception &e) {
+                      auto error = this->error_response(500, e.what());
+                      res.setStatus(500);
+                      res.setJsonContent(error.dump());
+                    }
+                    return res;
+                  });
 }

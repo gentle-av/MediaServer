@@ -43,6 +43,10 @@ set(COMMON_LIBS
     dl
 )
 
+add_library(media_event_bus SHARED
+    ./events/EventBus.cpp
+)
+
 set(COMMON_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${SQLITE3_INCLUDE_DIRS}
@@ -232,5 +236,6 @@ target_link_libraries(MediaServer
     media_alsa
     media_video_thumbnailer
     media_metadata_extractor
+    media_event_bus
     ${COMMON_LIBS}
 )

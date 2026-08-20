@@ -1,8 +1,11 @@
+// main.cpp - исправленный файл
 #include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicScanController.h"
 #include "database/MusicDatabase.h"
+#include "database/PlaylistDatabase.h"
 #include "profilers/Profiler.h"
 #include "repositories/MusicRepository.h"
+#include "repositories/PlaylistRepository.h"
 #include "services/music/MetadataCache.h"
 #include <chrono>
 #include <csignal>
@@ -29,7 +32,15 @@ int main(int argc, char *argv[]) {
       std::cerr << "Failed to initialize database" << std::endl;
       return 1;
     }
-    MusicRepository repository(std::move(db));
+    auto musicRepo = std::make_unique<MusicRepository>(std::move(db));
+
+    auto playlistDb = std::make_unique<PlaylistDatabase>(config.databasePath);
+    if (!playlistDb->init()) {
+      std::cerr << "Failed to initialize playlist database" << std::endl;
+      return 1;
+    }
+    auto playlistRepo = std::make_unique<PlaylistRepository>(
+        std::move(playlistDb), std::move(musicRepo));
 
     App::Config appConfig;
     appConfig.port = config.port;
@@ -43,10 +54,12 @@ int main(int argc, char *argv[]) {
     App app(appConfig);
 
     auto cache = std::make_shared<MetadataCache>(500);
-    MusicLibraryController libraryController(app, repository, cache);
+    MusicLibraryController libraryController(
+        app, *playlistRepo->getMusicRepository(), cache);
     libraryController.register_routes();
 
-    MusicScanController scanController(app, repository, config.musicDirectory);
+    MusicScanController scanController(app, *playlistRepo->getMusicRepository(),
+                                       *playlistRepo, config.musicDirectory);
     scanController.register_routes();
 
     if (!app.start()) {
@@ -71,6 +84,8 @@ int main(int argc, char *argv[]) {
     std::cout << "  GET  /api/music/force-rescan - Force rescan music directory"
               << std::endl;
     std::cout << "  POST /api/music/remove-missing - Remove missing tracks"
+              << std::endl;
+    std::cout << "  POST /api/music/validate-playlists - Validate all playlists"
               << std::endl;
 
     while (running) {

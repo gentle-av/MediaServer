@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../database/MusicDatabase.h"
+#include "../events/EventBus.h"
 #include "../models/MusicMetadata.h"
 #include <chrono>
 #include <functional>
@@ -44,6 +45,11 @@ public:
   void cancelScan();
   bool isScanning() const;
   void waitForScan();
+
+  EventBus &getEventBus() { return eventBus; }
+  void subscribe(const std::string &event, EventBus::EventCallback callback) {
+    eventBus.subscribe(event, callback);
+  }
 
 private:
   struct CachedTracks {
@@ -93,4 +99,6 @@ private:
   std::promise<bool> scanPromise;
   std::shared_future<bool> scanFuture;
   mutable std::mutex scanMutex;
+
+  EventBus eventBus;
 };
