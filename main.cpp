@@ -1,6 +1,6 @@
-// main.cpp - исправленный файл
 #include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicScanController.h"
+#include "controllers/playlists/PlaylistController.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
 #include "profilers/Profiler.h"
@@ -62,6 +62,10 @@ int main(int argc, char *argv[]) {
                                        *playlistRepo, config.musicDirectory);
     scanController.register_routes();
 
+    PlaylistController playlistController(app, *playlistRepo,
+                                          *playlistRepo->getMusicRepository());
+    playlistController.register_routes();
+
     if (!app.start()) {
       std::cerr << "Failed to start server: " << app.getLastError()
                 << std::endl;
@@ -86,6 +90,39 @@ int main(int argc, char *argv[]) {
     std::cout << "  POST /api/music/remove-missing - Remove missing tracks"
               << std::endl;
     std::cout << "  POST /api/music/validate-playlists - Validate all playlists"
+              << std::endl;
+    std::cout << "  GET  /api/playlists - Get all playlists" << std::endl;
+    std::cout << "  GET  /api/playlists/:name - Get playlist by name"
+              << std::endl;
+    std::cout << "  POST /api/playlists - Create new playlist" << std::endl;
+    std::cout << "  PUT  /api/playlists/:name - Update playlist" << std::endl;
+    std::cout << "  DEL  /api/playlists/:name - Delete playlist" << std::endl;
+    std::cout << "  POST /api/playlists/:name/rename - Rename playlist"
+              << std::endl;
+    std::cout << "  POST /api/playlists/:name/tracks - Add tracks to playlist"
+              << std::endl;
+    std::cout << "  DEL  /api/playlists/:name/tracks/:index - Remove track "
+                 "from playlist"
+              << std::endl;
+    std::cout << "  POST /api/playlists/:name/shuffle - Shuffle playlist"
+              << std::endl;
+    std::cout << "  POST /api/playlists/:name/clear - Clear playlist"
+              << std::endl;
+    std::cout << "  GET  /api/playlists/:name/export - Export playlist to file"
+              << std::endl;
+    std::cout << "  POST /api/playlists/import - Import playlist from file"
+              << std::endl;
+    std::cout
+        << "  POST /api/playlists/from-artist - Create playlist from artist"
+        << std::endl;
+    std::cout << "  POST /api/playlists/from-album - Create playlist from album"
+              << std::endl;
+    std::cout
+        << "  POST /api/playlists/from-search - Create playlist from search"
+        << std::endl;
+    std::cout << "  POST /api/playlists/validate - Validate playlists"
+              << std::endl;
+    std::cout << "  POST /api/playlists/scan - Scan playlist directory"
               << std::endl;
 
     while (running) {

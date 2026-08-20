@@ -1,3 +1,4 @@
+# CMakeLists.txt - исправленный
 cmake_minimum_required(VERSION 3.12)
 project(MediaServer VERSION 1.0.0)
 
@@ -43,10 +44,6 @@ set(COMMON_LIBS
     dl
 )
 
-add_library(media_event_bus SHARED
-    ./events/EventBus.cpp
-)
-
 set(COMMON_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${SQLITE3_INCLUDE_DIRS}
@@ -55,6 +52,10 @@ set(COMMON_INCLUDES
     ${LIBCURL_INCLUDE_DIRS}
     ${DBUS_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
+)
+
+add_library(media_event_bus SHARED
+    events/EventBus.cpp
 )
 
 add_library(media_tagger SHARED
@@ -85,6 +86,7 @@ target_link_libraries(media_repository
     media_music_database
     media_tagger
     media_metadata_extractor
+    media_event_bus
 )
 target_compile_definitions(media_repository PRIVATE TAGLIB_STATIC)
 set_target_properties(media_repository PROPERTIES
@@ -108,9 +110,12 @@ add_library(media_playlist_repository SHARED
     repositories/PlaylistRepository.cpp
 )
 
+target_include_directories(media_playlist_repository PRIVATE ${COMMON_INCLUDES})
 target_link_libraries(media_playlist_repository PRIVATE
     media_playlist
     media_repository
+    media_event_bus
+    ${COMMON_LIBS}
 )
 
 add_library(media_filesystem SHARED
@@ -203,6 +208,7 @@ add_library(media_music_scan_controller SHARED
 target_include_directories(media_music_scan_controller PRIVATE ${COMMON_INCLUDES})
 target_link_libraries(media_music_scan_controller
     media_repository
+    media_playlist_repository
     ${COMMON_LIBS}
 )
 
@@ -216,6 +222,17 @@ target_link_libraries(media_music_library_controller
     ${COMMON_LIBS}
 )
 
+add_library(media_playlist_controller SHARED
+    controllers/playlists/PlaylistController.cpp
+)
+
+target_include_directories(media_playlist_controller PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_playlist_controller
+    media_playlist_repository
+    media_repository
+    ${COMMON_LIBS}
+)
+
 add_executable(MediaServer ./main.cpp)
 
 target_include_directories(MediaServer PRIVATE ${COMMON_INCLUDES})
@@ -224,6 +241,7 @@ target_link_libraries(MediaServer
     PRIVATE
     media_music_library_controller
     media_music_scan_controller
+    media_playlist_controller
     media_repository
     media_profiler
     media_playlist
@@ -237,5 +255,7 @@ target_link_libraries(MediaServer
     media_video_thumbnailer
     media_metadata_extractor
     media_event_bus
+    media_tagger
+    media_trackinfo
     ${COMMON_LIBS}
 )
