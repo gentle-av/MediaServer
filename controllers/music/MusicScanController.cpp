@@ -1,6 +1,4 @@
-// MusicScanController.cpp - изменения
 #include "MusicScanController.h"
-#include <filesystem>
 
 MusicScanController::MusicScanController(App &app, MusicRepository &repo,
                                          PlaylistRepository &playlistRepo,
@@ -8,73 +6,60 @@ MusicScanController::MusicScanController(App &app, MusicRepository &repo,
     : RestController<App>(app), musicRepository(repo),
       playlistRepository(playlistRepo), musicDirectory(musicDir) {}
 
+nlohmann::json
+MusicScanController::handleForceRescan(const StringHttpRequest &req,
+                                       const std::string &targetDir) {
+  nlohmann::json response = this->success_response("Force rescan started");
+  response["scanning"] = true;
+  response["directory"] = targetDir;
+  return response;
+}
+
+nlohmann::json
+MusicScanController::handleRemoveMissing(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  if (musicRepository.isScanning()) {
+    auto error = this->error_response(409, "Scan already in progress");
+    res.setStatus(409);
+    res.setJsonContent(error.dump());
+    return error;
+  }
+  std::string targetDir = musicDirectory;
+  auto queryDir = req.getQuery("dir");
+  if (!queryDir.empty()) {
+    targetDir = queryDir;
+  }
+  musicRepository.scanMusicDirectoryAsync(targetDir,
+                                          [](int total, int processed) {});
+  return this->handleForceRescan(req, targetDir);
+}
+
 void MusicScanController::register_all_routes() {
-  this->app_.get("/api/music/force-rescan",
-                 [this](const App::RequestType &req) -> App::ResponseType {
-                   App::ResponseType res;
-                   if (musicRepository.isScanning()) {
-                     auto error =
-                         this->error_response(409, "Scan already in progress");
-                     res.setStatus(409);
-                     res.setJsonContent(error.dump());
-                     return res;
-                   }
-                   std::string musicDir = musicDirectory;
-                   auto queryDir = req.getQuery("dir");
-                   if (!queryDir.empty()) {
-                     musicDir = queryDir;
-                   }
-                   musicRepository.scanMusicDirectoryAsync(
-                       musicDir, [](int total, int processed) {});
-                   nlohmann::json response =
-                       this->success_response("Force rescan started");
-                   response["scanning"] = true;
-                   response["directory"] = musicDir;
-                   res.setJsonContent(response.dump());
-                   res.setStatus(200);
-                   return res;
-                 });
   this->app_.post(
       "/api/music/remove-missing",
-      [this](const App::RequestType &req) -> App::ResponseType {
-        App::ResponseType res;
-        std::vector<std::string> removedTracks;
-        std::vector<std::string> errors;
-        if (musicRepository.isScanning()) {
-          auto error = this->error_response(
-              409, "Scan in progress, cannot remove missing tracks");
+      [this](const StringHttpRequest &req) -> StringHttpResponse {
+        StringHttpResponse res;
+        auto result = handleRemoveMissing(req);
+        if (result.contains("scanning") && !result["scanning"].get<bool>()) {
           res.setStatus(409);
-          res.setJsonContent(error.dump());
+          res.setJsonContent(result.dump());
           return res;
         }
-        musicRepository.forEachTrack([&](const MusicMetadata &track) {
-          try {
-            if (!std::filesystem::exists(
-                    std::filesystem::path(track.filePath))) {
-              if (musicRepository.removeTrack(track.filePath)) {
-                removedTracks.push_back(track.filePath);
-              } else {
-                errors.push_back("Failed to remove: " + track.filePath);
-              }
-            }
-          } catch (const std::exception &e) {
-            errors.push_back("Error checking " + track.filePath + ": " +
-                             e.what());
-          }
-        });
-        playlistRepository.validateAllPlaylists();
-        nlohmann::json response =
-            this->success_response("Missing tracks removal completed");
-        response["removed_count"] = removedTracks.size();
-        response["removed_tracks"] = removedTracks;
-        response["errors"] = errors;
+        auto response = this->success_response("Force rescan started");
+        response["scanning"] = true;
+        std::string targetDir = musicDirectory;
+        auto queryDir = req.getQuery("dir");
+        if (!queryDir.empty()) {
+          targetDir = queryDir;
+        }
+        response["directory"] = targetDir;
         res.setJsonContent(response.dump());
         res.setStatus(200);
         return res;
       });
   this->app_.post("/api/music/validate-playlists",
-                  [this](const App::RequestType &req) -> App::ResponseType {
-                    App::ResponseType res;
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
+                    StringHttpResponse res;
                     try {
                       int totalPlaylists =
                           playlistRepository.getAllPlaylistNames().size();

@@ -7,37 +7,37 @@ MusicLibraryController::MusicLibraryController(
 
 void MusicLibraryController::register_all_routes() {
   this->app_.get("/api/music/tracks/artist/:artist",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    std::string artist = req.getParam("artist");
                    return this->handleGetTracksByArtist(req, artist);
                  });
   this->app_.get("/api/music/tracks/album/:album",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    std::string album = req.getParam("album");
                    return this->handleGetTracksByAlbum(req, album);
                  });
   this->app_.get("/api/music/list",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleListFiles(req);
                  });
   this->app_.get("/api/music/artists",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleGetArtists(req);
                  });
   this->app_.get("/api/music/albums",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleGetAlbums(req);
                  });
   this->app_.get("/api/music/albums/paginated",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleGetAlbumsPaginated(req);
                  });
 }
 
-typename App::ResponseType
-MusicLibraryController::handleGetTracksByArtist(const App::RequestType &req,
+StringHttpResponse
+MusicLibraryController::handleGetTracksByArtist(const StringHttpRequest &req,
                                                 const std::string &artist) {
-  App::ResponseType res;
+  StringHttpResponse res;
   try {
     std::string cacheKey = "artist_tracks_" + artist;
     std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
@@ -55,10 +55,10 @@ MusicLibraryController::handleGetTracksByArtist(const App::RequestType &req,
   return res;
 }
 
-typename App::ResponseType
-MusicLibraryController::handleGetTracksByAlbum(const App::RequestType &req,
+StringHttpResponse
+MusicLibraryController::handleGetTracksByAlbum(const StringHttpRequest &req,
                                                const std::string &album) {
-  App::ResponseType res;
+  StringHttpResponse res;
   try {
     std::string artistFilter = this->getQueryParam(req, "artist");
     std::string cacheKey = "album_tracks_" + album + "_" + artistFilter;
@@ -77,9 +77,9 @@ MusicLibraryController::handleGetTracksByAlbum(const App::RequestType &req,
   return res;
 }
 
-typename App::ResponseType
-MusicLibraryController::handleListFiles(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+MusicLibraryController::handleListFiles(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string cacheKey = "list_files";
     std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
@@ -119,9 +119,9 @@ MusicLibraryController::handleListFiles(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-MusicLibraryController::handleGetArtists(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+MusicLibraryController::handleGetArtists(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string cacheKey = "artists_list";
     std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
@@ -141,9 +141,9 @@ MusicLibraryController::handleGetArtists(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-MusicLibraryController::handleGetAlbums(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+MusicLibraryController::handleGetAlbums(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string artistFilter = this->getQueryParam(req, "artist");
     std::string cacheKey = "albums_list_" + artistFilter;
@@ -172,9 +172,9 @@ MusicLibraryController::handleGetAlbums(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-MusicLibraryController::handleGetAlbumsPaginated(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+MusicLibraryController::handleGetAlbumsPaginated(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string artistFilter = this->getQueryParam(req, "artist");
     int page = this->getQueryParamInt(req, "page", 1);
@@ -250,14 +250,14 @@ nlohmann::json MusicLibraryController::buildTrackResponse(
 }
 
 std::string
-MusicLibraryController::getQueryParam(const App::RequestType &req,
+MusicLibraryController::getQueryParam(const StringHttpRequest &req,
                                       const std::string &key,
                                       const std::string &defaultValue) {
   auto value = req.getQuery(key);
   return value.empty() ? defaultValue : value;
 }
 
-int MusicLibraryController::getQueryParamInt(const App::RequestType &req,
+int MusicLibraryController::getQueryParamInt(const StringHttpRequest &req,
                                              const std::string &key,
                                              int defaultValue) {
   auto value = req.getQuery(key);

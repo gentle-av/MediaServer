@@ -21,7 +21,7 @@ protected:
   void register_all_routes() override;
 
 private:
-  nlohmann::json handleForceRescan(const nlohmann::json &data);
-  nlohmann::json handleRemoveMissing(const nlohmann::json &data);
-  nlohmann::json handleScanStatus(const nlohmann::json &data);
+  nlohmann::json handleForceRescan(const StringHttpRequest &req,
+                                   const std::string &targetDir);
+  nlohmann::json handleRemoveMissing(const StringHttpRequest &req);
 };

@@ -1,4 +1,3 @@
-# CMakeLists.txt - исправленный
 cmake_minimum_required(VERSION 3.12)
 project(MediaServer VERSION 1.0.0)
 
@@ -37,8 +36,7 @@ set(COMMON_LIBS
     HtmlServer::AuthCore
     HtmlServer::FileServerCore
     HtmlServer::JsonCore
-    HtmlServer::Interfaces
-    HtmlServer::Concepts
+    HtmlServer::Core
     asound
     pthread
     dl

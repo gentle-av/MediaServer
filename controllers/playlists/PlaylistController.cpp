@@ -10,78 +10,78 @@ PlaylistController::PlaylistController(App &app,
 
 void PlaylistController::register_all_routes() {
   this->app_.get("/api/playlists",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleGetPlaylists(req);
                  });
   this->app_.get("/api/playlists/:name",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleGetPlaylist(req);
                  });
   this->app_.post("/api/playlists",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleCreatePlaylist(req);
                   });
   this->app_.put("/api/playlists/:name",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleUpdatePlaylist(req);
                  });
   this->app_.del("/api/playlists/:name",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleDeletePlaylist(req);
                  });
   this->app_.post("/api/playlists/:name/rename",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleRenamePlaylist(req);
                   });
   this->app_.post("/api/playlists/:name/tracks",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleAddTracks(req);
                   });
   this->app_.del("/api/playlists/:name/tracks/:index",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleRemoveTrack(req);
                  });
   this->app_.post("/api/playlists/:name/shuffle",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleShufflePlaylist(req);
                   });
   this->app_.post("/api/playlists/:name/clear",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleClearPlaylist(req);
                   });
   this->app_.get("/api/playlists/:name/export",
-                 [this](const App::RequestType &req) -> App::ResponseType {
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleExportPlaylist(req);
                  });
   this->app_.post("/api/playlists/import",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleImportPlaylist(req);
                   });
   this->app_.post("/api/playlists/from-artist",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleCreateFromArtist(req);
                   });
   this->app_.post("/api/playlists/from-album",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleCreateFromAlbum(req);
                   });
   this->app_.post("/api/playlists/from-search",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleCreateFromSearch(req);
                   });
   this->app_.post("/api/playlists/validate",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleValidatePlaylists(req);
                   });
   this->app_.post("/api/playlists/scan",
-                  [this](const App::RequestType &req) -> App::ResponseType {
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleScanPlaylists(req);
                   });
 }
 
-typename App::ResponseType
-PlaylistController::handleGetPlaylists(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleGetPlaylists(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     auto names = playlistRepository.getAllPlaylistNames();
     nlohmann::json response;
@@ -98,9 +98,9 @@ PlaylistController::handleGetPlaylists(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleGetPlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleGetPlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     auto playlist = playlistRepository.loadPlaylist(name);
@@ -123,9 +123,9 @@ PlaylistController::handleGetPlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleCreatePlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleCreatePlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     nlohmann::json body;
     try {
@@ -180,9 +180,9 @@ PlaylistController::handleCreatePlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleUpdatePlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleUpdatePlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     if (!playlistRepository.playlistExists(name)) {
@@ -235,9 +235,9 @@ PlaylistController::handleUpdatePlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleDeletePlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleDeletePlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     if (!playlistRepository.playlistExists(name)) {
@@ -266,9 +266,9 @@ PlaylistController::handleDeletePlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleRenamePlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleRenamePlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string oldName = req.getParam("name");
     nlohmann::json body;
@@ -322,9 +322,9 @@ PlaylistController::handleRenamePlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleAddTracks(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleAddTracks(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     auto playlist = playlistRepository.loadPlaylist(name);
@@ -394,9 +394,9 @@ PlaylistController::handleAddTracks(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleRemoveTrack(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleRemoveTrack(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     int index = std::stoi(req.getParam("index"));
@@ -437,9 +437,9 @@ PlaylistController::handleRemoveTrack(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleShufflePlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleShufflePlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     auto playlist = playlistRepository.loadPlaylist(name);
@@ -471,9 +471,9 @@ PlaylistController::handleShufflePlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleClearPlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleClearPlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     auto playlist = playlistRepository.loadPlaylist(name);
@@ -504,9 +504,9 @@ PlaylistController::handleClearPlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleExportPlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleExportPlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = req.getParam("name");
     std::string filePath = getQueryParam(req, "path", "");
@@ -544,9 +544,9 @@ PlaylistController::handleExportPlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleImportPlaylist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleImportPlaylist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     nlohmann::json body;
     try {
@@ -592,9 +592,9 @@ PlaylistController::handleImportPlaylist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleCreateFromArtist(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleCreateFromArtist(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     nlohmann::json body;
     try {
@@ -645,9 +645,9 @@ PlaylistController::handleCreateFromArtist(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleCreateFromAlbum(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleCreateFromAlbum(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     nlohmann::json body;
     try {
@@ -700,9 +700,9 @@ PlaylistController::handleCreateFromAlbum(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleCreateFromSearch(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleCreateFromSearch(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     nlohmann::json body;
     try {
@@ -753,9 +753,9 @@ PlaylistController::handleCreateFromSearch(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleValidatePlaylists(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleValidatePlaylists(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     std::string name = getQueryParam(req, "name", "");
     if (!name.empty()) {
@@ -776,9 +776,9 @@ PlaylistController::handleValidatePlaylists(const App::RequestType &req) {
   return res;
 }
 
-typename App::ResponseType
-PlaylistController::handleScanPlaylists(const App::RequestType &req) {
-  App::ResponseType res;
+StringHttpResponse
+PlaylistController::handleScanPlaylists(const StringHttpRequest &req) {
+  StringHttpResponse res;
   try {
     if (playlistRepository.isScanning()) {
       auto error = this->error_response(409, "Scan already in progress");
@@ -857,14 +857,14 @@ PlaylistController::playlistListToJson(const std::vector<std::string> &names) {
   return arr;
 }
 
-std::string PlaylistController::getQueryParam(const App::RequestType &req,
+std::string PlaylistController::getQueryParam(const StringHttpRequest &req,
                                               const std::string &key,
                                               const std::string &defaultValue) {
   auto value = req.getQuery(key);
   return value.empty() ? defaultValue : value;
 }
 
-int PlaylistController::getQueryParamInt(const App::RequestType &req,
+int PlaylistController::getQueryParamInt(const StringHttpRequest &req,
                                          const std::string &key,
                                          int defaultValue) {
   auto value = req.getQuery(key);
@@ -877,7 +877,7 @@ int PlaylistController::getQueryParamInt(const App::RequestType &req,
   }
 }
 
-bool PlaylistController::getQueryParamBool(const App::RequestType &req,
+bool PlaylistController::getQueryParamBool(const StringHttpRequest &req,
                                            const std::string &key,
                                            bool defaultValue) {
   auto value = req.getQuery(key);

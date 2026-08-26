@@ -1,9 +1,9 @@
 #pragma once
-
 #include "../../repositories/MusicRepository.h"
 #include "../../repositories/PlaylistRepository.h"
 #include <html-server/app/App.h>
 #include <html-server/controllers/RestController.h>
+#include <html-server/templates/HttpResponse.h>
 #include <nlohmann/json.hpp>
 
 class PlaylistController : public RestController<App> {
@@ -19,34 +19,32 @@ private:
   PlaylistRepository &playlistRepository;
   MusicRepository &musicRepository;
 
-  typename App::ResponseType handleGetPlaylists(const App::RequestType &req);
-  typename App::ResponseType handleGetPlaylist(const App::RequestType &req);
-  typename App::ResponseType handleCreatePlaylist(const App::RequestType &req);
-  typename App::ResponseType handleUpdatePlaylist(const App::RequestType &req);
-  typename App::ResponseType handleDeletePlaylist(const App::RequestType &req);
-  typename App::ResponseType handleRenamePlaylist(const App::RequestType &req);
-  typename App::ResponseType handleAddTracks(const App::RequestType &req);
-  typename App::ResponseType handleRemoveTrack(const App::RequestType &req);
-  typename App::ResponseType handleShufflePlaylist(const App::RequestType &req);
-  typename App::ResponseType handleClearPlaylist(const App::RequestType &req);
-  typename App::ResponseType handleExportPlaylist(const App::RequestType &req);
-  typename App::ResponseType handleImportPlaylist(const App::RequestType &req);
-  typename App::ResponseType
-  handleCreateFromArtist(const App::RequestType &req);
-  typename App::ResponseType handleCreateFromAlbum(const App::RequestType &req);
-  typename App::ResponseType
-  handleCreateFromSearch(const App::RequestType &req);
-  typename App::ResponseType
-  handleValidatePlaylists(const App::RequestType &req);
-  typename App::ResponseType handleScanPlaylists(const App::RequestType &req);
+  StringHttpResponse handleGetPlaylists(const StringHttpRequest &req);
+  StringHttpResponse handleGetPlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleCreatePlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleUpdatePlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleDeletePlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleRenamePlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleAddTracks(const StringHttpRequest &req);
+  StringHttpResponse handleRemoveTrack(const StringHttpRequest &req);
+  StringHttpResponse handleShufflePlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleClearPlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleExportPlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleImportPlaylist(const StringHttpRequest &req);
+  StringHttpResponse handleCreateFromArtist(const StringHttpRequest &req);
+  StringHttpResponse handleCreateFromAlbum(const StringHttpRequest &req);
+  StringHttpResponse handleCreateFromSearch(const StringHttpRequest &req);
+  StringHttpResponse handleValidatePlaylists(const StringHttpRequest &req);
+  StringHttpResponse handleScanPlaylists(const StringHttpRequest &req);
 
   nlohmann::json playlistToJson(const Playlist &playlist,
                                 const std::string &name);
   nlohmann::json playlistListToJson(const std::vector<std::string> &names);
-  std::string getQueryParam(const App::RequestType &req, const std::string &key,
+  std::string getQueryParam(const StringHttpRequest &req,
+                            const std::string &key,
                             const std::string &defaultValue = "");
-  int getQueryParamInt(const App::RequestType &req, const std::string &key,
+  int getQueryParamInt(const StringHttpRequest &req, const std::string &key,
                        int defaultValue = 0);
-  bool getQueryParamBool(const App::RequestType &req, const std::string &key,
+  bool getQueryParamBool(const StringHttpRequest &req, const std::string &key,
                          bool defaultValue = false);
 };

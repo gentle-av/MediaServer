@@ -22,27 +22,23 @@ void signalHandler(int) { running = false; }
 int main(int argc, char *argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
-
   try {
     Profiler profiler(argc, argv);
     auto config = profiler.getConfig();
-
-    auto db = std::make_unique<MusicDatabase>(config.databasePath);
-    if (!db->init()) {
-      std::cerr << "Failed to initialize database" << std::endl;
+    auto musicDb = std::make_unique<MusicDatabase>(config.databasePath);
+    if (!musicDb->init()) {
+      std::cerr << "Failed to initialize music database" << std::endl;
       return 1;
     }
-    auto musicRepo = std::make_unique<MusicRepository>(std::move(db));
-
     auto playlistDb = std::make_unique<PlaylistDatabase>(config.databasePath);
     if (!playlistDb->init()) {
       std::cerr << "Failed to initialize playlist database" << std::endl;
       return 1;
     }
+    auto musicRepo = std::make_unique<MusicRepository>(std::move(musicDb));
     auto playlistRepo = std::make_unique<PlaylistRepository>(
         std::move(playlistDb), std::move(musicRepo));
-
-    App::Config appConfig;
+    WebAppConfig appConfig;
     appConfig.port = config.port;
     appConfig.documentRoot = config.documentRoot;
     appConfig.staticDir = config.documentRoot + "/static";
@@ -50,90 +46,33 @@ int main(int argc, char *argv[]) {
     appConfig.indexFile = "index.html";
     appConfig.enableCache = true;
     appConfig.charset = "utf-8";
-
     App app(appConfig);
-
     auto cache = std::make_shared<MetadataCache>(500);
-    MusicLibraryController libraryController(
-        app, *playlistRepo->getMusicRepository(), cache);
+    MusicLibraryController libraryController(app, *musicRepo, cache);
     libraryController.register_routes();
-
-    MusicScanController scanController(app, *playlistRepo->getMusicRepository(),
-                                       *playlistRepo, config.musicDirectory);
+    MusicScanController scanController(app, *musicRepo, *playlistRepo,
+                                       config.musicDirectory);
     scanController.register_routes();
-
-    PlaylistController playlistController(app, *playlistRepo,
-                                          *playlistRepo->getMusicRepository());
+    PlaylistController playlistController(app, *playlistRepo, *musicRepo);
     playlistController.register_routes();
-
     if (!app.start()) {
       std::cerr << "Failed to start server: " << app.getLastError()
                 << std::endl;
       return 1;
     }
-
     profiler.printStartupInfo();
-    std::cout << "Available endpoints:" << std::endl;
-    std::cout
-        << "  GET  /api/music/tracks/artist/{artist} - Get tracks by artist"
-        << std::endl;
-    std::cout << "  GET  /api/music/tracks/album/{album} - Get tracks by album"
+    std::cout << "\nServer running on http://localhost:" << config.port
               << std::endl;
-    std::cout << "  GET  /api/music/list - List all music files" << std::endl;
-    std::cout << "  GET  /api/music/artists - Get all artists" << std::endl;
-    std::cout << "  GET  /api/music/albums - Get all albums" << std::endl;
-    std::cout
-        << "  GET  /api/music/albums/paginated - Get albums with pagination"
-        << std::endl;
-    std::cout << "  GET  /api/music/force-rescan - Force rescan music directory"
-              << std::endl;
-    std::cout << "  POST /api/music/remove-missing - Remove missing tracks"
-              << std::endl;
-    std::cout << "  POST /api/music/validate-playlists - Validate all playlists"
-              << std::endl;
-    std::cout << "  GET  /api/playlists - Get all playlists" << std::endl;
-    std::cout << "  GET  /api/playlists/:name - Get playlist by name"
-              << std::endl;
-    std::cout << "  POST /api/playlists - Create new playlist" << std::endl;
-    std::cout << "  PUT  /api/playlists/:name - Update playlist" << std::endl;
-    std::cout << "  DEL  /api/playlists/:name - Delete playlist" << std::endl;
-    std::cout << "  POST /api/playlists/:name/rename - Rename playlist"
-              << std::endl;
-    std::cout << "  POST /api/playlists/:name/tracks - Add tracks to playlist"
-              << std::endl;
-    std::cout << "  DEL  /api/playlists/:name/tracks/:index - Remove track "
-                 "from playlist"
-              << std::endl;
-    std::cout << "  POST /api/playlists/:name/shuffle - Shuffle playlist"
-              << std::endl;
-    std::cout << "  POST /api/playlists/:name/clear - Clear playlist"
-              << std::endl;
-    std::cout << "  GET  /api/playlists/:name/export - Export playlist to file"
-              << std::endl;
-    std::cout << "  POST /api/playlists/import - Import playlist from file"
-              << std::endl;
-    std::cout
-        << "  POST /api/playlists/from-artist - Create playlist from artist"
-        << std::endl;
-    std::cout << "  POST /api/playlists/from-album - Create playlist from album"
-              << std::endl;
-    std::cout
-        << "  POST /api/playlists/from-search - Create playlist from search"
-        << std::endl;
-    std::cout << "  POST /api/playlists/validate - Validate playlists"
-              << std::endl;
-    std::cout << "  POST /api/playlists/scan - Scan playlist directory"
-              << std::endl;
-
+    std::cout << "Press Ctrl+C to stop the server\n" << std::endl;
+    app.printEndpoints();
     while (running) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
     app.stop();
-    std::cout << "Server stopped" << std::endl;
+    std::cout << "Server stopped successfully" << std::endl;
     return 0;
   } catch (const std::exception &e) {
-    std::cerr << "Error: " << e.what() << std::endl;
+    std::cerr << "Fatal error: " << e.what() << std::endl;
     return 1;
   }
 }
