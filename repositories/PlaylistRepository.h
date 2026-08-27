@@ -12,8 +12,8 @@
 
 class PlaylistRepository {
 public:
-  explicit PlaylistRepository(std::unique_ptr<PlaylistDatabase> db,
-                              std::unique_ptr<MusicRepository> musicRepo);
+  explicit PlaylistRepository(std::shared_ptr<PlaylistDatabase> db,
+                              std::shared_ptr<MusicRepository> musicRepo);
   ~PlaylistRepository() = default;
 
   bool savePlaylist(const std::string &name, const Playlist &playlist);
@@ -86,8 +86,8 @@ private:
       std::function<void(int total, int processed)> progressCallback,
       std::stop_token stopToken);
 
-  std::unique_ptr<PlaylistDatabase> db;
-  std::unique_ptr<MusicRepository> musicRepo;
+  std::shared_ptr<PlaylistDatabase> db;
+  std::shared_ptr<MusicRepository> musicRepo;
 
   std::chrono::seconds defaultTTL{60};
   mutable std::shared_mutex mutex;

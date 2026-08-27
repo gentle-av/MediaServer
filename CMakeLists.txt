@@ -8,10 +8,13 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+include_directories(.)
+
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(HtmlServer REQUIRED)
 find_package(OpenSSL REQUIRED)
+
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
@@ -231,6 +234,11 @@ target_link_libraries(media_playlist_controller
     ${COMMON_LIBS}
 )
 
+add_library(media_player_controller SHARED
+    controllers/player/PlayerController.cpp
+    services/player/AudioOutputSwitcher.cpp
+)
+
 add_executable(MediaServer ./main.cpp)
 
 target_include_directories(MediaServer PRIVATE ${COMMON_INCLUDES})
@@ -255,5 +263,6 @@ target_link_libraries(MediaServer
     media_event_bus
     media_tagger
     media_trackinfo
+    media_player_controller
     ${COMMON_LIBS}
 )

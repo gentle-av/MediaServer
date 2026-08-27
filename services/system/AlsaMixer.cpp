@@ -12,6 +12,7 @@ const std::vector<std::string> AlsaMixer::availableOutputs = {"speakers",
 AlsaMixer::AlsaMixer()
     : controlName("Master"), currentVolume(30), muted(false),
       currentOutput("speakers"), initialized(false), initAttempted(false) {}
+
 AlsaMixer::~AlsaMixer() {}
 
 AlsaMixer &AlsaMixer::getInstance() {
@@ -25,10 +26,6 @@ bool AlsaMixer::init() {
   if (initAttempted)
     return false;
   initAttempted = true;
-  if (access("/dev/snd/controlC0", R_OK) != 0) {
-    std::cerr << "[AlsaMixer] No sound card found" << std::endl;
-    return false;
-  }
   std::string testOutput;
   if (!executeAmixer("sget Master 2>/dev/null", testOutput)) {
     std::cerr << "[AlsaMixer] amixer test failed" << std::endl;
@@ -107,7 +104,7 @@ int AlsaMixer::getVolume() {
   if (volume >= 0) {
     currentVolume = volume;
   }
-  return volume;
+  return volume >= 0 ? volume : currentVolume;
 }
 
 bool AlsaMixer::setVolume(int percent) {
@@ -197,7 +194,15 @@ bool AlsaMixer::switchToSpeakers() {
     return false;
   std::lock_guard<std::mutex> lock(mutex);
   std::string output;
-  std::string cmd = "sset 'Analog Output' Speakers";
+  std::string cmd = "sset 'Analog Output' Speakers 2>/dev/null";
+  if (executeAmixer(cmd, output)) {
+    currentOutput = "speakers";
+    detectCurrentOutput();
+    std::cout << "[AlsaMixer] Switched to speakers" << std::endl;
+    return true;
+  }
+  // Если не получилось, пробуем другой вариант
+  cmd = "sset 'Analog Output' 'Speakers' 2>/dev/null";
   if (executeAmixer(cmd, output)) {
     currentOutput = "speakers";
     detectCurrentOutput();
@@ -212,7 +217,14 @@ bool AlsaMixer::switchToHeadphones() {
     return false;
   std::lock_guard<std::mutex> lock(mutex);
   std::string output;
-  std::string cmd = "sset 'Analog Output' Headphones";
+  std::string cmd = "sset 'Analog Output' Headphones 2>/dev/null";
+  if (executeAmixer(cmd, output)) {
+    currentOutput = "headphones";
+    detectCurrentOutput();
+    std::cout << "[AlsaMixer] Switched to headphones" << std::endl;
+    return true;
+  }
+  cmd = "sset 'Analog Output' 'Headphones' 2>/dev/null";
   if (executeAmixer(cmd, output)) {
     currentOutput = "headphones";
     detectCurrentOutput();
@@ -239,15 +251,18 @@ void AlsaMixer::detectCurrentOutput() {
     return;
   std::array<char, 256> buffer;
   std::string result;
+  // Пробуем разные варианты команды
   FILE *pipe = popen(
       "amixer -c 0 sget 'Analog Output' 2>/dev/null | grep 'Item0:' | head -1",
       "r");
-  if (pipe) {
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-      result += buffer.data();
-    }
-    pclose(pipe);
+  if (!pipe) {
+    currentOutput = "speakers";
+    return;
   }
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+    result += buffer.data();
+  }
+  pclose(pipe);
   if (result.find("Speakers") != std::string::npos) {
     currentOutput = "speakers";
   } else if (result.find("Headphones") != std::string::npos) {

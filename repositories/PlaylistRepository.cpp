@@ -1,4 +1,3 @@
-// PlaylistRepository.cpp - добавление конструктора с подпиской
 #include "PlaylistRepository.h"
 #include <filesystem>
 #include <iostream>
@@ -7,8 +6,8 @@
 namespace fs = std::filesystem;
 
 PlaylistRepository::PlaylistRepository(
-    std::unique_ptr<PlaylistDatabase> db,
-    std::unique_ptr<MusicRepository> musicRepo)
+    std::shared_ptr<PlaylistDatabase> db,
+    std::shared_ptr<MusicRepository> musicRepo)
     : db(std::move(db)), musicRepo(std::move(musicRepo)) {
   this->musicRepo->subscribe(
       "track_removed",

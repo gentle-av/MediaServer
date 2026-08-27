@@ -1,4 +1,3 @@
-// MusicRepository.cpp - изменения
 #include "MusicRepository.h"
 #include "../services/music/MetadataExtractor.h"
 #include <filesystem>
@@ -7,7 +6,7 @@
 
 namespace fs = std::filesystem;
 
-MusicRepository::MusicRepository(std::unique_ptr<MusicDatabase> db)
+MusicRepository::MusicRepository(std::shared_ptr<MusicDatabase> db)
     : db(std::move(db)) {}
 
 bool MusicRepository::isExpired(
