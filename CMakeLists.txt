@@ -254,6 +254,16 @@ add_library(VideoIntegrityChecker SHARED
     services/video/VideoIntegrityChecker.cpp
 )
 
+add_library(NewVideoThumbnailExtractor SHARED
+    services/video/NewVideoThumbnailExtractor.cpp
+)
+
+target_link_libraries(NewVideoThumbnailExtractor PRIVATE
+    DirectoryWatcher
+    ImageDatabase
+    VideoThumbnailer
+)
+
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
