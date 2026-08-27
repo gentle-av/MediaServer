@@ -4,6 +4,7 @@
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
 #include "controllers/video/ManualThumbnailController.h"
+#include "controllers/video/ThumbnailBatchController.h"
 #include "controllers/video/VideoController.h"
 #include "database/ImageDatabase.h"
 #include "database/MusicDatabase.h"
@@ -40,12 +41,10 @@ bool MediaServerCore::run() {
 
 void MediaServerCore::shutdown() {
   running = false;
-
   if (thumbnailThread.joinable()) {
     thumbnailThread.request_stop();
     thumbnailThread.join();
   }
-
   if (mainLoopThread.joinable()) {
     mainLoopThread.request_stop();
     mainLoopThread.join();
@@ -140,23 +139,22 @@ bool MediaServerCore::initializeControllers() {
   manualThumbnailController =
       std::make_unique<ManualThumbnailController>(*app, *imageDb);
   manualThumbnailController->register_routes();
+  thumbnailBatchController =
+      std::make_unique<ThumbnailBatchController>(*app, *imageDb);
+  thumbnailBatchController->register_routes();
   return true;
 }
 
 bool MediaServerCore::initializeThumbnailExtractor() {
   thumbnailExtractor =
       std::make_unique<NewVideoThumbnailExtractor>("/mnt/video", *imageDb);
-
   thumbnailThread = std::jthread([this](std::stop_token stopToken) {
     thumbnailExtractor->start();
-
     while (!stopToken.stop_requested() && running) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
     thumbnailExtractor->stop();
   });
-
   return true;
 }
 

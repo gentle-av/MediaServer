@@ -283,6 +283,22 @@ target_link_libraries(ManualThumbnailController PRIVATE
     VideoIntegrityChecker
 )
 
+add_library(ThumbnailBatchScanner SHARED
+    services/video/ThumbnailBatchScanner.cpp
+)
+
+target_link_libraries(ThumbnailBatchScanner PRIVATE
+  VideoIntegrityChecker
+)
+
+add_library(ThumbnailBatchController SHARED
+    controllers/video/ThumbnailBatchController.cpp
+)
+
+target_link_libraries(ThumbnailBatchController PRIVATE
+    ThumbnailBatchScanner
+)
+
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
@@ -312,15 +328,8 @@ target_link_libraries(MediaServerCore
     VideoController
     ImageDatabase
     NewVideoThumbnailExtractor
+    ThumbnailBatchController
     ${COMMON_LIBS}
-)
-
-add_library(ThumbnailBatchScanner SHARED
-    services/video/ThumbnailBatchScanner.cpp
-)
-
-target_link_libraries(ThumbnailBatchScanner PRIVATE
-  VideoIntegrityChecker
 )
 
 add_executable(MediaServer main.cpp)
