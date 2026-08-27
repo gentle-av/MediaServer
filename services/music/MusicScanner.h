@@ -43,8 +43,8 @@ public:
   void scanNewFiles(bool skipExistingInDb = true);
   void removeMissingFiles();
   void forceRescan(std::function<void()> onComplete);
-  bool isInProgress() const { return status_.inProgress.load(); }
-  const RescanStatus &getStatus() const { return status_; }
+  bool isInProgress() const { return status.inProgress.load(); }
+  const RescanStatus &getStatus() const { return status; }
 
 private:
   bool isMusicFile(const std::string &path);
@@ -53,11 +53,11 @@ private:
   void doRescan(std::function<void()> onComplete);
   bool shouldProcessFile(const std::string &path, bool skipExistingInDb);
 
-  MusicDatabase &db_;
-  MetadataCache &cache_;
-  std::string musicDir_;
-  RescanStatus status_;
-  std::mutex mutex_;
-  std::unique_ptr<std::thread> rescanThread_;
-  std::unordered_set<std::string> processedPaths_;
+  MusicDatabase &db;
+  MetadataCache &cache;
+  std::string musicDir;
+  RescanStatus status;
+  std::mutex mutex;
+  std::unique_ptr<std::thread> rescanThread;
+  std::unordered_set<std::string> processedPaths;
 };

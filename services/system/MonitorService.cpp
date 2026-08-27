@@ -24,7 +24,7 @@ static bool executeCommandNoOutput(const std::vector<std::string> &args) {
 }
 
 bool MonitorService::init() {
-  if (m_initialized)
+  if (initialized)
     return true;
   DBusError err;
   dbus_error_init(&err);
@@ -34,7 +34,7 @@ bool MonitorService::init() {
     return false;
   }
   dbus_connection_unref(conn);
-  m_initialized = true;
+  initialized = true;
   return true;
 }
 

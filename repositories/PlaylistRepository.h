@@ -45,7 +45,7 @@ public:
   bool exportToFile(const std::string &name, const std::string &filePath) const;
 
   void invalidateAll();
-  void setTTL(std::chrono::seconds ttl) { defaultTTL = ttl; }
+  void setTTL(std::chrono::seconds ttl) { defaultTtl = ttl; }
   size_t getCacheSize() const;
 
   std::shared_future<bool> scanDirectoryAsync(
@@ -89,7 +89,7 @@ private:
   std::shared_ptr<PlaylistDatabase> db;
   std::shared_ptr<MusicRepository> musicRepo;
 
-  std::chrono::seconds defaultTTL{60};
+  std::chrono::seconds defaultTtl{60};
   mutable std::shared_mutex mutex;
   mutable CachedPlaylistList playlistListCache;
   mutable std::unordered_map<std::string, CachedPlaylist> playlistCache;

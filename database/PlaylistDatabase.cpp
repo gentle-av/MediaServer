@@ -7,19 +7,21 @@
 
 class PlaylistDatabase::Impl {
 public:
-  explicit Impl(const std::string &dbPath) : dbPath_(dbPath), db_(nullptr) {}
+  explicit Impl(const std::string &dbPath)
+      : dbPath_(dbPath), dbHandle(nullptr) {}
   ~Impl() {
-    if (db_)
-      sqlite3_close(db_);
+    if (dbHandle)
+      sqlite3_close(dbHandle);
   }
   bool init() {
-    if (sqlite3_open(dbPath_.c_str(), &db_) != SQLITE_OK) {
-      std::cerr << "Can't open database: " << sqlite3_errmsg(db_) << std::endl;
+    if (sqlite3_open(dbPath_.c_str(), &dbHandle) != SQLITE_OK) {
+      std::cerr << "Can't open database: " << sqlite3_errmsg(dbHandle)
+                << std::endl;
       return false;
     }
     const char *encodingSQL = "PRAGMA encoding = \"UTF-8\";";
     char *errMsg = nullptr;
-    sqlite3_exec(db_, encodingSQL, nullptr, nullptr, &errMsg);
+    sqlite3_exec(dbHandle, encodingSQL, nullptr, nullptr, &errMsg);
     const char *createTableSQL = R"(
             CREATE TABLE IF NOT EXISTS playlists (
                 playlist_name TEXT PRIMARY KEY,
@@ -44,7 +46,7 @@ public:
             CREATE INDEX IF NOT EXISTS idx_playlist_tracks_name ON playlist_tracks(playlist_name);
             CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position ON playlist_tracks(playlist_name, position);
         )";
-    if (sqlite3_exec(db_, createTableSQL, nullptr, nullptr, &errMsg) !=
+    if (sqlite3_exec(dbHandle, createTableSQL, nullptr, nullptr, &errMsg) !=
         SQLITE_OK) {
       std::cerr << "SQL error: " << errMsg << std::endl;
       sqlite3_free(errMsg);
@@ -52,11 +54,11 @@ public:
     }
     return true;
   }
-  sqlite3 *db() { return db_; }
+  sqlite3 *db() { return dbHandle; }
 
 private:
   std::string dbPath_;
-  sqlite3 *db_;
+  sqlite3 *dbHandle;
 };
 
 PlaylistDatabase::PlaylistDatabase(const std::string &dbPath)

@@ -3,9 +3,9 @@
 MetadataCache::MetadataCache(size_t maxSize) : maxSize_(maxSize) {}
 
 MusicMetadata *MetadataCache::get(const std::string &filePath) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  auto it = cache_.find(filePath);
-  if (it != cache_.end()) {
+  std::lock_guard<std::mutex> lock(mutex);
+  auto it = cache.find(filePath);
+  if (it != cache.end()) {
     it->second.lastAccess = std::chrono::steady_clock::now();
     return &it->second.metadata;
   }
@@ -14,42 +14,42 @@ MusicMetadata *MetadataCache::get(const std::string &filePath) {
 
 void MetadataCache::put(const std::string &filePath,
                         const MusicMetadata &metadata) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  if (cache_.size() >= maxSize_)
+  std::lock_guard<std::mutex> lock(mutex);
+  if (cache.size() >= maxSize_)
     cleanup();
   CachedItem item;
   item.metadata = metadata;
   item.lastAccess = std::chrono::steady_clock::now();
-  cache_[filePath] = item;
+  cache[filePath] = item;
 }
 
 void MetadataCache::erase(const std::string &filePath) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  cache_.erase(filePath);
+  std::lock_guard<std::mutex> lock(mutex);
+  cache.erase(filePath);
 }
 
 void MetadataCache::clear() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  cache_.clear();
+  std::lock_guard<std::mutex> lock(mutex);
+  cache.clear();
 }
 
 void MetadataCache::cleanup() {
   auto now = std::chrono::steady_clock::now();
-  for (auto it = cache_.begin(); it != cache_.end();) {
+  for (auto it = cache.begin(); it != cache.end();) {
     auto age = std::chrono::duration_cast<std::chrono::seconds>(
                    now - it->second.lastAccess)
                    .count();
     if (age > 3600) {
-      it = cache_.erase(it);
+      it = cache.erase(it);
     } else {
       ++it;
     }
   }
-  if (cache_.size() > maxSize_) {
-    size_t toErase = cache_.size() - maxSize_;
-    auto it = cache_.begin();
-    for (size_t i = 0; i < toErase && it != cache_.end(); ++i) {
-      it = cache_.erase(it);
+  if (cache.size() > maxSize_) {
+    size_t toErase = cache.size() - maxSize_;
+    auto it = cache.begin();
+    for (size_t i = 0; i < toErase && it != cache.end(); ++i) {
+      it = cache.erase(it);
     }
   }
 }

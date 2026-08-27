@@ -19,7 +19,7 @@ public:
   Json::Value handleSeek(double seekTime, std::string &activeSocket);
   Json::Value handleGetProperty(const std::string &propertyName,
                                 const std::string &activeSocket);
-  Json::Value handleSetAudioTrack(int stream_index,
+  Json::Value handleSetAudioTrack(int streamIndex,
                                   const std::string &activeSocket);
   void asyncSeek(double seekTime, std::function<void(Json::Value)> callback,
                  std::string &activeSocket);
@@ -31,7 +31,7 @@ private:
     std::function<void(Json::Value)> callback;
     std::string socket;
   };
-  std::atomic<bool> isSeeking_{false};
-  std::mutex seekMutex_;
-  std::queue<SeekCommand> pendingSeeks_;
+  std::atomic<bool> isSeeking{false};
+  std::mutex seekMutex;
+  std::queue<SeekCommand> pendingSeeks;
 };

@@ -40,21 +40,21 @@ public:
 
   void setLoopMode(bool enabled);
   void setShuffleMode(bool enabled);
-  bool isLooping() const { return isLooping_; }
-  bool isShuffled() const { return isShuffled_; }
+  bool isLooping() const { return looping; }
+  bool isShuffled() const { return shuffled; }
 
 private:
   bool loadTrack(int index);
   void onTrackFinished();
   std::vector<std::string> getFilePaths() const;
 
-  std::vector<MusicMetadata> currentPlaylist_;
-  int currentIndex_ = -1;
-  bool isLooping_ = false;
-  bool isShuffled_ = false;
+  std::vector<MusicMetadata> currentPlaylist;
+  int currentIndex = -1;
+  bool looping = false;
+  bool shuffled = false;
 
-  std::string activeSocket_;
+  std::string activeSocket;
 
-  VideoControlHandler &videoControl_ = VideoControlHandler::getInstance();
-  PlaybackStatus &playbackStatus_ = PlaybackStatus::getInstance();
+  VideoControlHandler &videoControl = VideoControlHandler::getInstance();
+  PlaybackStatus &playbackStatus = PlaybackStatus::getInstance();
 };

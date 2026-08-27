@@ -13,16 +13,16 @@ extern "C" {
 class MkvAudioTrackInfo {
 public:
   struct AudioTrack {
-    int stream_index{};
-    std::string codec_name;
+    int streamIndex{};
+    std::string codecName;
     std::string language = "und";
     std::string title;
-    int sample_rate{};
+    int sampleRate{};
     int channels{};
-    std::string channel_layout;
-    int64_t bit_rate{};
-    bool is_default{};
-    bool is_forced{};
+    std::string channelLayout;
+    int64_t bitRate{};
+    bool isDefault{};
+    bool isForced{};
   };
 
   MkvAudioTrackInfo() = default;
@@ -48,7 +48,7 @@ public:
   void printAllTracks() const;
 
   [[nodiscard]] std::optional<AudioTrack>
-  getTrackByStreamIndex(int stream_index) const;
+  getTrackByStreamIndex(int streamIndex) const;
 
 private:
   struct AvFormatDeleter {

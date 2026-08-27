@@ -11,15 +11,15 @@ namespace fs = std::filesystem;
 
 MusicScanner::MusicScanner(MusicDatabase &db, MetadataCache &cache,
                            const std::string &musicDir)
-    : db_(db), cache_(cache), musicDir_(musicDir) {
+    : db(db), cache(cache), musicDir(musicDir) {
   std::cout << "[MusicScanner] Created with musicDir: " << musicDir
             << std::endl;
 }
 
 MusicScanner::~MusicScanner() {
   std::cout << "[MusicScanner] Destructor" << std::endl;
-  if (rescanThread_ && rescanThread_->joinable()) {
-    rescanThread_->join();
+  if (rescanThread && rescanThread->joinable()) {
+    rescanThread->join();
   }
 }
 
@@ -32,13 +32,13 @@ bool MusicScanner::isMusicFile(const std::string &path) {
 
 std::vector<std::string> MusicScanner::scanMusicDirectory() {
   std::vector<std::string> musicFiles;
-  if (!fs::exists(musicDir_)) {
-    std::cerr << "[MusicScanner] Music directory does not exist: " << musicDir_
+  if (!fs::exists(musicDir)) {
+    std::cerr << "[MusicScanner] Music directory does not exist: " << musicDir
               << std::endl;
     return musicFiles;
   }
   try {
-    for (const auto &entry : fs::recursive_directory_iterator(musicDir_)) {
+    for (const auto &entry : fs::recursive_directory_iterator(musicDir)) {
       if (entry.is_regular_file() && isMusicFile(entry.path().string())) {
         musicFiles.push_back(entry.path().string());
       }
@@ -55,16 +55,16 @@ std::vector<std::string> MusicScanner::scanMusicDirectory() {
 void MusicScanner::processFile(const std::string &path, bool addToDb) {
   MusicMetadata metadata;
   if (MetadataExtractor::extractMetadata(path, metadata)) {
-    if (addToDb && db_.addFile(path, metadata)) {
-      status_.addedFiles++;
+    if (addToDb && db.addFile(path, metadata)) {
+      status.addedFiles++;
       std::vector<char> albumArt;
       if (MetadataExtractor::extractAlbumArt(path, albumArt)) {
-        db_.saveAlbumArt(path, albumArt);
+        db.saveAlbumArt(path, albumArt);
       }
     }
-    cache_.put(path, metadata);
+    cache.put(path, metadata);
   } else {
-    status_.errorCount++;
+    status.errorCount++;
   }
 }
 
@@ -73,14 +73,14 @@ bool MusicScanner::shouldProcessFile(const std::string &path,
   if (!skipExistingInDb) {
     return true;
   }
-  MusicMetadata *cached = cache_.get(path);
+  MusicMetadata *cached = cache.get(path);
   if (cached != nullptr) {
     return false;
   }
-  if (db_.fileExists(path)) {
+  if (db.fileExists(path)) {
     MusicMetadata dbMetadata;
-    if (db_.getMetadata(path, dbMetadata)) {
-      cache_.put(path, dbMetadata);
+    if (db.getMetadata(path, dbMetadata)) {
+      cache.put(path, dbMetadata);
       return false;
     }
   }
@@ -88,40 +88,40 @@ bool MusicScanner::shouldProcessFile(const std::string &path,
 }
 
 void MusicScanner::scanNewFiles(bool skipExistingInDb) {
-  if (status_.inProgress) {
+  if (status.inProgress) {
     std::cout << "[MusicScanner] Scan already in progress" << std::endl;
     return;
   }
   std::thread([this, skipExistingInDb]() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto existingFiles = db_.getAllFiles();
+    std::lock_guard<std::mutex> lock(mutex);
+    auto existingFiles = db.getAllFiles();
     std::unordered_set<std::string> existingSet(existingFiles.begin(),
                                                 existingFiles.end());
     auto musicFiles = scanMusicDirectory();
-    status_.totalFiles = static_cast<int>(musicFiles.size());
-    status_.processedFiles = 0;
+    status.totalFiles = static_cast<int>(musicFiles.size());
+    status.processedFiles = 0;
     for (const auto &path : musicFiles) {
       if (shouldProcessFile(path, skipExistingInDb)) {
         processFile(path, true);
       }
-      status_.processedFiles++;
+      status.processedFiles++;
     }
     std::cout << "[MusicScanner] Scan completed" << std::endl;
   }).detach();
 }
 
 void MusicScanner::removeMissingFiles() {
-  auto allFiles = db_.getAllFiles();
+  auto allFiles = db.getAllFiles();
   for (const auto &path : allFiles) {
     if (!fs::exists(path)) {
-      db_.removeFile(path);
-      cache_.erase(path);
+      db.removeFile(path);
+      cache.erase(path);
     }
   }
 }
 
 void MusicScanner::forceRescan(std::function<void()> onComplete) {
-  if (status_.inProgress) {
+  if (status.inProgress) {
     std::cout << "[MusicScanner] Rescan already in progress" << std::endl;
     if (onComplete)
       onComplete();
@@ -131,50 +131,50 @@ void MusicScanner::forceRescan(std::function<void()> onComplete) {
 }
 
 void MusicScanner::doRescan(std::function<void()> onComplete) {
-  if (rescanThread_ && rescanThread_->joinable()) {
-    rescanThread_->join();
+  if (rescanThread && rescanThread->joinable()) {
+    rescanThread->join();
   }
-  status_.reset();
-  status_.inProgress = true;
-  status_.startTime = std::chrono::steady_clock::now();
-  status_.lastScanTime = status_.startTime;
-  rescanThread_ = std::make_unique<std::thread>([this, onComplete]() {
-    std::lock_guard<std::mutex> lock(mutex_);
+  status.reset();
+  status.inProgress = true;
+  status.startTime = std::chrono::steady_clock::now();
+  status.lastScanTime = status.startTime;
+  rescanThread = std::make_unique<std::thread>([this, onComplete]() {
+    std::lock_guard<std::mutex> lock(mutex);
     try {
       std::cout << "[MusicScanner] Starting force rescan" << std::endl;
-      auto oldAlbums = db_.getAlbums();
-      status_.oldAlbumsCount = static_cast<int>(oldAlbums.size());
-      auto dbFiles = db_.getAllFiles();
+      auto oldAlbums = db.getAlbums();
+      status.oldAlbumsCount = static_cast<int>(oldAlbums.size());
+      auto dbFiles = db.getAllFiles();
       std::unordered_set<std::string> dbFilesSet(dbFiles.begin(),
                                                  dbFiles.end());
       auto musicFiles = scanMusicDirectory();
-      status_.totalFiles = static_cast<int>(musicFiles.size());
+      status.totalFiles = static_cast<int>(musicFiles.size());
       std::unordered_set<std::string> foundFiles;
-      status_.addedFiles = 0;
-      status_.errorCount = 0;
-      status_.processedFiles = 0;
+      status.addedFiles = 0;
+      status.errorCount = 0;
+      status.processedFiles = 0;
       for (const auto &path : musicFiles) {
         foundFiles.insert(path);
         if (dbFilesSet.find(path) == dbFilesSet.end()) {
           processFile(path, true);
         }
-        status_.processedFiles++;
+        status.processedFiles++;
       }
       for (const auto &path : dbFiles) {
         if (foundFiles.find(path) == foundFiles.end()) {
-          db_.removeFile(path);
-          cache_.erase(path);
+          db.removeFile(path);
+          cache.erase(path);
         }
       }
-      auto newAlbums = db_.getAlbums();
-      status_.newAlbumsCount = static_cast<int>(newAlbums.size());
+      auto newAlbums = db.getAlbums();
+      status.newAlbumsCount = static_cast<int>(newAlbums.size());
       std::cout << "[MusicScanner] Force rescan completed" << std::endl;
     } catch (const std::exception &e) {
       std::cerr << "[MusicScanner] Force rescan error: " << e.what()
                 << std::endl;
-      status_.errorCount++;
+      status.errorCount++;
     }
-    status_.inProgress = false;
+    status.inProgress = false;
     if (onComplete) {
       onComplete();
     }

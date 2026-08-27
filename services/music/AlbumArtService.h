@@ -19,9 +19,9 @@ public:
   bool saveAlbumArt(const std::string &filePath, const std::vector<char> &data);
   bool removeAlbumArt(const std::string &filePath);
   drogon::HttpResponsePtr createImageResponse(const AlbumArt &albumArt);
-  MusicDatabase *getDatabase() { return &db_; }
+  MusicDatabase *getDatabase() { return &db; }
 
 private:
   std::string detectMimeType(const std::vector<char> &data);
-  MusicDatabase &db_;
+  MusicDatabase &db;
 };

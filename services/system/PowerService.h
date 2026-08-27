@@ -17,7 +17,7 @@ public:
   Json::Value getPowerStatus();
   Json::Value getTVPowerState();
   Json::Value tvPowerOn();
-  bool isInitialized() const { return m_initialized; }
+  bool isInitialized() const { return initialized; }
 
 private:
   std::string execCommand(const std::vector<std::string> &args,
@@ -26,8 +26,8 @@ private:
   bool ensureAdbConnected(const std::string &address, int maxAttempts = 3);
   bool getTVScreenState();
   static constexpr const char *DEFAULT_TV_ADDRESS = "192.168.50.13";
-  std::mutex m_sleepMutex;
-  std::chrono::steady_clock::time_point m_lastSleepCall;
-  bool m_isGoingToSleep;
-  bool m_initialized;
+  std::mutex sleepMutex;
+  std::chrono::steady_clock::time_point lastSleepCall;
+  bool isGoingToSleep;
+  bool initialized;
 };

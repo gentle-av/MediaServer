@@ -5,9 +5,9 @@ public:
   void turnOnDisplay();
   void turnOffDisplay();
   bool isSessionIdle();
-  bool isInitialized() const { return m_initialized; }
+  bool isInitialized() const { return initialized; }
 
 private:
-  bool m_initialized = false;
+  bool initialized = false;
   bool init();
 };

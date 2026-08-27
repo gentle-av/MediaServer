@@ -24,7 +24,7 @@ public:
   bool getProperty(const std::string &activeSocket, const std::string &property,
                    std::string &value);
   bool checkProcessAlive(const std::string &activeSocket);
-  bool setAudioTrack(int stream_index);
+  bool setAudioTrack(int streamIndex);
   void setSeekInProgress(bool inProgress) { seekInProgress_ = inProgress; }
   bool isSeekInProgress() const { return seekInProgress_.load(); }
 

@@ -36,7 +36,7 @@ public:
   bool updateTrack(const std::string &filePath, const MusicMetadata &metadata);
 
   void invalidateAll();
-  void setTTL(std::chrono::seconds ttl) { defaultTTL = ttl; }
+  void setTTL(std::chrono::seconds ttl) { defaultTtl = ttl; }
   size_t getCacheSize() const;
 
   std::shared_future<bool> scanMusicDirectoryAsync(
@@ -86,7 +86,7 @@ private:
       std::stop_token stopToken);
 
   std::shared_ptr<MusicDatabase> db;
-  std::chrono::seconds defaultTTL{60};
+  std::chrono::seconds defaultTtl{60};
   mutable std::shared_mutex mutex;
   mutable CachedArtists artistsCache;
   mutable CachedAlbums albumsCache;

@@ -311,6 +311,7 @@ target_link_libraries(MediaServerCore
     PlayerController
     VideoController
     ImageDatabase
+    NewVideoThumbnailExtractor
     ${COMMON_LIBS}
 )
 

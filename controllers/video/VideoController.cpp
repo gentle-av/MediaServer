@@ -578,15 +578,15 @@ VideoController::handleSetAudioTrack(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     auto json = parseJsonBody(req);
-    if (json.is_null() || !json.contains("stream_index")) {
+    if (json.is_null() || !json.contains("streamIndex")) {
       nlohmann::json response;
       response["success"] = false;
-      response["error"] = "Missing stream_index parameter";
+      response["error"] = "Missing streamIndex parameter";
       res.setJsonContent(response.dump());
       res.setStatus(400);
       return res;
     }
-    int streamIndex = json["stream_index"].get<int>();
+    int streamIndex = json["streamIndex"].get<int>();
     Json::Value jsonResponse =
         VideoControlHandler::getInstance().handleSetAudioTrack(streamIndex,
                                                                activeSocket);

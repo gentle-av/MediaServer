@@ -127,7 +127,7 @@ Json::Value VideoControlHandler::handleSeek(double seekTime,
 void VideoControlHandler::asyncSeek(double seekTime,
                                     std::function<void(Json::Value)> callback,
                                     std::string &activeSocket) {
-  if (isSeeking_) {
+  if (isSeeking) {
     Json::Value response;
     response["success"] = false;
     response["error"] = "Seek already in progress";
@@ -141,14 +141,14 @@ void VideoControlHandler::asyncSeek(double seekTime,
     callback(response);
     return;
   }
-  isSeeking_ = true;
+  isSeeking = true;
   std::thread([this, seekTime, callback, activeSocket]() {
     auto &playbackService = PlaybackService::getInstance();
     Json::Value response;
     if (!playbackService.checkProcessAlive(activeSocket)) {
       response["success"] = false;
       response["error"] = "MPV process is dead";
-      isSeeking_ = false;
+      isSeeking = false;
       callback(response);
       return;
     }
@@ -156,7 +156,7 @@ void VideoControlHandler::asyncSeek(double seekTime,
     bool result = playbackService.seek(activeSocket, seekTime, seekResponse);
     response["success"] = result;
     response["time"] = seekTime;
-    isSeeking_ = false;
+    isSeeking = false;
     callback(response);
   }).detach();
 }
@@ -203,7 +203,7 @@ VideoControlHandler::handleGetProperty(const std::string &propertyName,
 }
 
 Json::Value
-VideoControlHandler::handleSetAudioTrack(int stream_index,
+VideoControlHandler::handleSetAudioTrack(int streamIndex,
                                          const std::string &activeSocket) {
   auto &playbackService = PlaybackService::getInstance();
   Json::Value response;
@@ -217,8 +217,8 @@ VideoControlHandler::handleSetAudioTrack(int stream_index,
     response["error"] = "MPV process is dead";
     return response;
   }
-  bool result = playbackService.setAudioTrack(stream_index);
+  bool result = playbackService.setAudioTrack(streamIndex);
   response["success"] = result;
-  response["stream_index"] = stream_index;
+  response["streamIndex"] = streamIndex;
   return response;
 }

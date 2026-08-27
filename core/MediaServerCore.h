@@ -18,6 +18,7 @@ class MusicScanController;
 class PlaylistController;
 class PlayerController;
 class VideoController;
+class NewVideoThumbnailExtractor;
 
 class MediaServerCore {
 public:
@@ -34,8 +35,10 @@ private:
   bool initializeServices();
   bool initializeServer();
   bool initializeControllers();
+  bool initializeThumbnailExtractor();
   bool startServer();
   void runMainLoop();
+
   std::unique_ptr<Profiler> profiler;
   ProfileConfig config;
   std::unique_ptr<MusicDatabase> musicDb;
@@ -51,6 +54,8 @@ private:
   std::unique_ptr<PlaylistController> playlistController;
   std::unique_ptr<PlayerController> playerController;
   std::unique_ptr<VideoController> videoController;
+  std::unique_ptr<NewVideoThumbnailExtractor> thumbnailExtractor;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
+  std::jthread thumbnailThread;
 };

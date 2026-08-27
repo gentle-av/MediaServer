@@ -81,10 +81,10 @@ static bool executeCommandNoOutput(const std::vector<std::string> &args) {
 }
 
 PowerService::PowerService()
-    : m_lastSleepCall(std::chrono::steady_clock::now()),
-      m_isGoingToSleep(false), m_initialized(false) {
+    : lastSleepCall(std::chrono::steady_clock::now()),
+      isGoingToSleep(false), initialized(false) {
   if (access("/dev/snd/controlC0", R_OK) == 0) {
-    m_initialized = true;
+    initialized = true;
   }
 }
 
@@ -196,34 +196,34 @@ Json::Value PowerService::adbGetState() {
 
 Json::Value PowerService::systemSleep() {
   Json::Value result;
-  if (!m_initialized) {
+  if (!initialized) {
     result["success"] = false;
     result["message"] = "Sleep blocked - sound system not available";
     return result;
   }
-  std::lock_guard<std::mutex> lock(m_sleepMutex);
+  std::lock_guard<std::mutex> lock(sleepMutex);
   auto now = std::chrono::steady_clock::now();
   auto elapsed =
-      std::chrono::duration_cast<std::chrono::seconds>(now - m_lastSleepCall)
+      std::chrono::duration_cast<std::chrono::seconds>(now - lastSleepCall)
           .count();
-  if (m_isGoingToSleep || elapsed < 10) {
+  if (isGoingToSleep || elapsed < 10) {
     result["success"] = false;
     result["message"] = "Sleep request ignored - too frequent";
     return result;
   }
-  m_isGoingToSleep = true;
-  m_lastSleepCall = now;
+  isGoingToSleep = true;
+  lastSleepCall = now;
   std::vector<std::string> args = {"/usr/bin/systemctl", "suspend"};
   bool success = executeCommandNoOutput(args);
   result["success"] = success;
   result["message"] = success ? "System going to sleep" : "Failed to sleep";
-  m_isGoingToSleep = false;
+  isGoingToSleep = false;
   return result;
 }
 
 Json::Value PowerService::getPowerStatus() {
   Json::Value result;
-  if (!m_initialized) {
+  if (!initialized) {
     result["success"] = true;
     result["tv_connected"] = false;
     result["tv_address"] = DEFAULT_TV_ADDRESS;
@@ -247,7 +247,7 @@ Json::Value PowerService::getPowerStatus() {
 Json::Value PowerService::getTVPowerState() {
   Json::Value result;
   result["tv_address"] = DEFAULT_TV_ADDRESS;
-  if (!m_initialized) {
+  if (!initialized) {
     result["connected"] = false;
     result["state"] = "unknown";
     result["screen_on"] = false;
@@ -297,7 +297,7 @@ Json::Value PowerService::getTVPowerState() {
 
 Json::Value PowerService::tvPowerOn() {
   Json::Value result;
-  if (!m_initialized) {
+  if (!initialized) {
     result["success"] = false;
     result["error"] = "Audio system not initialized";
     return result;

@@ -10,12 +10,12 @@ bool PlaylistManager::playPlaylist(const Playlist &playlist) {
     std::cerr << "[PlaylistManager] Cannot play empty playlist" << std::endl;
     return false;
   }
-  currentPlaylist_ = tracks;
-  currentIndex_ = 0;
-  if (isShuffled_ && currentPlaylist_.size() > 1) {
+  currentPlaylist = tracks;
+  currentIndex = 0;
+  if (shuffled && currentPlaylist.size() > 1) {
     std::random_device rd;
     std::mt19937 g(rd());
-    std::shuffle(currentPlaylist_.begin(), currentPlaylist_.end(), g);
+    std::shuffle(currentPlaylist.begin(), currentPlaylist.end(), g);
   }
   return loadTrack(0);
 }
@@ -26,12 +26,12 @@ bool PlaylistManager::playPlaylist(Playlist &&playlist) {
     std::cerr << "[PlaylistManager] Cannot play empty playlist" << std::endl;
     return false;
   }
-  currentPlaylist_ = std::move(tracks);
-  currentIndex_ = 0;
-  if (isShuffled_ && currentPlaylist_.size() > 1) {
+  currentPlaylist = std::move(tracks);
+  currentIndex = 0;
+  if (shuffled && currentPlaylist.size() > 1) {
     std::random_device rd;
     std::mt19937 g(rd());
-    std::shuffle(currentPlaylist_.begin(), currentPlaylist_.end(), g);
+    std::shuffle(currentPlaylist.begin(), currentPlaylist.end(), g);
   }
   return loadTrack(0);
 }
@@ -41,12 +41,12 @@ bool PlaylistManager::playTracks(const std::vector<MusicMetadata> &tracks) {
     std::cerr << "[PlaylistManager] Cannot play empty track list" << std::endl;
     return false;
   }
-  currentPlaylist_ = tracks;
-  currentIndex_ = 0;
-  if (isShuffled_ && currentPlaylist_.size() > 1) {
+  currentPlaylist = tracks;
+  currentIndex = 0;
+  if (shuffled && currentPlaylist.size() > 1) {
     std::random_device rd;
     std::mt19937 g(rd());
-    std::shuffle(currentPlaylist_.begin(), currentPlaylist_.end(), g);
+    std::shuffle(currentPlaylist.begin(), currentPlaylist.end(), g);
   }
   return loadTrack(0);
 }
@@ -56,12 +56,12 @@ bool PlaylistManager::playTracks(std::vector<MusicMetadata> &&tracks) {
     std::cerr << "[PlaylistManager] Cannot play empty track list" << std::endl;
     return false;
   }
-  currentPlaylist_ = std::move(tracks);
-  currentIndex_ = 0;
-  if (isShuffled_ && currentPlaylist_.size() > 1) {
+  currentPlaylist = std::move(tracks);
+  currentIndex = 0;
+  if (shuffled && currentPlaylist.size() > 1) {
     std::random_device rd;
     std::mt19937 g(rd());
-    std::shuffle(currentPlaylist_.begin(), currentPlaylist_.end(), g);
+    std::shuffle(currentPlaylist.begin(), currentPlaylist.end(), g);
   }
   return loadTrack(0);
 }
@@ -71,43 +71,43 @@ bool PlaylistManager::playFilePaths(const std::vector<std::string> &paths) {
     std::cerr << "[PlaylistManager] Cannot play empty file list" << std::endl;
     return false;
   }
-  currentPlaylist_.clear();
-  currentPlaylist_.reserve(paths.size());
+  currentPlaylist.clear();
+  currentPlaylist.reserve(paths.size());
   for (const auto &path : paths) {
     MusicMetadata meta;
     meta.filePath = path;
-    currentPlaylist_.push_back(meta);
+    currentPlaylist.push_back(meta);
   }
-  currentIndex_ = 0;
-  if (isShuffled_ && currentPlaylist_.size() > 1) {
+  currentIndex = 0;
+  if (shuffled && currentPlaylist.size() > 1) {
     std::random_device rd;
     std::mt19937 g(rd());
-    std::shuffle(currentPlaylist_.begin(), currentPlaylist_.end(), g);
+    std::shuffle(currentPlaylist.begin(), currentPlaylist.end(), g);
   }
   return loadTrack(0);
 }
 
 bool PlaylistManager::loadTrack(int index) {
-  if (index < 0 || index >= static_cast<int>(currentPlaylist_.size())) {
+  if (index < 0 || index >= static_cast<int>(currentPlaylist.size())) {
     std::cerr << "[PlaylistManager] Invalid track index: " << index
               << std::endl;
     return false;
   }
-  const auto &track = currentPlaylist_[index];
-  currentIndex_ = index;
+  const auto &track = currentPlaylist[index];
+  currentIndex = index;
   Json::Value response =
-      videoControl_.handleOpen(track.filePath, activeSocket_, true);
+      videoControl.handleOpen(track.filePath, activeSocket, true);
   bool success = response.get("success", false).asBool();
   if (success) {
     std::cout << "[PlaylistManager] Playing track " << index + 1 << "/"
-              << currentPlaylist_.size() << ": "
+              << currentPlaylist.size() << ": "
               << (track.title.empty() ? track.filePath : track.title)
               << std::endl;
   } else {
     std::cerr << "[PlaylistManager] Failed to load track: " << track.filePath
               << " - " << response.get("error", "unknown error").asString()
               << std::endl;
-    if (index + 1 < static_cast<int>(currentPlaylist_.size())) {
+    if (index + 1 < static_cast<int>(currentPlaylist.size())) {
       return loadTrack(index + 1);
     }
   }
@@ -115,11 +115,11 @@ bool PlaylistManager::loadTrack(int index) {
 }
 
 void PlaylistManager::pause() {
-  videoControl_.handleControl("pause", activeSocket_);
+  videoControl.handleControl("pause", activeSocket);
 }
 
 void PlaylistManager::resume() {
-  videoControl_.handleControl("play", activeSocket_);
+  videoControl.handleControl("play", activeSocket);
 }
 
 void PlaylistManager::togglePause() {
@@ -133,26 +133,26 @@ void PlaylistManager::togglePause() {
 }
 
 void PlaylistManager::stop() {
-  videoControl_.handleClose(activeSocket_);
-  currentIndex_ = -1;
+  videoControl.handleClose(activeSocket);
+  currentIndex = -1;
 }
 
 bool PlaylistManager::seek(double seconds) {
-  if (activeSocket_.empty()) {
+  if (activeSocket.empty()) {
     std::cerr << "[PlaylistManager] No active video to seek" << std::endl;
     return false;
   }
-  Json::Value response = videoControl_.handleSeek(seconds, activeSocket_);
+  Json::Value response = videoControl.handleSeek(seconds, activeSocket);
   return response.get("success", false).asBool();
 }
 
 bool PlaylistManager::next() {
-  if (currentPlaylist_.empty()) {
+  if (currentPlaylist.empty()) {
     return false;
   }
-  int nextIndex = currentIndex_ + 1;
-  if (nextIndex >= static_cast<int>(currentPlaylist_.size())) {
-    if (isLooping_) {
+  int nextIndex = currentIndex + 1;
+  if (nextIndex >= static_cast<int>(currentPlaylist.size())) {
+    if (looping) {
       nextIndex = 0;
     } else {
       std::cout << "[PlaylistManager] End of playlist" << std::endl;
@@ -163,10 +163,10 @@ bool PlaylistManager::next() {
 }
 
 bool PlaylistManager::previous() {
-  if (currentPlaylist_.empty() || currentIndex_ <= 0) {
+  if (currentPlaylist.empty() || currentIndex <= 0) {
     return false;
   }
-  return loadTrack(currentIndex_ - 1);
+  return loadTrack(currentIndex - 1);
 }
 
 bool PlaylistManager::setVolume(int percent) {
@@ -190,7 +190,7 @@ bool PlaylistManager::isMuted() const {
 }
 
 bool PlaylistManager::isPlaying() const {
-  if (activeSocket_.empty()) {
+  if (activeSocket.empty()) {
     return false;
   }
   auto status = getStatus();
@@ -198,13 +198,13 @@ bool PlaylistManager::isPlaying() const {
 }
 
 Json::Value PlaylistManager::getStatus() const {
-  if (activeSocket_.empty()) {
+  if (activeSocket.empty()) {
     Json::Value status;
     status["playing"] = false;
     status["reason"] = "no_active_video";
     return status;
   }
-  return playbackStatus_.getStatus(activeSocket_);
+  return playbackStatus.getStatus(activeSocket);
 }
 
 double PlaylistManager::getCurrentTime() const {
@@ -218,39 +218,38 @@ double PlaylistManager::getDuration() const {
 }
 
 void PlaylistManager::setLoopMode(bool enabled) {
-  isLooping_ = enabled;
+  looping = enabled;
   std::cout << "[PlaylistManager] Loop mode: " << (enabled ? "ON" : "OFF")
             << std::endl;
 }
 
 void PlaylistManager::setShuffleMode(bool enabled) {
-  isShuffled_ = enabled;
+  shuffled = enabled;
   std::cout << "[PlaylistManager] Shuffle mode: " << (enabled ? "ON" : "OFF")
             << std::endl;
 }
 
 void PlaylistManager::onTrackFinished() {
-  std::cout << "[PlaylistManager] Track finished: " << currentIndex_ + 1
+  std::cout << "[PlaylistManager] Track finished: " << currentIndex + 1
             << std::endl;
-  if (isLooping_ ||
-      currentIndex_ + 1 < static_cast<int>(currentPlaylist_.size())) {
-    if (isLooping_ &&
-        currentIndex_ + 1 >= static_cast<int>(currentPlaylist_.size())) {
+  if (looping || currentIndex + 1 < static_cast<int>(currentPlaylist.size())) {
+    if (looping &&
+        currentIndex + 1 >= static_cast<int>(currentPlaylist.size())) {
       loadTrack(0);
     } else {
-      loadTrack(currentIndex_ + 1);
+      loadTrack(currentIndex + 1);
     }
   } else {
     std::cout << "[PlaylistManager] Playlist finished" << std::endl;
-    currentIndex_ = -1;
-    activeSocket_.clear();
+    currentIndex = -1;
+    activeSocket.clear();
   }
 }
 
 std::vector<std::string> PlaylistManager::getFilePaths() const {
   std::vector<std::string> paths;
-  paths.reserve(currentPlaylist_.size());
-  for (const auto &track : currentPlaylist_) {
+  paths.reserve(currentPlaylist.size());
+  for (const auto &track : currentPlaylist) {
     paths.push_back(track.filePath);
   }
   return paths;

@@ -229,11 +229,11 @@ bool PlaybackService::checkProcessAlive(const std::string &activeSocket) {
   return mpv != nullptr && isPlaying;
 }
 
-bool PlaybackService::setAudioTrack(int stream_index) {
+bool PlaybackService::setAudioTrack(int streamIndex) {
   if (!mpv || !isPlaying)
     return false;
   std::lock_guard<std::mutex> lock(mpvMutex);
-  int64_t aid = stream_index;
+  int64_t aid = streamIndex;
   int result = mpv_set_property(mpv, "aid", MPV_FORMAT_INT64, &aid);
   return result >= 0;
 }

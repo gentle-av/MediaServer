@@ -22,7 +22,7 @@ private:
 
   void cleanup();
 
-  std::unordered_map<std::string, CachedItem> cache_;
-  std::mutex mutex_;
+  std::unordered_map<std::string, CachedItem> cache;
+  std::mutex mutex;
   size_t maxSize_;
 };

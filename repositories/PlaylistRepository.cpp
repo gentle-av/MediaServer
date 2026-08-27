@@ -16,7 +16,7 @@ PlaylistRepository::PlaylistRepository(
 
 bool PlaylistRepository::isExpired(
     const std::chrono::steady_clock::time_point &timestamp) const {
-  return std::chrono::steady_clock::now() - timestamp > defaultTTL;
+  return std::chrono::steady_clock::now() - timestamp > defaultTtl;
 }
 
 std::vector<std::string> PlaylistRepository::getAllPlaylistNames() const {

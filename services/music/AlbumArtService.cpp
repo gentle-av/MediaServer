@@ -1,6 +1,6 @@
 #include "services/music/AlbumArtService.h"
 
-AlbumArtService::AlbumArtService(MusicDatabase &db) : db_(db) {}
+AlbumArtService::AlbumArtService(MusicDatabase &db) : db(db) {}
 
 std::string AlbumArtService::detectMimeType(const std::vector<char> &data) {
   if (data.size() >= 8) {
@@ -18,7 +18,7 @@ std::string AlbumArtService::detectMimeType(const std::vector<char> &data) {
 AlbumArtService::AlbumArt
 AlbumArtService::getAlbumArt(const std::string &filePath) {
   AlbumArt result;
-  auto dbArt = db_.getAlbumArt(filePath);
+  auto dbArt = db.getAlbumArt(filePath);
   result.data = dbArt.data;
   result.mimeType =
       dbArt.mimeType.empty() ? detectMimeType(dbArt.data) : dbArt.mimeType;
@@ -29,7 +29,7 @@ AlbumArtService::AlbumArt
 AlbumArtService::getAlbumArtByAlbum(const std::string &album,
                                     const std::string &artist) {
   AlbumArt result;
-  std::string filePath = db_.getFilePathByAlbum(album, artist);
+  std::string filePath = db.getFilePathByAlbum(album, artist);
   if (!filePath.empty()) {
     result = getAlbumArt(filePath);
   }
@@ -38,11 +38,11 @@ AlbumArtService::getAlbumArtByAlbum(const std::string &album,
 
 bool AlbumArtService::saveAlbumArt(const std::string &filePath,
                                    const std::vector<char> &data) {
-  return db_.saveAlbumArt(filePath, data);
+  return db.saveAlbumArt(filePath, data);
 }
 
 bool AlbumArtService::removeAlbumArt(const std::string &filePath) {
-  return db_.removeAlbumArt(filePath);
+  return db.removeAlbumArt(filePath);
 }
 
 drogon::HttpResponsePtr

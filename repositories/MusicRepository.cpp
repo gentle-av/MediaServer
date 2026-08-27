@@ -11,7 +11,7 @@ MusicRepository::MusicRepository(std::shared_ptr<MusicDatabase> db)
 
 bool MusicRepository::isExpired(
     const std::chrono::steady_clock::time_point &timestamp) const {
-  return std::chrono::steady_clock::now() - timestamp > defaultTTL;
+  return std::chrono::steady_clock::now() - timestamp > defaultTtl;
 }
 
 std::vector<std::string> MusicRepository::getArtists() const {
@@ -194,7 +194,7 @@ bool MusicRepository::updateTrack(const std::string &filePath,
 void MusicRepository::invalidateAll() {
   std::unique_lock lock(mutex);
   invalidateAllLocked();
-  eventBus.publish("cache_invalidated");
+  eventBus.publish("cacheinvalidated");
 }
 
 void MusicRepository::invalidateAllLocked() {
