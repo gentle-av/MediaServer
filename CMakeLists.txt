@@ -264,6 +264,16 @@ target_link_libraries(NewVideoThumbnailExtractor PRIVATE
     VideoThumbnailer
 )
 
+add_library(ManualThumbnailUpdater SHARED
+    services/video/ManualThumbnailUpdater.cpp
+)
+
+target_link_libraries(ManualThumbnailUpdater PRIVATE
+    DirectoryWatcher
+    ImageDatabase
+    VideoThumbnailer
+)
+
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
