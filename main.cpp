@@ -3,6 +3,7 @@
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
 #include "controllers/video/VideoController.h"
+#include "database/ImageDatabase.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
 #include "profilers/Profiler.h"
@@ -25,33 +26,36 @@ int main(int argc, char *argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
   try {
-    std::cout << "[main] Starting..." << std::endl;
     Profiler profiler(argc, argv);
     auto config = profiler.getConfig();
-    std::cout << "[main] Config loaded" << std::endl;
 
-    std::cout << "[main] Creating MusicDatabase..." << std::endl;
-    auto musicDb = std::make_unique<MusicDatabase>(config.databasePath);
+    if (!std::filesystem::is_directory(config.databasePath))
+      std::filesystem::create_directory(config.databasePath);
+
+    auto musicDb =
+        std::make_unique<MusicDatabase>(config.databasePath + "/music.db");
     if (!musicDb->init()) {
       std::cerr << "Failed to initialize music database" << std::endl;
       return 1;
     }
-    std::cout << "[main] MusicDatabase initialized" << std::endl;
 
-    std::cout << "[main] Creating PlaylistDatabase..." << std::endl;
-    auto playlistDb = std::make_unique<PlaylistDatabase>(config.databasePath);
+    auto playlistDb = std::make_unique<PlaylistDatabase>(config.databasePath +
+                                                         "/playlists.db");
     if (!playlistDb->init()) {
       std::cerr << "Failed to initialize playlist database" << std::endl;
       return 1;
     }
-    std::cout << "[main] PlaylistDatabase initialized" << std::endl;
 
-    std::cout << "[main] Creating MusicRepository..." << std::endl;
+    auto imageDb =
+        std::make_unique<ImageDatabase>(config.databasePath + "/thumbnails.db");
+    if (!imageDb->init()) {
+      std::cerr << "Failed to initialize image database" << std::endl;
+      return 1;
+    }
+
     auto musicRepo = std::make_shared<MusicRepository>(std::move(musicDb));
-    std::cout << "[main] Creating PlaylistRepository..." << std::endl;
     auto playlistRepo =
         std::make_shared<PlaylistRepository>(std::move(playlistDb), musicRepo);
-    std::cout << "[main] Repositories created" << std::endl;
 
     WebAppConfig appConfig;
     appConfig.port = config.port;
@@ -61,49 +65,32 @@ int main(int argc, char *argv[]) {
     appConfig.indexFile = "index.html";
     appConfig.enableCache = true;
     appConfig.charset = "utf-8";
-    std::cout << "[main] AppConfig created" << std::endl;
 
-    std::cout << "[main] Creating App..." << std::endl;
     App app(appConfig);
-    std::cout << "[main] App created" << std::endl;
 
-    std::cout << "[main] Creating MetadataCache..." << std::endl;
     auto cache = std::make_shared<MetadataCache>(500);
-    std::cout << "[main] MetadataCache created" << std::endl;
 
-    std::cout << "[main] Creating MusicLibraryController..." << std::endl;
     MusicLibraryController libraryController(app, *musicRepo, cache);
     libraryController.register_routes();
-    std::cout << "[main] MusicLibraryController registered" << std::endl;
 
-    std::cout << "[main] Creating MusicScanController..." << std::endl;
     MusicScanController scanController(app, *musicRepo, *playlistRepo,
                                        config.musicDirectory);
     scanController.register_routes();
-    std::cout << "[main] MusicScanController registered" << std::endl;
 
-    std::cout << "[main] Creating PlaylistController..." << std::endl;
     PlaylistController playlistController(app, *playlistRepo, *musicRepo);
     playlistController.register_routes();
-    std::cout << "[main] PlaylistController registered" << std::endl;
 
-    std::cout << "[main] Creating PlayerController..." << std::endl;
     PlayerController playerController(app, *musicRepo, *playlistRepo, cache);
     playerController.register_routes();
-    std::cout << "[main] PlayerController registered" << std::endl;
 
-    std::cout << "[main] Creating VideoController..." << std::endl;
     VideoController videoController(app, std::make_shared<Profiler>(profiler));
     videoController.register_routes();
-    std::cout << "[main] VideoController registered" << std::endl;
 
-    std::cout << "[main] Starting app..." << std::endl;
     if (!app.start()) {
       std::cerr << "Failed to start server: " << app.getLastError()
                 << std::endl;
       return 1;
     }
-    std::cout << "[main] App started" << std::endl;
 
     profiler.printStartupInfo();
     std::cout << "\nServer running on http://localhost:" << config.port

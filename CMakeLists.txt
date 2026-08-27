@@ -276,5 +276,6 @@ target_link_libraries(MediaServer
     media_trackinfo
     media_player_controller
     media_video_controller
+    media_image_database
     ${COMMON_LIBS}
 )
