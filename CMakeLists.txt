@@ -242,6 +242,9 @@ add_library(media_video_thumbnailer SHARED
 )
 target_link_libraries(media_video_thumbnailer ${OpenCV_LIBS})
 
+add_library(media_directory_watcher SHARED
+    services/video/DirectoryWatcher.cpp
+)
 
 add_executable(MediaServer ./main.cpp)
 
