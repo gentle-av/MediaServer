@@ -250,6 +250,10 @@ add_library(DirectoryWatcher SHARED
     services/video/DirectoryWatcher.cpp
 )
 
+add_library(VideoIntegrityChecker SHARED
+    services/video/VideoIntegrityChecker.cpp
+)
+
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
