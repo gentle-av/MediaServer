@@ -239,6 +239,20 @@ add_library(media_player_controller SHARED
     services/player/AudioOutputSwitcher.cpp
 )
 
+add_library(media_video_controller SHARED
+    controllers/video/VideoController.cpp
+    services/video/StaticFileService.cpp
+)
+
+target_include_directories(media_video_controller PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(media_video_controller
+    media_filesystem
+    media_playback
+    media_video_control
+    media_video_thumbnailer
+    ${COMMON_LIBS}
+)
+
 add_executable(MediaServer ./main.cpp)
 
 target_include_directories(MediaServer PRIVATE ${COMMON_INCLUDES})
@@ -264,5 +278,6 @@ target_link_libraries(MediaServer
     media_tagger
     media_trackinfo
     media_player_controller
+    media_video_controller
     ${COMMON_LIBS}
 )

@@ -1,18 +1,20 @@
 #pragma once
 
-#include <drogon/HttpResponse.h>
-#include <drogon/HttpTypes.h>
 #include <string>
+#include <vector>
 
 class StaticFileService {
 public:
   static StaticFileService &getInstance();
-  drogon::HttpResponsePtr serveIndex(const std::string &indexPath);
-  drogon::HttpResponsePtr serveStaticFile(const std::string &basePath,
-                                          const std::string &filename);
+  std::string serveIndex(const std::string &indexPath);
+  std::string serveStaticFile(const std::string &basePath,
+                              const std::string &filename);
+  std::string getContentType(const std::string &filename);
 
 private:
   StaticFileService() = default;
   std::string findStaticFile(const std::string &basePath,
                              const std::string &filename);
+  std::string readFileContent(const std::string &filePath);
+  bool fileExists(const std::string &path);
 };

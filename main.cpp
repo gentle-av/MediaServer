@@ -2,6 +2,7 @@
 #include "controllers/music/MusicScanController.h"
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
+#include "controllers/video/VideoController.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
 #include "profilers/Profiler.h"
@@ -90,6 +91,11 @@ int main(int argc, char *argv[]) {
     PlayerController playerController(app, *musicRepo, *playlistRepo, cache);
     playerController.register_routes();
     std::cout << "[main] PlayerController registered" << std::endl;
+
+    std::cout << "[main] Creating VideoController..." << std::endl;
+    VideoController videoController(app, std::make_shared<Profiler>(profiler));
+    videoController.register_routes();
+    std::cout << "[main] VideoController registered" << std::endl;
 
     std::cout << "[main] Starting app..." << std::endl;
     if (!app.start()) {
