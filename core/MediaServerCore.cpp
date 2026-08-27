@@ -1,9 +1,9 @@
-// core/MediaServerCore.cpp
 #include "MediaServerCore.h"
 #include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicScanController.h"
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
+#include "controllers/video/ManualThumbnailController.h"
 #include "controllers/video/VideoController.h"
 #include "database/ImageDatabase.h"
 #include "database/MusicDatabase.h"
@@ -128,6 +128,9 @@ bool MediaServerCore::initializeControllers() {
   videoController = std::make_unique<VideoController>(
       *app, std::make_shared<Profiler>(*profiler));
   videoController->register_routes();
+  manualThumbnailController =
+      std::make_unique<ManualThumbnailController>(*app, *imageDb);
+  manualThumbnailController->register_routes();
   return true;
 }
 

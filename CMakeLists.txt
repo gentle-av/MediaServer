@@ -274,12 +274,22 @@ target_link_libraries(ManualThumbnailUpdater PRIVATE
     VideoThumbnailer
 )
 
+add_library(ManualThumbnailController SHARED
+    controllers/video/ManualThumbnailController.cpp
+)
+
+target_link_libraries(ManualThumbnailController PRIVATE
+    ManualThumbnailUpdater
+    VideoIntegrityChecker
+)
+
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
 
 target_link_libraries(MediaServerCore
     PRIVATE
+    ManualThumbnailController
     MusicLibraryController
     MusicScanController
     PlaylistController

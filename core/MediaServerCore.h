@@ -6,6 +6,7 @@
 #include <memory>
 #include <thread>
 
+class ManualThumbnailController;
 class MusicDatabase;
 class PlaylistDatabase;
 class ImageDatabase;
@@ -40,6 +41,7 @@ private:
   std::unique_ptr<MusicDatabase> musicDb;
   std::unique_ptr<PlaylistDatabase> playlistDb;
   std::unique_ptr<ImageDatabase> imageDb;
+  std::unique_ptr<ManualThumbnailController> manualThumbnailController;
   std::shared_ptr<MusicRepository> musicRepo;
   std::shared_ptr<PlaylistRepository> playlistRepo;
   std::shared_ptr<MetadataCache> cache;
