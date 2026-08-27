@@ -315,5 +315,13 @@ target_link_libraries(MediaServerCore
     ${COMMON_LIBS}
 )
 
+add_library(ThumbnailBatchScanner SHARED
+    services/video/ThumbnailBatchScanner.cpp
+)
+
+target_link_libraries(ThumbnailBatchScanner PRIVATE
+  VideoIntegrityChecker
+)
+
 add_executable(MediaServer main.cpp)
 target_link_libraries(MediaServer PRIVATE MediaServerCore)
