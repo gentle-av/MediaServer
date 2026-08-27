@@ -1,254 +1,188 @@
 [
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/main.cpp.o -c /home/avr/code/projects/cpp/MediaServer/main.cpp",
+  "command": "/usr/bin/c++ -DEventBus_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/EventBus.dir/events/EventBus.cpp.o -c /home/avr/code/projects/cpp/MediaServer/events/EventBus.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/events/EventBus.cpp",
+  "output": "CMakeFiles/EventBus.dir/events/EventBus.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DTagEditor_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/TagEditor.dir/tagger/TagEditor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/tagger/TagEditor.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/tagger/TagEditor.cpp",
+  "output": "CMakeFiles/TagEditor.dir/tagger/TagEditor.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MetadataExtractor.dir/services/music/MetadataExtractor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MetadataExtractor.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MetadataExtractor.cpp",
+  "output": "CMakeFiles/MetadataExtractor.dir/services/music/MetadataExtractor.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MetadataExtractor.dir/services/music/MetadataCache.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MetadataCache.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MetadataCache.cpp",
+  "output": "CMakeFiles/MetadataExtractor.dir/services/music/MetadataCache.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMusicDatabase_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicDatabase.dir/database/MusicDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/MusicDatabase.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/database/MusicDatabase.cpp",
+  "output": "CMakeFiles/MusicDatabase.dir/database/MusicDatabase.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMkvAudioTrackInfo_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MkvAudioTrackInfo.dir/models/MkvAudioTrackInfo.cpp.o -c /home/avr/code/projects/cpp/MediaServer/models/MkvAudioTrackInfo.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/models/MkvAudioTrackInfo.cpp",
+  "output": "CMakeFiles/MkvAudioTrackInfo.dir/models/MkvAudioTrackInfo.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMusicRepository_EXPORTS -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicRepository.dir/repositories/MusicRepository.cpp.o -c /home/avr/code/projects/cpp/MediaServer/repositories/MusicRepository.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/repositories/MusicRepository.cpp",
+  "output": "CMakeFiles/MusicRepository.dir/repositories/MusicRepository.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylist_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Playlist.dir/models/Playlist.cpp.o -c /home/avr/code/projects/cpp/MediaServer/models/Playlist.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/models/Playlist.cpp",
+  "output": "CMakeFiles/Playlist.dir/models/Playlist.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylistDatabase_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistDatabase.dir/database/PlaylistDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/PlaylistDatabase.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/database/PlaylistDatabase.cpp",
+  "output": "CMakeFiles/PlaylistDatabase.dir/database/PlaylistDatabase.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DImageDatabase_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/ImageDatabase.dir/database/ImageDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/ImageDatabase.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/database/ImageDatabase.cpp",
+  "output": "CMakeFiles/ImageDatabase.dir/database/ImageDatabase.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylistRepository_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistRepository.dir/repositories/PlaylistRepository.cpp.o -c /home/avr/code/projects/cpp/MediaServer/repositories/PlaylistRepository.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/repositories/PlaylistRepository.cpp",
+  "output": "CMakeFiles/PlaylistRepository.dir/repositories/PlaylistRepository.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DFileSystemService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/FileSystemService.dir/services/video/FileSystemService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/FileSystemService.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/FileSystemService.cpp",
+  "output": "CMakeFiles/FileSystemService.dir/services/video/FileSystemService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DFileSystemService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/FileSystemService.dir/services/video/TrashHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/TrashHandler.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/TrashHandler.cpp",
+  "output": "CMakeFiles/FileSystemService.dir/services/video/TrashHandler.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/video/PlaybackService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/PlaybackService.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/PlaybackService.cpp",
+  "output": "CMakeFiles/PlaybackService.dir/services/video/PlaybackService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/video/PlaybackStatus.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/PlaybackStatus.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/PlaybackStatus.cpp",
+  "output": "CMakeFiles/PlaybackService.dir/services/video/PlaybackStatus.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/player/AutoAdvanceTracker.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/AutoAdvanceTracker.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/AutoAdvanceTracker.cpp",
+  "output": "CMakeFiles/PlaybackService.dir/services/player/AutoAdvanceTracker.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DAlsaMixer_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AlsaMixer.dir/services/system/AlsaMixer.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/system/AlsaMixer.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/system/AlsaMixer.cpp",
+  "output": "CMakeFiles/AlsaMixer.dir/services/system/AlsaMixer.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DVideoControlHandler_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoControlHandler.dir/services/video/VideoControlHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/VideoControlHandler.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/VideoControlHandler.cpp",
+  "output": "CMakeFiles/VideoControlHandler.dir/services/video/VideoControlHandler.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylistManager_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistManager.dir/services/music/PlaylistManager.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/PlaylistManager.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/PlaylistManager.cpp",
+  "output": "CMakeFiles/PlaylistManager.dir/services/music/PlaylistManager.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DProfiler_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Profiler.dir/profilers/Profiler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/profilers/Profiler.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/profilers/Profiler.cpp",
+  "output": "CMakeFiles/Profiler.dir/profilers/Profiler.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMusicScanController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicScanController.dir/controllers/music/MusicScanController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicScanController.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicScanController.cpp",
+  "output": "CMakeFiles/MusicScanController.dir/controllers/music/MusicScanController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMusicLibraryController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicLibraryController.dir/controllers/music/MusicLibraryController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicLibraryController.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicLibraryController.cpp",
+  "output": "CMakeFiles/MusicLibraryController.dir/controllers/music/MusicLibraryController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylistController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistController.dir/controllers/playlists/PlaylistController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/playlists/PlaylistController.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/playlists/PlaylistController.cpp",
+  "output": "CMakeFiles/PlaylistController.dir/controllers/playlists/PlaylistController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlayerController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlayerController.dir/controllers/player/PlayerController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/player/PlayerController.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/player/PlayerController.cpp",
+  "output": "CMakeFiles/PlayerController.dir/controllers/player/PlayerController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlayerController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlayerController.dir/services/player/AudioOutputSwitcher.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/AudioOutputSwitcher.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/AudioOutputSwitcher.cpp",
+  "output": "CMakeFiles/PlayerController.dir/services/player/AudioOutputSwitcher.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DVideoThumbnailer_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -isystem /usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoThumbnailer.dir/services/video/VideoThumbnailer.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/VideoThumbnailer.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/VideoThumbnailer.cpp",
+  "output": "CMakeFiles/VideoThumbnailer.dir/services/video/VideoThumbnailer.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DVideoController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/opencv5 -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoController.dir/controllers/video/VideoController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/video/VideoController.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/video/VideoController.cpp",
+  "output": "CMakeFiles/VideoController.dir/controllers/video/VideoController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DVideoController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/opencv5 -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoController.dir/services/video/StaticFileService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/StaticFileService.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/StaticFileService.cpp",
+  "output": "CMakeFiles/VideoController.dir/services/video/StaticFileService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DDirectoryWatcher_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/DirectoryWatcher.dir/services/video/DirectoryWatcher.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/DirectoryWatcher.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/DirectoryWatcher.cpp",
+  "output": "CMakeFiles/DirectoryWatcher.dir/services/video/DirectoryWatcher.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMediaServerCore_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/opencv5 -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MediaServerCore.dir/core/MediaServerCore.cpp.o -c /home/avr/code/projects/cpp/MediaServer/core/MediaServerCore.cpp",
+  "file": "/home/avr/code/projects/cpp/MediaServer/core/MediaServerCore.cpp",
+  "output": "CMakeFiles/MediaServerCore.dir/core/MediaServerCore.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++  -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIE -o CMakeFiles/MediaServer.dir/main.cpp.o -c /home/avr/code/projects/cpp/MediaServer/main.cpp",
   "file": "/home/avr/code/projects/cpp/MediaServer/main.cpp",
   "output": "CMakeFiles/MediaServer.dir/main.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/albums/AlbumArtController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/albums/AlbumArtController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/albums/AlbumArtController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/albums/AlbumArtController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/albums/AlbumManagementController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/albums/AlbumManagementController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/albums/AlbumManagementController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/albums/AlbumManagementController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/music/MusicController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/music/MusicController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/music/MusicLibraryController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicLibraryController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicLibraryController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/music/MusicLibraryController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/music/MusicMetadataController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicMetadataController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicMetadataController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/music/MusicMetadataController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/music/MusicPlaybackController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicPlaybackController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicPlaybackController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/music/MusicPlaybackController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/music/MusicScanController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicScanController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicScanController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/music/MusicScanController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/player/PlayerController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/player/PlayerController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/player/PlayerController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/player/PlayerController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/power/PowerController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/power/PowerController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/power/PowerController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/power/PowerController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/controllers/video/VideoController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/video/VideoController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/video/VideoController.cpp",
-  "output": "CMakeFiles/MediaServer.dir/controllers/video/VideoController.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/database/MusicDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/MusicDatabase.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/database/MusicDatabase.cpp",
-  "output": "CMakeFiles/MediaServer.dir/database/MusicDatabase.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/AlbumArtExtractor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/AlbumArtExtractor.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/AlbumArtExtractor.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/AlbumArtExtractor.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/AlbumArtService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/AlbumArtService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/AlbumArtService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/AlbumArtService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/AlbumArtWriter.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/AlbumArtWriter.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/AlbumArtWriter.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/AlbumArtWriter.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/MetadataCache.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MetadataCache.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MetadataCache.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/MetadataCache.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/MetadataExtractor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MetadataExtractor.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MetadataExtractor.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/MetadataExtractor.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/MusicScanner.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MusicScanner.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MusicScanner.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/MusicScanner.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/PlaylistManager.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/PlaylistManager.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/PlaylistManager.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/PlaylistManager.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/music/ResponseBuild.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/ResponseBuild.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/ResponseBuild.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/music/ResponseBuild.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/AudioOutputSwitcher.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/AudioOutputSwitcher.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/AudioOutputSwitcher.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/AudioOutputSwitcher.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/AutoAdvanceTracker.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/AutoAdvanceTracker.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/AutoAdvanceTracker.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/AutoAdvanceTracker.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/MetadataParser.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/MetadataParser.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/MetadataParser.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/MetadataParser.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/MpvCommandSender.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/MpvCommandSender.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/MpvCommandSender.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/MpvCommandSender.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/PlayerSessionManager.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/PlayerSessionManager.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/PlayerSessionManager.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/PlayerSessionManager.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/TracklistManager.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/TracklistManager.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/TracklistManager.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/TracklistManager.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/TrackLoader.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/TrackLoader.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/TrackLoader.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/TrackLoader.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/player/Volumer.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/Volumer.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/Volumer.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/player/Volumer.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/system/AlsaMixer.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/system/AlsaMixer.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/system/AlsaMixer.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/system/AlsaMixer.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/system/PowerService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/system/PowerService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/system/PowerService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/system/PowerService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/system/static/MonitorService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/system/static/MonitorService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/system/static/MonitorService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/system/static/MonitorService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/FileSystemService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/FileSystemService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/FileSystemService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/FileSystemService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/PlaybackService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/PlaybackService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/PlaybackService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/PlaybackService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/PlaybackStatus.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/PlaybackStatus.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/PlaybackStatus.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/PlaybackStatus.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/StaticFileService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/StaticFileService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/StaticFileService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/StaticFileService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/ThumbnailCache.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/ThumbnailCache.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/ThumbnailCache.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/ThumbnailCache.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/ThumbnailRequestHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/ThumbnailRequestHandler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/ThumbnailRequestHandler.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/ThumbnailRequestHandler.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/ThumbnailService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/ThumbnailService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/ThumbnailService.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/ThumbnailService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/TrashHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/TrashHandler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/TrashHandler.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/TrashHandler.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/services/video/VideoControlHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/VideoControlHandler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/VideoControlHandler.cpp",
-  "output": "CMakeFiles/MediaServer.dir/services/video/VideoControlHandler.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/tagger/TagEditor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/tagger/TagEditor.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/tagger/TagEditor.cpp",
-  "output": "CMakeFiles/MediaServer.dir/tagger/TagEditor.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++20 -o CMakeFiles/MediaServer.dir/profilers/Profiler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/profilers/Profiler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/profilers/Profiler.cpp",
-  "output": "CMakeFiles/MediaServer.dir/profilers/Profiler.cpp.o"
 }
 ]

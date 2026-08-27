@@ -56,226 +56,229 @@ set(COMMON_INCLUDES
     ${JSONCPP_INCLUDE_DIRS}
 )
 
-add_library(media_event_bus SHARED
+add_library(EventBus SHARED
     events/EventBus.cpp
 )
 
-add_library(media_tagger SHARED
+add_library(TagEditor SHARED
     tagger/TagEditor.cpp
 )
 
-add_library(media_metadata_extractor SHARED
+add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
     services/music/MetadataCache.cpp
 )
 
-add_library(media_music_database SHARED
+add_library(MusicDatabase SHARED
     database/MusicDatabase.cpp
 )
 
-add_library(media_trackinfo SHARED
+add_library(MkvAudioTrackInfo SHARED
     models/MkvAudioTrackInfo.cpp
 )
 
-add_library(media_repository SHARED
+add_library(MusicRepository SHARED
     repositories/MusicRepository.cpp
 )
 
-target_include_directories(media_repository PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_repository
+target_include_directories(MusicRepository PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(MusicRepository
     ${COMMON_LIBS}
-    media_trackinfo
-    media_music_database
-    media_tagger
-    media_metadata_extractor
-    media_event_bus
+    MkvAudioTrackInfo
+    MusicDatabase
+    TagEditor
+    MetadataExtractor
+    EventBus
 )
-target_compile_definitions(media_repository PRIVATE TAGLIB_STATIC)
-set_target_properties(media_repository PROPERTIES
+target_compile_definitions(MusicRepository PRIVATE TAGLIB_STATIC)
+set_target_properties(MusicRepository PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
 )
 
-add_library(media_playlist SHARED
+add_library(Playlist SHARED
     models/Playlist.cpp
 )
 
-add_library(media_playlist_database SHARED
+add_library(PlaylistDatabase SHARED
     database/PlaylistDatabase.cpp
 )
 
-target_link_libraries(media_playlist_database PRIVATE
-    media_playlist
+target_link_libraries(PlaylistDatabase PRIVATE
+    Playlist
 )
 
-add_library(media_image_database SHARED
+add_library(ImageDatabase SHARED
     database/ImageDatabase.cpp
 )
 
-add_library(media_playlist_repository SHARED
+add_library(PlaylistRepository SHARED
     repositories/PlaylistRepository.cpp
 )
 
-target_include_directories(media_playlist_repository PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_playlist_repository PRIVATE
-    media_playlist
-    media_repository
-    media_event_bus
+target_include_directories(PlaylistRepository PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(PlaylistRepository PRIVATE
+    Playlist
+    MusicRepository
+    EventBus
     ${COMMON_LIBS}
 )
 
-add_library(media_filesystem SHARED
+add_library(FileSystemService SHARED
     services/video/FileSystemService.cpp
     services/video/TrashHandler.cpp
 )
 
-target_include_directories(media_filesystem PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_filesystem ${COMMON_LIBS})
+target_include_directories(FileSystemService PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(FileSystemService ${COMMON_LIBS})
 
-add_library(media_playback SHARED
+add_library(PlaybackService SHARED
     services/video/PlaybackService.cpp
     services/video/PlaybackStatus.cpp
     services/player/AutoAdvanceTracker.cpp
 )
 
-target_include_directories(media_playback PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_playback
-    media_filesystem
+target_include_directories(PlaybackService PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(PlaybackService
+    FileSystemService
     ${COMMON_LIBS}
 )
 
-add_library(media_alsa SHARED
+add_library(AlsaMixer SHARED
     services/system/AlsaMixer.cpp
 )
 
-target_include_directories(media_alsa PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_alsa ${COMMON_LIBS})
+target_include_directories(AlsaMixer PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(AlsaMixer ${COMMON_LIBS})
 
-add_library(media_video_control SHARED
+add_library(VideoControlHandler SHARED
     services/video/VideoControlHandler.cpp
 )
 
-target_include_directories(media_video_control PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_video_control
-    media_playback
-    media_filesystem
-    media_alsa
+target_include_directories(VideoControlHandler PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(VideoControlHandler
+    PlaybackService
+    FileSystemService
+    AlsaMixer
     ${COMMON_LIBS}
 )
 
-add_library(media_playlist_manager SHARED
+add_library(PlaylistManager SHARED
     services/music/PlaylistManager.cpp
 )
 
-target_include_directories(media_playlist_manager PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_playlist_manager PRIVATE
-    media_playlist
-    media_playlist_repository
-    media_repository
-    media_video_control
-    media_playback
-    media_filesystem
-    media_alsa
+target_include_directories(PlaylistManager PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(PlaylistManager PRIVATE
+    Playlist
+    PlaylistRepository
+    MusicRepository
+    VideoControlHandler
+    PlaybackService
+    FileSystemService
+    AlsaMixer
     ${COMMON_LIBS}
 )
 
-add_library(media_profiler SHARED
+add_library(Profiler SHARED
     profilers/Profiler.cpp
 )
 
-target_include_directories(media_profiler PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_profiler ${COMMON_LIBS})
-set_target_properties(media_profiler PROPERTIES
+target_include_directories(Profiler PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(Profiler ${COMMON_LIBS})
+set_target_properties(Profiler PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
 )
 
-add_library(media_music_scan_controller SHARED
+add_library(MusicScanController SHARED
     controllers/music/MusicScanController.cpp
 )
 
-target_include_directories(media_music_scan_controller PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_music_scan_controller
-    media_repository
-    media_playlist_repository
+target_include_directories(MusicScanController PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(MusicScanController
+    MusicRepository
+    PlaylistRepository
     ${COMMON_LIBS}
 )
 
-add_library(media_music_library_controller SHARED
+add_library(MusicLibraryController SHARED
     controllers/music/MusicLibraryController.cpp
 )
 
-target_include_directories(media_music_library_controller PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_music_library_controller
-    media_repository
+target_include_directories(MusicLibraryController PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(MusicLibraryController
+    MusicRepository
     ${COMMON_LIBS}
 )
 
-add_library(media_playlist_controller SHARED
+add_library(PlaylistController SHARED
     controllers/playlists/PlaylistController.cpp
 )
 
-target_include_directories(media_playlist_controller PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_playlist_controller
-    media_playlist_repository
-    media_repository
+target_include_directories(PlaylistController PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(PlaylistController
+    PlaylistRepository
+    MusicRepository
     ${COMMON_LIBS}
 )
 
-add_library(media_player_controller SHARED
+add_library(PlayerController SHARED
     controllers/player/PlayerController.cpp
     services/player/AudioOutputSwitcher.cpp
 )
 
-add_library(media_video_controller SHARED
+add_library(VideoController SHARED
     controllers/video/VideoController.cpp
     services/video/StaticFileService.cpp
 )
 
-target_include_directories(media_video_controller PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(media_video_controller
-    media_filesystem
-    media_playback
-    media_video_control
-    media_video_thumbnailer
+target_include_directories(VideoController PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(VideoController
+    FileSystemService
+    PlaybackService
+    VideoControlHandler
+    VideoThumbnailer
     ${COMMON_LIBS}
 )
 
-add_library(media_video_thumbnailer SHARED
+add_library(VideoThumbnailer SHARED
     services/video/VideoThumbnailer.cpp
 )
-target_link_libraries(media_video_thumbnailer ${OpenCV_LIBS})
+target_link_libraries(VideoThumbnailer ${OpenCV_LIBS})
 
-add_library(media_directory_watcher SHARED
+add_library(DirectoryWatcher SHARED
     services/video/DirectoryWatcher.cpp
 )
 
-add_executable(MediaServer ./main.cpp)
+add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
-target_include_directories(MediaServer PRIVATE ${COMMON_INCLUDES})
+target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
 
-target_link_libraries(MediaServer
+target_link_libraries(MediaServerCore
     PRIVATE
-    media_music_library_controller
-    media_music_scan_controller
-    media_playlist_controller
-    media_repository
-    media_profiler
-    media_playlist
-    media_playlist_database
-    media_playlist_repository
-    media_playlist_manager
-    media_video_control
-    media_playback
-    media_filesystem
-    media_alsa
-    media_video_thumbnailer
-    media_metadata_extractor
-    media_event_bus
-    media_tagger
-    media_trackinfo
-    media_player_controller
-    media_video_controller
-    media_image_database
+    MusicLibraryController
+    MusicScanController
+    PlaylistController
+    MusicRepository
+    Profiler
+    Playlist
+    PlaylistDatabase
+    PlaylistRepository
+    PlaylistManager
+    VideoControlHandler
+    PlaybackService
+    FileSystemService
+    AlsaMixer
+    VideoThumbnailer
+    MetadataExtractor
+    EventBus
+    TagEditor
+    MkvAudioTrackInfo
+    PlayerController
+    VideoController
+    ImageDatabase
     ${COMMON_LIBS}
 )
+
+add_executable(MediaServer main.cpp)
+target_link_libraries(MediaServer PRIVATE MediaServerCore)
