@@ -8,12 +8,13 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-include_directories(.)
-
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(HtmlServer REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio highgui cudacodec)
+
+include_directories( . ${OpenCV_INCLUDE_DIRS})
 
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MPV REQUIRED mpv)
@@ -185,23 +186,6 @@ set_target_properties(media_profiler PROPERTIES
     SOVERSION 1
 )
 
-add_library(media_video_thumbnailer SHARED
-    services/video/VideoThumbnailer.cpp
-)
-
-target_include_directories(media_video_thumbnailer PRIVATE
-    ${COMMON_INCLUDES}
-    ${AVCODEC_INCLUDE_DIRS}
-    ${AVFORMAT_INCLUDE_DIRS}
-    ${AVUTIL_INCLUDE_DIRS}
-)
-target_link_libraries(media_video_thumbnailer PRIVATE
-    ${AVCODEC_LIBRARIES}
-    ${AVFORMAT_LIBRARIES}
-    ${AVUTIL_LIBRARIES}
-    ${COMMON_LIBS}
-)
-
 add_library(media_music_scan_controller SHARED
     controllers/music/MusicScanController.cpp
 )
@@ -252,6 +236,12 @@ target_link_libraries(media_video_controller
     media_video_thumbnailer
     ${COMMON_LIBS}
 )
+
+add_library(media_video_thumbnailer SHARED
+    services/video/VideoThumbnailer.cpp
+)
+target_link_libraries(media_video_thumbnailer ${OpenCV_LIBS})
+
 
 add_executable(MediaServer ./main.cpp)
 

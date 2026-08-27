@@ -606,45 +606,6 @@ VideoController::handleSetAudioTrack(const StringHttpRequest &req) {
 StringHttpResponse
 VideoController::handleExtractThumbnail(const StringHttpRequest &req) {
   StringHttpResponse res;
-  try {
-    auto json = parseJsonBody(req);
-    if (json.is_null() || !json.contains("path")) {
-      nlohmann::json response;
-      response["success"] = false;
-      response["error"] = "Missing path parameter";
-      res.setJsonContent(response.dump());
-      res.setStatus(400);
-      return res;
-    }
-    std::string videoPath = json["path"].get<std::string>();
-    double timeInSeconds = 5.0;
-    if (json.contains("time") && json["time"].is_number()) {
-      timeInSeconds = json["time"].get<double>();
-    }
-    std::string outputPath =
-        "/tmp/thumbnail_" +
-        std::to_string(
-            std::chrono::steady_clock::now().time_since_epoch().count()) +
-        ".ppm";
-    VideoThumbnailer thumbnailer;
-    bool success =
-        thumbnailer.extractThumbnail(videoPath, outputPath, timeInSeconds);
-    nlohmann::json response;
-    response["success"] = success;
-    if (success) {
-      response["path"] = outputPath;
-      response["message"] = "Thumbnail extracted successfully";
-    } else {
-      response["error"] = "Failed to extract thumbnail";
-    }
-    res.setJsonContent(response.dump());
-    res.setStatus(success ? 200 : 500);
-  } catch (const std::exception &e) {
-    nlohmann::json response;
-    response["success"] = false;
-    response["error"] = e.what();
-    res.setJsonContent(response.dump());
-    res.setStatus(500);
-  }
+
   return res;
 }
