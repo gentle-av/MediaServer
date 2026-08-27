@@ -108,6 +108,10 @@ target_link_libraries(media_playlist_database PRIVATE
     media_playlist
 )
 
+add_library(media_image_database SHARED
+    database/ImageDatabase.cpp
+)
+
 add_library(media_playlist_repository SHARED
     repositories/PlaylistRepository.cpp
 )
