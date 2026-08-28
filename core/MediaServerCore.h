@@ -20,6 +20,7 @@ class PlayerController;
 class VideoController;
 class NewVideoThumbnailExtractor;
 class ThumbnailBatchController;
+class ThumbnailController;
 
 class MediaServerCore {
 public:
@@ -55,6 +56,7 @@ private:
   std::unique_ptr<PlaylistController> playlistController;
   std::unique_ptr<PlayerController> playerController;
   std::unique_ptr<VideoController> videoController;
+  std::unique_ptr<ThumbnailController> thumbnailController;
   std::unique_ptr<ThumbnailBatchController> thumbnailBatchController;
   std::unique_ptr<NewVideoThumbnailExtractor> thumbnailExtractor;
   std::atomic<bool> running{true};

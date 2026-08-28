@@ -299,6 +299,10 @@ target_link_libraries(ThumbnailBatchController PRIVATE
     ThumbnailBatchScanner
 )
 
+add_library(ThumbnailController SHARED
+    controllers/video/ThumbnailController.cpp
+)
+
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_include_directories(MediaServerCore PRIVATE ${COMMON_INCLUDES})
@@ -329,6 +333,7 @@ target_link_libraries(MediaServerCore
     ImageDatabase
     NewVideoThumbnailExtractor
     ThumbnailBatchController
+    ThumbnailController
     ${COMMON_LIBS}
 )
 

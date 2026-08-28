@@ -5,6 +5,7 @@
 #include "controllers/playlists/PlaylistController.h"
 #include "controllers/video/ManualThumbnailController.h"
 #include "controllers/video/ThumbnailBatchController.h"
+#include "controllers/video/ThumbnailController.h"
 #include "controllers/video/VideoController.h"
 #include "database/ImageDatabase.h"
 #include "database/MusicDatabase.h"
@@ -142,6 +143,8 @@ bool MediaServerCore::initializeControllers() {
   thumbnailBatchController =
       std::make_unique<ThumbnailBatchController>(*app, *imageDb);
   thumbnailBatchController->register_routes();
+  thumbnailController = std::make_unique<ThumbnailController>(*app, *imageDb);
+  thumbnailController->register_routes();
   return true;
 }
 
