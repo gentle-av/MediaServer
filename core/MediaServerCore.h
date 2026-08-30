@@ -36,6 +36,7 @@ private:
   bool initializeRepositories();
   bool initializeServices();
   bool initializeServer();
+  bool initializeCors();
   bool initializeControllers();
   bool initializeThumbnailExtractor();
   bool startServer();

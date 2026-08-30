@@ -24,11 +24,11 @@ void VideoController::register_all_routes() {
            [this](const StringHttpRequest &req) -> StringHttpResponse {
              return handleServeStatic(req);
            });
-  app_.post("/api/list",
+  app_.post("/api/video/list",
             [this](const StringHttpRequest &req) -> StringHttpResponse {
               return handleListFiles(req);
             });
-  app_.post("/api/open",
+  app_.post("/api/video/open",
             [this](const StringHttpRequest &req) -> StringHttpResponse {
               return handleOpenVideo(req);
             });

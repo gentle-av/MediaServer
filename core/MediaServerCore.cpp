@@ -10,6 +10,7 @@
 #include "database/ImageDatabase.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
+#include "middlewares/CorsMiddleware.h"
 #include "repositories/MusicRepository.h"
 #include "repositories/PlaylistRepository.h"
 #include "services/music/MetadataCache.h"
@@ -68,10 +69,26 @@ bool MediaServerCore::initialize() {
     return false;
   if (!initializeServer())
     return false;
+  if (!initializeCors())
+    return false;
   if (!initializeControllers())
     return false;
   if (!initializeThumbnailExtractor())
     return false;
+  return true;
+}
+
+bool MediaServerCore::initializeCors() {
+  if (!app) {
+    std::cerr << "App not initialized" << std::endl;
+    return false;
+  }
+  std::cout << "✅ CORS middleware enabled" << std::endl;
+  app->useMiddleware([](StringHttpRequest &req,
+                        StringHttpResponse &resp) -> bool {
+    return CorsMiddleware<StringHttpRequest, StringHttpResponse>::process(req,
+                                                                          resp);
+  });
   return true;
 }
 
