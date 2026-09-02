@@ -16,6 +16,7 @@
 #include "services/music/MetadataCache.h"
 #include "services/video/NewVideoThumbnailExtractor.h"
 #include <filesystem>
+#include <future>
 #include <iostream>
 
 MediaServerCore::MediaServerCore(int argc, char *argv[])
@@ -61,8 +62,12 @@ bool MediaServerCore::initialize() {
   if (!std::filesystem::is_directory(config.databasePath)) {
     std::filesystem::create_directory(config.databasePath);
   }
-  if (!initializeDatabases())
+  auto dbFuture = std::async(std::launch::async,
+                             [this]() { return initializeDatabases(); });
+  if (!dbFuture.get()) {
+    std::cerr << "Failed to initialize databases" << std::endl;
     return false;
+  }
   if (!initializeRepositories())
     return false;
   if (!initializeServices())
