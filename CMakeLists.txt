@@ -8,6 +8,8 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Install path" FORCE)
+
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(HtmlServer REQUIRED)
@@ -54,6 +56,9 @@ set(COMMON_INCLUDES
     ${DBUS_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
 )
+
+set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
 add_library(EventBus SHARED
     events/EventBus.cpp
@@ -338,3 +343,136 @@ target_link_libraries(MediaServerCore
 
 add_executable(MediaServer main.cpp)
 target_link_libraries(MediaServer PRIVATE MediaServerCore)
+
+install(TARGETS MediaServer
+    RUNTIME DESTINATION bin/
+)
+
+install(TARGETS
+    EventBus
+    TagEditor
+    MetadataExtractor
+    MusicDatabase
+    MkvAudioTrackInfo
+    MusicRepository
+    Playlist
+    PlaylistDatabase
+    ImageDatabase
+    PlaylistRepository
+    FileSystemService
+    PlaybackService
+    AlsaMixer
+    VideoControlHandler
+    PlaylistManager
+    Profiler
+    MusicScanController
+    MusicLibraryController
+    PlaylistController
+    PlayerController
+    VideoController
+    VideoThumbnailer
+    DirectoryWatcher
+    VideoIntegrityChecker
+    NewVideoThumbnailExtractor
+    ManualThumbnailUpdater
+    ManualThumbnailController
+    ThumbnailBatchScanner
+    ThumbnailBatchController
+    ThumbnailController
+    MediaServerCore
+    LIBRARY DESTINATION lib/media-explorer/
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/controllers/
+    DESTINATION include/media-explorer/controllers
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/core/
+    DESTINATION include/media-explorer/core
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/database/
+    DESTINATION include/media-explorer/database
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/events/
+    DESTINATION include/media-explorer/events
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/middlewares/
+    DESTINATION include/media-explorer/middlewares
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/models/
+    DESTINATION include/media-explorer/models
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/profilers/
+    DESTINATION include/media-explorer/profilers
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/repositories/
+    DESTINATION include/media-explorer/repositories
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/services/
+    DESTINATION include/media-explorer/services
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tagger/
+    DESTINATION include/media-explorer/tagger
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
+    ${CMAKE_CURRENT_BINARY_DIR}/config.json
+    COPYONLY
+)
+
+install(
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
+    DESTINATION share/media-explorer/
+)
+
+add_custom_command(
+    TARGET MediaServer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $ENV{HOME}/.local/share/media-explorer/
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
+        $ENV{HOME}/.local/share/media-explorer/config.json
+    COMMENT "Copying config.json to user config directory"
+)
+
+add_custom_command(
+    TARGET MediaServer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
+        ${CMAKE_CURRENT_BINARY_DIR}/config.json
+    COMMENT "Copying config.json to build directory"
+)
+
+message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "Executable will be installed to: ${CMAKE_INSTALL_PREFIX}/bin/")
+message(STATUS "Libraries will be installed to: ${CMAKE_INSTALL_PREFIX}/lib/media-explorer/")
+message(STATUS "Headers will be installed to: ${CMAKE_INSTALL_PREFIX}/include/media-explorer/")
+message(STATUS "Config will be installed to: ${CMAKE_INSTALL_PREFIX}/share/media-explorer/")

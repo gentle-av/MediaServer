@@ -33,6 +33,7 @@ void Profiler::setDefaultConfigValues() {
   config_.databasePath = "./media.db";
   config_.htmlPath = "./views";
   config_.documentRoot = "./views";
+  config_.videoDirectory = "/mnt/video";
 }
 
 void Profiler::parseCommandLine(int argc, char *argv[]) {
@@ -156,10 +157,15 @@ void Profiler::extractConfigValues() {
       config_.databasePath = app["database_path"].get<std::string>();
     }
   }
-  if (drogonConfig_.contains("content") &&
-      drogonConfig_["content"].contains("music_directory")) {
-    config_.musicDirectory =
-        drogonConfig_["content"]["music_directory"].get<std::string>();
+  if (drogonConfig_.contains("content")) {
+    if (drogonConfig_["content"].contains("music_directory")) {
+      config_.musicDirectory =
+          drogonConfig_["content"]["music_directory"].get<std::string>();
+    }
+    if (drogonConfig_["content"].contains("video_directory")) {
+      config_.videoDirectory =
+          drogonConfig_["content"]["video_directory"].get<std::string>();
+    }
   }
   if (drogonConfig_.contains("listeners") &&
       !drogonConfig_["listeners"].empty()) {
@@ -195,6 +201,7 @@ void Profiler::applyConfigDefaults() {
       config_.isTest ? "./uploads" : "/var/lib/media-explorer/uploads";
   drogonConfig_["app"]["database_path"] = config_.databasePath;
   drogonConfig_["content"]["music_directory"] = config_.musicDirectory;
+  drogonConfig_["content"]["video_directory"] = config_.videoDirectory;
   drogonConfig_["listeners"] = nlohmann::json::array();
   drogonConfig_["listeners"].push_back(
       {{"address", config_.address}, {"port", config_.port}, {"https", false}});
@@ -315,13 +322,12 @@ fs::path Profiler::findConfigFile() const {
 
 std::vector<fs::path> Profiler::getConfigSearchPaths() const {
   std::vector<fs::path> paths;
+  if (const char *home = getenv("HOME")) {
+    paths.push_back(fs::path(home) / ".local/share/media-explorer/config.json");
+  }
   paths.push_back(fs::current_path() / "config.json");
   paths.push_back("/usr/local/etc/media-explorer-drogon/config.json");
   paths.push_back("/etc/media-explorer-drogon/config.json");
-  if (const char *home = getenv("HOME")) {
-    paths.push_back(fs::path(home) /
-                    ".config/media-explorer-drogon/config.json");
-  }
   return paths;
 }
 
@@ -395,6 +401,7 @@ void Profiler::printStartupInfo() const {
   std::cout << "Threads: " << config_.threads << std::endl;
   std::cout << "Database Path: " << config_.databasePath << std::endl;
   std::cout << "Music Directory: " << config_.musicDirectory << std::endl;
+  std::cout << "Video Directory: " << config_.videoDirectory << std::endl;
   std::cout << "==========================================" << std::endl;
   std::cout << "Web interface: http://" << config_.address << ":"
             << config_.port << "/" << std::endl;

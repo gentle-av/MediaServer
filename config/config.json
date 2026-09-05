@@ -1,0 +1,52 @@
+{
+  "profiles": {
+    "test": {
+      "app": {
+        "document_root": "/home/avr/.local/html/MediaPlayer",
+        "number_of_threads": 2,
+        "log": {
+          "log_level": "DEBUG",
+          "log_path": "/home/avr/.local/html/MediaPlayer/logs/"
+        },
+        "upload_path": "/home/avr/.local/share/media-explorer/uploads",
+        "database_path": "/home/avr/.local/share/media-explorer"
+      },
+      "content": {
+        "music_directory": "/mnt/media/music",
+        "video_directory": "/mnt/video"
+      },
+      "listeners": [
+        {
+          "address": "127.0.0.1",
+          "port": 8083,
+          "https": false
+        }
+      ],
+      "player_port": 9093
+    },
+    "production": {
+      "app": {
+        "document_root": "/home/avr/.local/html/MediaPlayer",
+        "number_of_threads": 8,
+        "log": {
+          "log_level": "INFO",
+          "log_path": "/home/avr/.local/html/MediaPlayer/logs/"
+        },
+        "upload_path": "/home/avr/.local/share/media-explorer/uploads",
+        "database_path": "/home/avr/.local/share/media-explorer"
+      },
+      "content": {
+        "music_directory": "/mnt/media/music",
+        "video_directory": "/mnt/video"
+      },
+      "listeners": [
+        {
+          "address": "0.0.0.0",
+          "port": 8083,
+          "https": false
+        }
+      ],
+      "player_port": 9090
+    }
+  }
+}

@@ -1,3 +1,4 @@
+// Profiler.h - добавлено поле videoDirectory
 #pragma once
 
 #include <filesystem>
@@ -22,6 +23,7 @@ struct ProfileConfig {
   std::string musicDirectory;
   std::string htmlPath;
   std::string databasePath;
+  std::string videoDirectory;
 };
 
 class Profiler {
@@ -35,6 +37,7 @@ public:
   std::string getHtmlPath() const { return config_.htmlPath; }
   std::string getDatabasePath() const { return config_.databasePath; }
   std::string getMusicDirectory() const { return config_.musicDirectory; }
+  std::string getVideoDirectory() const { return config_.videoDirectory; }
   int getPlayerPort() const { return config_.playerPort; }
   void printStartupInfo() const;
 

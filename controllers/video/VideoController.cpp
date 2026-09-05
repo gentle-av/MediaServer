@@ -200,7 +200,8 @@ VideoController::handleListFiles(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     auto &fsService = FileSystemService::getInstance();
-    std::string requestPath = "/mnt/video";
+    std::string requestPath =
+        profiler ? profiler->getVideoDirectory() : "/mnt/video";
     auto json = parseJsonBody(req);
     if (!json.is_null() && json.contains("path") && json["path"].is_string()) {
       requestPath = json["path"].get<std::string>();
@@ -211,7 +212,7 @@ VideoController::handleListFiles(const StringHttpRequest &req) {
       }
     }
     if (!fsService.isPathAllowed(requestPath)) {
-      requestPath = "/mnt/video";
+      requestPath = profiler ? profiler->getVideoDirectory() : "/mnt/video";
     }
     if (!fsService.fileExists(requestPath) ||
         !fsService.isDirectory(requestPath)) {

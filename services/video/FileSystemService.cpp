@@ -1,6 +1,5 @@
 #include "FileSystemService.h"
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <sys/wait.h>
@@ -134,7 +133,16 @@ std::string FileSystemService::getIconForFile(const std::string &ext) {
 }
 
 bool FileSystemService::isPathAllowed(const std::string &path) {
-  return path.find("/mnt/video") == 0 || path.find("/mnt/media") == 0;
+  for (const auto &allowedPath : allowedPaths) {
+    if (path.find(allowedPath) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void FileSystemService::setAllowedPaths(const std::vector<std::string> &paths) {
+  allowedPaths = paths;
 }
 
 bool FileSystemService::fileExists(const std::string &path) {

@@ -16,10 +16,12 @@ public:
   bool isPathAllowed(const std::string &path);
   bool fileExists(const std::string &path);
   bool isDirectory(const std::string &path);
+  void setAllowedPaths(const std::vector<std::string> &paths);
 
 private:
   FileSystemService() = default;
   std::vector<std::string> videoExtensions = {".mp4", ".avi", ".mkv",  ".mov",
                                               ".wmv", ".flv", ".webm", ".m4v",
                                               ".mpg", ".mpeg"};
+  std::vector<std::string> allowedPaths;
 };

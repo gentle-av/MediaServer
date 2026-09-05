@@ -14,6 +14,7 @@
 #include "repositories/MusicRepository.h"
 #include "repositories/PlaylistRepository.h"
 #include "services/music/MetadataCache.h"
+#include "services/video/FileSystemService.h"
 #include "services/video/NewVideoThumbnailExtractor.h"
 #include <filesystem>
 #include <future>
@@ -127,6 +128,11 @@ bool MediaServerCore::initializeRepositories() {
 
 bool MediaServerCore::initializeServices() {
   cache = std::make_shared<MetadataCache>(500);
+  auto &fsService = FileSystemService::getInstance();
+  std::vector<std::string> allowedPaths;
+  allowedPaths.push_back(config.videoDirectory);
+  allowedPaths.push_back("/mnt/media");
+  fsService.setAllowedPaths(allowedPaths);
   return true;
 }
 
@@ -171,8 +177,10 @@ bool MediaServerCore::initializeControllers() {
 }
 
 bool MediaServerCore::initializeThumbnailExtractor() {
+  std::string videoDir =
+      config.videoDirectory.empty() ? "/mnt/video" : config.videoDirectory;
   thumbnailExtractor =
-      std::make_unique<NewVideoThumbnailExtractor>("/mnt/video", *imageDb);
+      std::make_unique<NewVideoThumbnailExtractor>(videoDir, *imageDb);
   thumbnailThread = std::jthread([this](std::stop_token stopToken) {
     thumbnailExtractor->start();
     while (!stopToken.stop_requested() && running) {
