@@ -26,7 +26,6 @@ public:
   void
   startScan(const std::string &directory, bool forceRegenerate = false,
             std::function<void(const Progress &)> progressCallback = nullptr);
-
   void stopScan();
   bool isRunning() const { return running; }
   Progress getProgress() const;
@@ -34,7 +33,6 @@ public:
 private:
   void scanThreadFunc(const std::string &directory, bool forceRegenerate,
                       std::function<void(const Progress &)> progressCallback);
-
   bool isVideoFile(const std::filesystem::path &path) const;
   bool shouldProcessFile(const std::filesystem::path &path,
                          bool forceRegenerate) const;
@@ -42,7 +40,6 @@ private:
 
   ImageDatabase &database;
   VideoThumbnailer thumbnailer;
-
   std::atomic<bool> running{false};
   std::atomic<bool> stopRequested{false};
   Progress progress;

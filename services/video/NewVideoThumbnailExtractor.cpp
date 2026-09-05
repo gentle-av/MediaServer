@@ -51,11 +51,8 @@ void NewVideoThumbnailExtractor::processVideo(
   if (!frame.has_value()) {
     return;
   }
-  cv::Mat cpuFrame = frame.value();
-  std::vector<unsigned char> buffer;
-  std::vector<int> compressionParams = {cv::IMWRITE_JPEG_QUALITY, 90};
-  bool success = cv::imencode(".jpg", cpuFrame, buffer, compressionParams);
-  if (!success || buffer.empty()) {
+  std::vector<unsigned char> buffer = std::move(frame.value());
+  if (buffer.empty()) {
     return;
   }
   ImageData imageData;

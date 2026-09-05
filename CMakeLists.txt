@@ -12,7 +12,6 @@ find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(HtmlServer REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio highgui cudacodec)
 
 include_directories( . ${OpenCV_INCLUDE_DIRS})
 
