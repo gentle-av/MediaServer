@@ -5,7 +5,6 @@
 #include "services/video/StaticFileService.h"
 #include "services/video/TrashHandler.h"
 #include "services/video/VideoControlHandler.h"
-#include "services/video/VideoThumbnailer.h"
 
 std::string VideoController::activeSocket = "";
 
@@ -75,10 +74,6 @@ void VideoController::register_all_routes() {
   app_.post("/api/video/audio/track",
             [this](const StringHttpRequest &req) -> StringHttpResponse {
               return handleSetAudioTrack(req);
-            });
-  app_.post("/api/video/thumbnail",
-            [this](const StringHttpRequest &req) -> StringHttpResponse {
-              return handleExtractThumbnail(req);
             });
 }
 
@@ -601,12 +596,5 @@ VideoController::handleSetAudioTrack(const StringHttpRequest &req) {
     res.setJsonContent(response.dump());
     res.setStatus(500);
   }
-  return res;
-}
-
-StringHttpResponse
-VideoController::handleExtractThumbnail(const StringHttpRequest &req) {
-  StringHttpResponse res;
-
   return res;
 }

@@ -3,11 +3,7 @@
 #include "controllers/music/MusicScanController.h"
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
-#include "controllers/video/ManualThumbnailController.h"
-#include "controllers/video/ThumbnailBatchController.h"
-#include "controllers/video/ThumbnailController.h"
 #include "controllers/video/VideoController.h"
-#include "database/ImageDatabase.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
 #include "middlewares/CorsMiddleware.h"
@@ -15,7 +11,6 @@
 #include "repositories/PlaylistRepository.h"
 #include "services/music/MetadataCache.h"
 #include "services/video/FileSystemService.h"
-#include "services/video/NewVideoThumbnailExtractor.h"
 #include <filesystem>
 #include <future>
 #include <iostream>
@@ -45,10 +40,6 @@ bool MediaServerCore::run() {
 
 void MediaServerCore::shutdown() {
   running = false;
-  if (thumbnailThread.joinable()) {
-    thumbnailThread.request_stop();
-    thumbnailThread.join();
-  }
   if (mainLoopThread.joinable()) {
     mainLoopThread.request_stop();
     mainLoopThread.join();
@@ -79,8 +70,6 @@ bool MediaServerCore::initialize() {
     return false;
   if (!initializeControllers())
     return false;
-  if (!initializeThumbnailExtractor())
-    return false;
   return true;
 }
 
@@ -108,12 +97,6 @@ bool MediaServerCore::initializeDatabases() {
       std::make_unique<PlaylistDatabase>(config.databasePath + "/playlists.db");
   if (!playlistDb->init()) {
     std::cerr << "Failed to initialize playlist database" << std::endl;
-    return false;
-  }
-  imageDb =
-      std::make_unique<ImageDatabase>(config.databasePath + "/thumbnails.db");
-  if (!imageDb->init()) {
-    std::cerr << "Failed to initialize image database" << std::endl;
     return false;
   }
   return true;
@@ -165,29 +148,6 @@ bool MediaServerCore::initializeControllers() {
   videoController = std::make_unique<VideoController>(
       *app, std::make_shared<Profiler>(*profiler));
   videoController->register_routes();
-  manualThumbnailController =
-      std::make_unique<ManualThumbnailController>(*app, *imageDb);
-  manualThumbnailController->register_routes();
-  thumbnailBatchController =
-      std::make_unique<ThumbnailBatchController>(*app, *imageDb);
-  thumbnailBatchController->register_routes();
-  thumbnailController = std::make_unique<ThumbnailController>(*app, *imageDb);
-  thumbnailController->register_routes();
-  return true;
-}
-
-bool MediaServerCore::initializeThumbnailExtractor() {
-  std::string videoDir =
-      config.videoDirectory.empty() ? "/mnt/video" : config.videoDirectory;
-  thumbnailExtractor =
-      std::make_unique<NewVideoThumbnailExtractor>(videoDir, *imageDb);
-  thumbnailThread = std::jthread([this](std::stop_token stopToken) {
-    thumbnailExtractor->start();
-    while (!stopToken.stop_requested() && running) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    thumbnailExtractor->stop();
-  });
   return true;
 }
 

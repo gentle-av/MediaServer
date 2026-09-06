@@ -6,10 +6,8 @@
 #include <memory>
 #include <thread>
 
-class ManualThumbnailController;
 class MusicDatabase;
 class PlaylistDatabase;
-class ImageDatabase;
 class MusicRepository;
 class PlaylistRepository;
 class MetadataCache;
@@ -18,9 +16,6 @@ class MusicScanController;
 class PlaylistController;
 class PlayerController;
 class VideoController;
-class NewVideoThumbnailExtractor;
-class ThumbnailBatchController;
-class ThumbnailController;
 
 class MediaServerCore {
 public:
@@ -38,7 +33,6 @@ private:
   bool initializeServer();
   bool initializeCors();
   bool initializeControllers();
-  bool initializeThumbnailExtractor();
   bool startServer();
   void runMainLoop();
 
@@ -46,8 +40,6 @@ private:
   ProfileConfig config;
   std::unique_ptr<MusicDatabase> musicDb;
   std::unique_ptr<PlaylistDatabase> playlistDb;
-  std::unique_ptr<ImageDatabase> imageDb;
-  std::unique_ptr<ManualThumbnailController> manualThumbnailController;
   std::shared_ptr<MusicRepository> musicRepo;
   std::shared_ptr<PlaylistRepository> playlistRepo;
   std::shared_ptr<MetadataCache> cache;
@@ -57,10 +49,6 @@ private:
   std::unique_ptr<PlaylistController> playlistController;
   std::unique_ptr<PlayerController> playerController;
   std::unique_ptr<VideoController> videoController;
-  std::unique_ptr<ThumbnailController> thumbnailController;
-  std::unique_ptr<ThumbnailBatchController> thumbnailBatchController;
-  std::unique_ptr<NewVideoThumbnailExtractor> thumbnailExtractor;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
-  std::jthread thumbnailThread;
 };
