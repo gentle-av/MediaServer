@@ -18,11 +18,10 @@
       "listeners": [
         {
           "address": "127.0.0.1",
-          "port": 8083,
+          "port": 9093,
           "https": false
         }
-      ],
-      "player_port": 9093
+      ]
     },
     "production": {
       "app": {
@@ -45,8 +44,7 @@
           "port": 8083,
           "https": false
         }
-      ],
-      "player_port": 9090
+      ]
     }
   }
 }

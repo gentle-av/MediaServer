@@ -1,4 +1,3 @@
-// Profiler.cpp
 #include "profilers/Profiler.h"
 #include <fstream>
 #include <iostream>
@@ -11,29 +10,24 @@ Profiler::Profiler(int argc, char *argv[]) {
   loadConfigurationFromFile();
   applyConfigDefaults();
   findIndexFile();
-  setupDrogonConfig();
 }
 
-void Profiler::initializeConfiguration() {
-  setDefaultConfigValues();
-  drogonConfig_ = nlohmann::json::object();
-}
+void Profiler::initializeConfiguration() { setDefaultConfigValues(); }
 
 void Profiler::setDefaultConfigValues() {
-  config_.name = "test";
-  config_.isTest = true;
-  config_.port = 8083;
-  config_.playerPort = 9093;
-  config_.address = "127.0.0.1";
-  config_.threads = 2;
-  config_.logLevel = "DEBUG";
-  config_.logPath = "./logs";
-  config_.uploadPath = "./uploads";
-  config_.musicDirectory = "./music";
-  config_.databasePath = "./media.db";
-  config_.htmlPath = "./views";
-  config_.documentRoot = "./views";
-  config_.videoDirectory = "/mnt/video";
+  config.name = "test";
+  config.isTest = true;
+  config.port = 8083;
+  config.address = "127.0.0.1";
+  config.threads = 2;
+  config.logLevel = "DEBUG";
+  config.logPath = "./logs";
+  config.uploadPath = "./uploads";
+  config.musicDirectory = "./music";
+  config.databasePath = "./media.db";
+  config.htmlPath = "./views";
+  config.documentRoot = "./views";
+  config.videoDirectory = "/mnt/video";
 }
 
 void Profiler::parseCommandLine(int argc, char *argv[]) {
@@ -41,28 +35,24 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
     std::string arg = argv[i];
     if (arg == "--profile" || arg == "-p") {
       if (i + 1 < argc) {
-        config_.name = argv[++i];
-        config_.isTest = (config_.name == "test");
+        config.name = argv[++i];
+        config.isTest = (config.name == "test");
       }
     } else if (arg == "--test" || arg == "-t") {
-      config_.name = "test";
-      config_.isTest = true;
-      config_.playerPort = 9093;
+      config.name = "test";
+      config.isTest = true;
     } else if (arg == "--production" || arg == "--prod" ||
                arg == "production") {
-      config_.name = "production";
-      config_.isTest = false;
-      config_.playerPort = 8083;
+      config.name = "production";
+      config.isTest = false;
     } else if (arg == "--port" && i + 1 < argc) {
-      config_.port = std::stoi(argv[++i]);
-    } else if (arg == "--player-port" && i + 1 < argc) {
-      config_.playerPort = std::stoi(argv[++i]);
+      config.port = std::stoi(argv[++i]);
     } else if (arg == "--address" && i + 1 < argc) {
-      config_.address = argv[++i];
+      config.address = argv[++i];
     } else if (arg == "--music-dir" && i + 1 < argc) {
-      config_.musicDirectory = argv[++i];
+      config.musicDirectory = argv[++i];
     } else if (arg == "--db-path" && i + 1 < argc) {
-      config_.databasePath = argv[++i];
+      config.databasePath = argv[++i];
     } else if (arg == "--help" || arg == "-h") {
       printHelp(argv[0]);
       exit(0);
@@ -77,7 +67,6 @@ void Profiler::printHelp(const char *programName) const {
             << "  -t, --test            Test mode\n"
             << "  --production, --prod  Production mode\n"
             << "  --port PORT           Override web port\n"
-            << "  --player-port PORT    Override player port\n"
             << "  --address ADDR        Override address\n"
             << "  --music-dir DIR       Override music directory\n"
             << "  --db-path PATH        Override database path\n"
@@ -120,98 +109,89 @@ bool Profiler::loadConfigFromFile(const fs::path &configPath) {
 }
 
 void Profiler::parseConfigJson(const nlohmann::json &fullConfig) {
+  nlohmann::json profileConfig;
   if (fullConfig.contains("profiles") &&
-      fullConfig["profiles"].contains(config_.name)) {
-    drogonConfig_ = fullConfig["profiles"][config_.name];
-    std::cout << "Loaded profile: " << config_.name << std::endl;
+      fullConfig["profiles"].contains(config.name)) {
+    profileConfig = fullConfig["profiles"][config.name];
+    std::cout << "Loaded profile: " << config.name << std::endl;
   } else {
-    drogonConfig_ = fullConfig;
+    profileConfig = fullConfig;
     std::cout << "Using root config (no profile section)" << std::endl;
   }
-  extractConfigValues();
+  extractConfigValues(profileConfig);
 }
 
-void Profiler::extractConfigValues() {
-  if (drogonConfig_.contains("player_port")) {
-    config_.playerPort = drogonConfig_["player_port"].get<int>();
-  }
-  if (drogonConfig_.contains("app") &&
-      drogonConfig_["app"].contains("document_root")) {
-    config_.htmlPath = drogonConfig_["app"]["document_root"].get<std::string>();
-    config_.documentRoot = config_.htmlPath;
-  }
-  if (drogonConfig_.contains("app")) {
-    auto &app = drogonConfig_["app"];
-    config_.threads = app.value("number_of_threads", config_.isTest ? 2 : 8);
+void Profiler::extractConfigValues(const nlohmann::json &profileConfig) {
+  if (profileConfig.contains("app")) {
+    const auto &app = profileConfig["app"];
+    if (app.contains("document_root")) {
+      config.htmlPath = app["document_root"].get<std::string>();
+      config.documentRoot = config.htmlPath;
+    }
+    config.threads = app.value("number_of_threads", config.isTest ? 2 : 8);
     if (app.contains("log")) {
-      auto &logConfig = app["log"];
-      config_.logLevel =
-          logConfig.value("log_level", config_.isTest ? "DEBUG" : "INFO");
-      config_.logPath = logConfig.value(
-          "log_path", config_.isTest ? "./logs" : "/var/log/media-explorer");
+      const auto &logConfig = app["log"];
+      config.logLevel =
+          logConfig.value("log_level", config.isTest ? "DEBUG" : "INFO");
+      config.logPath = logConfig.value(
+          "log_path", config.isTest ? "./logs" : "/var/log/media-explorer");
     }
-    config_.uploadPath = app.value(
+    config.uploadPath = app.value(
         "upload_path",
-        config_.isTest ? "./uploads" : "/var/lib/media-explorer/uploads");
+        config.isTest ? "./uploads" : "/var/lib/media-explorer/uploads");
     if (app.contains("database_path")) {
-      config_.databasePath = app["database_path"].get<std::string>();
+      config.databasePath = app["database_path"].get<std::string>();
     }
   }
-  if (drogonConfig_.contains("content")) {
-    if (drogonConfig_["content"].contains("music_directory")) {
-      config_.musicDirectory =
-          drogonConfig_["content"]["music_directory"].get<std::string>();
+  if (profileConfig.contains("content")) {
+    const auto &content = profileConfig["content"];
+    if (content.contains("music_directory")) {
+      config.musicDirectory = content["music_directory"].get<std::string>();
     }
-    if (drogonConfig_["content"].contains("video_directory")) {
-      config_.videoDirectory =
-          drogonConfig_["content"]["video_directory"].get<std::string>();
+    if (content.contains("video_directory")) {
+      config.videoDirectory = content["video_directory"].get<std::string>();
     }
   }
-  if (drogonConfig_.contains("listeners") &&
-      !drogonConfig_["listeners"].empty()) {
-    auto &listener = drogonConfig_["listeners"][0];
-    config_.address = listener.value("address", config_.address);
-    config_.port = listener.value("port", config_.port);
+  if (profileConfig.contains("listeners") &&
+      !profileConfig["listeners"].empty()) {
+    const auto &listener = profileConfig["listeners"][0];
+    config.address = listener.value("address", config.address);
+    config.port = listener.value("port", config.port);
   }
   validateDocumentRoot();
 }
 
 void Profiler::validateDocumentRoot() {
-  if (config_.htmlPath.empty()) {
+  if (config.htmlPath.empty()) {
     std::cerr << "ERROR: 'document_root' not found in config.json for profile '"
-              << config_.name << "'" << std::endl;
+              << config.name << "'" << std::endl;
     throw std::runtime_error(
         "Missing required 'document_root' in configuration");
   }
-  if (!fs::exists(config_.htmlPath)) {
-    std::cerr << "ERROR: HTML path does not exist: " << config_.htmlPath
+  if (!fs::exists(config.htmlPath)) {
+    std::cerr << "ERROR: HTML path does not exist: " << config.htmlPath
               << std::endl;
-    throw std::runtime_error("HTML path does not exist: " + config_.htmlPath);
+    throw std::runtime_error("HTML path does not exist: " + config.htmlPath);
   }
 }
 
 void Profiler::applyConfigDefaults() {
-  if (!drogonConfig_.empty())
+  if (!config.htmlPath.empty() && config.htmlPath != "./views") {
     return;
-  drogonConfig_["app"]["number_of_threads"] = config_.isTest ? 2 : 8;
-  drogonConfig_["app"]["log"]["log_level"] = config_.isTest ? "DEBUG" : "INFO";
-  drogonConfig_["app"]["log"]["log_path"] =
-      config_.isTest ? "./logs" : "/var/log/media-explorer";
-  drogonConfig_["app"]["upload_path"] =
-      config_.isTest ? "./uploads" : "/var/lib/media-explorer/uploads";
-  drogonConfig_["app"]["database_path"] = config_.databasePath;
-  drogonConfig_["content"]["music_directory"] = config_.musicDirectory;
-  drogonConfig_["content"]["video_directory"] = config_.videoDirectory;
-  drogonConfig_["listeners"] = nlohmann::json::array();
-  drogonConfig_["listeners"].push_back(
-      {{"address", config_.address}, {"port", config_.port}, {"https", false}});
-  drogonConfig_["player_port"] = config_.playerPort;
+  }
+  config.threads = config.isTest ? 2 : 8;
+  config.logLevel = config.isTest ? "DEBUG" : "INFO";
+  config.logPath = config.isTest ? "./logs" : "/var/log/media-explorer";
+  config.uploadPath =
+      config.isTest ? "./uploads" : "/var/lib/media-explorer/uploads";
+  config.documentRoot = config.htmlPath;
+  config.videoDirectory = config.isTest ? "./videos" : "/mnt/video";
 }
 
 void Profiler::findIndexFile() {
   std::vector<fs::path> searchPaths;
-  if (!config_.documentRoot.empty()) {
-    searchPaths.push_back(fs::path(config_.documentRoot) / "index.html");
+  if (!config.documentRoot.empty()) {
+    searchPaths.push_back(fs::path(config.documentRoot) / "index.html");
   }
   auto defaultPaths = getIndexSearchPaths();
   searchPaths.insert(searchPaths.end(), defaultPaths.begin(),
@@ -221,9 +201,9 @@ void Profiler::findIndexFile() {
     logSearchPaths(searchPaths);
     throw std::runtime_error("Could not find index.html");
   }
-  config_.indexPath = foundPath.string();
+  config.indexPath = foundPath.string();
   validateIndexFile();
-  std::cout << "Found index.html at: " << config_.indexPath << std::endl;
+  std::cout << "Found index.html at: " << config.indexPath << std::endl;
 }
 
 bool Profiler::findIndexFileInPaths(const std::vector<fs::path> &paths,
@@ -239,11 +219,11 @@ bool Profiler::findIndexFileInPaths(const std::vector<fs::path> &paths,
 }
 
 void Profiler::validateIndexFile() {
-  fs::path indexPath = fs::path(config_.htmlPath) / "index.html";
+  fs::path indexPath = fs::path(config.htmlPath) / "index.html";
   if (!fs::exists(indexPath)) {
     throw std::runtime_error("index.html not found at: " + indexPath.string());
   }
-  config_.indexPath = indexPath.string();
+  config.indexPath = indexPath.string();
 }
 
 void Profiler::logSearchPaths(const std::vector<fs::path> &paths) const {
@@ -251,59 +231,6 @@ void Profiler::logSearchPaths(const std::vector<fs::path> &paths) const {
   std::cerr << "Searched in:" << std::endl;
   for (const auto &path : paths) {
     std::cerr << "  " << path << std::endl;
-  }
-}
-
-void Profiler::setupDrogonConfig() {
-  setupDocumentRoot();
-  setupListeners();
-  setupAppConfig();
-}
-
-void Profiler::setupDocumentRoot() {
-  if (!drogonConfig_.contains("app")) {
-    drogonConfig_["app"] = nlohmann::json::object();
-  }
-  auto &app = drogonConfig_["app"];
-  if (!app.contains("document_root") && !config_.documentRoot.empty()) {
-    app["document_root"] = config_.documentRoot;
-  }
-  app["document_root"] = config_.htmlPath;
-}
-
-void Profiler::setupListeners() {
-  if (drogonConfig_.contains("listeners") &&
-      !drogonConfig_["listeners"].empty()) {
-    return;
-  }
-  drogonConfig_["listeners"] = nlohmann::json::array();
-  drogonConfig_["listeners"].push_back(
-      {{"address", config_.address}, {"port", config_.port}, {"https", false}});
-}
-
-void Profiler::setupAppConfig() {
-  if (!drogonConfig_.contains("app")) {
-    drogonConfig_["app"] = nlohmann::json::object();
-  }
-  auto &app = drogonConfig_["app"];
-  if (app.contains("document_root")) {
-    std::string docRoot = app["document_root"].get<std::string>();
-    if (!docRoot.empty()) {
-      config_.documentRoot = docRoot;
-      std::cout << "Configured document root: " << docRoot << std::endl;
-    }
-  }
-  if (app.contains("database_path")) {
-    config_.databasePath = app["database_path"].get<std::string>();
-    std::cout << "Configured database path: " << config_.databasePath
-              << std::endl;
-  }
-  if (drogonConfig_.contains("content") &&
-      drogonConfig_["content"].contains("music_directory")) {
-    config_.musicDirectory =
-        drogonConfig_["content"]["music_directory"].get<std::string>();
-    std::cout << "Configured music directory: " << config_.musicDirectory
-              << std::endl;
   }
 }
 
@@ -385,25 +312,23 @@ void Profiler::printStartupInfo() const {
   std::cout << "==========================================" << std::endl;
   std::cout << "Media Explorer Web Server (Drogon)" << std::endl;
   std::cout << "Version: 1.0.0" << std::endl;
-  std::cout << "Profile: " << config_.name;
-  if (config_.isTest)
+  std::cout << "Profile: " << config.name;
+  if (config.isTest)
     std::cout << " (TEST MODE)";
   std::cout << std::endl;
-  std::cout << "HTML Path: " << config_.htmlPath << std::endl;
-  std::cout << "Web Port: " << config_.port << std::endl;
-  std::cout << "Player Port: " << config_.playerPort << std::endl;
-  std::cout << "Address: " << config_.address << std::endl;
-  std::cout << "Document Root: " << config_.documentRoot << std::endl;
-  std::cout << "Index File: " << config_.indexPath << std::endl;
-  std::cout << "Upload Path: " << config_.uploadPath << std::endl;
-  std::cout << "Log Path: " << config_.logPath << std::endl;
-  std::cout << "Log Level: " << config_.logLevel << std::endl;
-  std::cout << "Threads: " << config_.threads << std::endl;
-  std::cout << "Database Path: " << config_.databasePath << std::endl;
-  std::cout << "Music Directory: " << config_.musicDirectory << std::endl;
-  std::cout << "Video Directory: " << config_.videoDirectory << std::endl;
+  std::cout << "HTML Path: " << config.htmlPath << std::endl;
+  std::cout << "Address: " << config.address << std::endl;
+  std::cout << "Document Root: " << config.documentRoot << std::endl;
+  std::cout << "Index File: " << config.indexPath << std::endl;
+  std::cout << "Upload Path: " << config.uploadPath << std::endl;
+  std::cout << "Log Path: " << config.logPath << std::endl;
+  std::cout << "Log Level: " << config.logLevel << std::endl;
+  std::cout << "Threads: " << config.threads << std::endl;
+  std::cout << "Database Path: " << config.databasePath << std::endl;
+  std::cout << "Music Directory: " << config.musicDirectory << std::endl;
+  std::cout << "Video Directory: " << config.videoDirectory << std::endl;
   std::cout << "==========================================" << std::endl;
-  std::cout << "Web interface: http://" << config_.address << ":"
-            << config_.port << "/" << std::endl;
+  std::cout << "Web interface: http://" << config.address << ":" << config.port
+            << "/" << std::endl;
   std::cout << "Press Ctrl+C to stop" << std::endl;
 }
