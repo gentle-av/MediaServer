@@ -21,6 +21,16 @@ pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${SQLITE3_INCLUDE_DIRS}
+    ${TAGLIB_INCLUDE_DIRS}
+    ${MPV_INCLUDE_DIRS}
+    ${LIBCURL_INCLUDE_DIRS}
+    ${DBUS_INCLUDE_DIRS}
+    ${JSONCPP_INCLUDE_DIRS}
+)
+
 set(COMMON_LIBS
     TagLib::TagLib
     ${SQLITE3_LIBRARIES}
@@ -39,49 +49,33 @@ set(COMMON_LIBS
     dl
 )
 
-set(COMMON_INCLUDES
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${SQLITE3_INCLUDE_DIRS}
-    ${TAGLIB_INCLUDE_DIRS}
-    ${MPV_INCLUDE_DIRS}
-    ${LIBCURL_INCLUDE_DIRS}
-    ${DBUS_INCLUDE_DIRS}
-    ${JSONCPP_INCLUDE_DIRS}
-)
-
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
-add_library(EventBus SHARED
-    events/EventBus.cpp
-)
-target_include_directories(EventBus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(EventBus SHARED events/EventBus.cpp)
+add_library(TagEditor SHARED tagger/TagEditor.cpp)
+add_library(MetadataExtractor SHARED services/music/MetadataExtractor.cpp services/music/MetadataCache.cpp)
+add_library(MusicDatabase SHARED database/MusicDatabase.cpp)
+add_library(MkvAudioTrackInfo SHARED models/MkvAudioTrackInfo.cpp)
+add_library(MusicRepository SHARED repositories/MusicRepository.cpp)
+add_library(Playlist SHARED models/Playlist.cpp)
+add_library(PlaylistDatabase SHARED database/PlaylistDatabase.cpp)
+add_library(PlaylistRepository SHARED repositories/PlaylistRepository.cpp)
+add_library(FileSystemService SHARED services/video/FileSystemService.cpp services/video/TrashHandler.cpp)
+add_library(PlaybackService SHARED services/video/PlaybackService.cpp services/video/PlaybackStatus.cpp services/player/AutoAdvanceTracker.cpp)
+add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
+add_library(VideoControlHandler SHARED services/video/VideoControlHandler.cpp)
+add_library(PlaylistManager SHARED services/music/PlaylistManager.cpp)
+add_library(Profiler SHARED profilers/Profiler.cpp)
+add_library(MusicScanController SHARED controllers/music/MusicScanController.cpp)
+add_library(MusicLibraryController SHARED controllers/music/MusicLibraryController.cpp)
+add_library(PlaylistController SHARED controllers/playlists/PlaylistController.cpp)
+add_library(PlayerController SHARED controllers/player/PlayerController.cpp services/player/AudioOutputSwitcher.cpp)
+add_library(VideoController SHARED controllers/video/VideoController.cpp services/video/StaticFileService.cpp)
+add_library(PowerService SHARED services/system/PowerService.cpp services/system/MonitorService.cpp)
+add_library(PowerController SHARED controllers/power/PowerController.cpp)
+add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
-add_library(TagEditor SHARED
-    tagger/TagEditor.cpp
-)
-target_include_directories(TagEditor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(MetadataExtractor SHARED
-    services/music/MetadataExtractor.cpp
-    services/music/MetadataCache.cpp
-)
-target_include_directories(MetadataExtractor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(MusicDatabase SHARED
-    database/MusicDatabase.cpp
-)
-target_include_directories(MusicDatabase PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(MkvAudioTrackInfo SHARED
-    models/MkvAudioTrackInfo.cpp
-)
-target_include_directories(MkvAudioTrackInfo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(MusicRepository SHARED
-    repositories/MusicRepository.cpp
-)
-target_include_directories(MusicRepository PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
 target_link_libraries(MusicRepository
     ${COMMON_LIBS}
     MkvAudioTrackInfo
@@ -90,76 +84,15 @@ target_link_libraries(MusicRepository
     MetadataExtractor
     EventBus
 )
-target_compile_definitions(MusicRepository PRIVATE TAGLIB_STATIC)
-set_target_properties(MusicRepository PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION 1
-)
 
-add_library(Playlist SHARED
-    models/Playlist.cpp
-)
-target_include_directories(Playlist PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(PlaylistDatabase SHARED
-    database/PlaylistDatabase.cpp
-)
-target_include_directories(PlaylistDatabase PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(PlaylistDatabase PRIVATE
-    Playlist
-)
-
-add_library(PlaylistRepository SHARED
-    repositories/PlaylistRepository.cpp
-)
-target_include_directories(PlaylistRepository PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(PlaylistRepository PRIVATE
-    Playlist
-    MusicRepository
-    EventBus
-    ${COMMON_LIBS}
-)
-
-add_library(FileSystemService SHARED
-    services/video/FileSystemService.cpp
-    services/video/TrashHandler.cpp
-)
-target_include_directories(FileSystemService PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
+target_link_libraries(PlaylistDatabase Playlist)
+target_link_libraries(PlaylistRepository Playlist MusicRepository EventBus ${COMMON_LIBS})
 target_link_libraries(FileSystemService ${COMMON_LIBS})
-
-add_library(PlaybackService SHARED
-    services/video/PlaybackService.cpp
-    services/video/PlaybackStatus.cpp
-    services/player/AutoAdvanceTracker.cpp
-)
-target_include_directories(PlaybackService PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(PlaybackService
-    FileSystemService
-    ${COMMON_LIBS}
-)
-
-add_library(AlsaMixer SHARED
-    services/system/AlsaMixer.cpp
-)
-target_include_directories(AlsaMixer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
+target_link_libraries(PlaybackService FileSystemService ${COMMON_LIBS})
 target_link_libraries(AlsaMixer ${COMMON_LIBS})
+target_link_libraries(VideoControlHandler PlaybackService FileSystemService AlsaMixer ${COMMON_LIBS})
 
-add_library(VideoControlHandler SHARED
-    services/video/VideoControlHandler.cpp
-)
-target_include_directories(VideoControlHandler PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(VideoControlHandler
-    PlaybackService
-    FileSystemService
-    AlsaMixer
-    ${COMMON_LIBS}
-)
-
-add_library(PlaylistManager SHARED
-    services/music/PlaylistManager.cpp
-)
-target_include_directories(PlaylistManager PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(PlaylistManager PRIVATE
+target_link_libraries(PlaylistManager
     Playlist
     PlaylistRepository
     MusicRepository
@@ -170,73 +103,22 @@ target_link_libraries(PlaylistManager PRIVATE
     ${COMMON_LIBS}
 )
 
-add_library(Profiler SHARED
-    profilers/Profiler.cpp
-)
-target_include_directories(Profiler PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
 target_link_libraries(Profiler ${COMMON_LIBS})
-set_target_properties(Profiler PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION 1
-)
+target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${COMMON_LIBS})
+target_link_libraries(MusicLibraryController MusicRepository ${COMMON_LIBS})
+target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${COMMON_LIBS})
+target_link_libraries(PlayerController ${COMMON_LIBS})
+target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${COMMON_LIBS})
+target_link_libraries(PowerService ${COMMON_LIBS})
+target_link_libraries(PowerController ${COMMON_LIBS} PowerService)
 
-add_library(MusicScanController SHARED
-    controllers/music/MusicScanController.cpp
-)
-target_include_directories(MusicScanController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(MusicScanController
-    MusicRepository
-    PlaylistRepository
-    ${COMMON_LIBS}
-)
-
-add_library(MusicLibraryController SHARED
-    controllers/music/MusicLibraryController.cpp
-)
-target_include_directories(MusicLibraryController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(MusicLibraryController
-    MusicRepository
-    ${COMMON_LIBS}
-)
-
-add_library(PlaylistController SHARED
-    controllers/playlists/PlaylistController.cpp
-)
-target_include_directories(PlaylistController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(PlaylistController
-    PlaylistRepository
-    MusicRepository
-    ${COMMON_LIBS}
-)
-
-add_library(PlayerController SHARED
-    controllers/player/PlayerController.cpp
-    services/player/AudioOutputSwitcher.cpp
-)
-target_include_directories(PlayerController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-
-add_library(VideoController SHARED
-    controllers/video/VideoController.cpp
-    services/video/StaticFileService.cpp
-)
-target_include_directories(VideoController PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${COMMON_INCLUDES})
-target_link_libraries(VideoController
-    FileSystemService
-    PlaybackService
-    VideoControlHandler
-    ${COMMON_LIBS}
-)
-
-add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
-target_include_directories(MediaServerCore PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${COMMON_INCLUDES}
-)
 target_link_libraries(MediaServerCore
     PRIVATE
     MusicLibraryController
     MusicScanController
     PlaylistController
+    PowerController
+    PowerService
     MusicRepository
     Profiler
     Playlist
@@ -256,16 +138,22 @@ target_link_libraries(MediaServerCore
     ${COMMON_LIBS}
 )
 
-add_executable(MediaServer main.cpp)
-target_include_directories(MediaServer PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${COMMON_INCLUDES}
+target_compile_definitions(MusicRepository PRIVATE TAGLIB_STATIC)
+
+set_target_properties(MusicRepository PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
 )
+
+set_target_properties(Profiler PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+)
+
+add_executable(MediaServer main.cpp)
 target_link_libraries(MediaServer PRIVATE MediaServerCore)
 
-install(TARGETS MediaServer
-    RUNTIME DESTINATION bin/
-)
+install(TARGETS MediaServer RUNTIME DESTINATION bin/)
 
 install(TARGETS
     EventBus
@@ -288,6 +176,8 @@ install(TARGETS
     PlaylistController
     PlayerController
     VideoController
+    PowerService
+    PowerController
     MediaServerCore
     LIBRARY DESTINATION lib/media-explorer/
 )

@@ -1,5 +1,4 @@
 #pragma once
-
 #include "html-server/app/App.h"
 #include "profilers/Profiler.h"
 #include <atomic>
@@ -16,6 +15,7 @@ class MusicScanController;
 class PlaylistController;
 class PlayerController;
 class VideoController;
+class PowerController;
 
 class MediaServerCore {
 public:
@@ -49,6 +49,7 @@ private:
   std::unique_ptr<PlaylistController> playlistController;
   std::unique_ptr<PlayerController> playerController;
   std::unique_ptr<VideoController> videoController;
+  std::unique_ptr<PowerController> powerController;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
 };

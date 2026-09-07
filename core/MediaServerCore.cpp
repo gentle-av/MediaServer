@@ -3,6 +3,7 @@
 #include "controllers/music/MusicScanController.h"
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
+#include "controllers/power/PowerController.h"
 #include "controllers/video/VideoController.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
@@ -148,6 +149,8 @@ bool MediaServerCore::initializeControllers() {
   videoController = std::make_unique<VideoController>(
       *app, std::make_shared<Profiler>(*profiler));
   videoController->register_routes();
+  powerController = std::make_unique<PowerController>(*app);
+  powerController->register_routes();
   return true;
 }
 
