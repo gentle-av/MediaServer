@@ -47,6 +47,10 @@ Json::Value FileSystemService::listDirectory(const std::string &path) {
   std::cout << "[DEBUG] Iterating directory: " << path << std::endl;
   for (const auto &entry : fs::directory_iterator(path)) {
     Json::Value item;
+    std::string name = entry.path().filename().string();
+    if (!name.empty() && name[0] == '.') {
+      continue;
+    }
     item["name"] = entry.path().filename().string();
     item["path"] = entry.path().string();
     item["isDirectory"] = entry.is_directory();
