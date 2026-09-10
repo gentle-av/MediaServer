@@ -3,6 +3,7 @@
 #include <atomic>
 #include <html-server/app/App.h>
 #include <html-server/controllers/RestController.h>
+#include <html-server/fs/StaticFileHandler.h>
 #include <html-server/templates/HttpResponse.h>
 #include <json/value.h>
 #include <memory>
@@ -48,12 +49,15 @@ private:
   nlohmann::json jsonValueToNlohmann(const Json::Value &value) const;
 
   std::shared_ptr<Profiler> profiler;
+  StaticFileHandler localHandler;
   static std::string activeSocket;
+
   struct CachedStatus {
     nlohmann::json data;
     std::chrono::steady_clock::time_point timestamp;
     bool isValid = false;
   };
+
   CachedStatus statusCache;
   std::mutex statusMutex;
   std::atomic<bool> statusRequestInProgress{false};

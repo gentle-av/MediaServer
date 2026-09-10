@@ -150,15 +150,8 @@ StringHttpResponse
 VideoController::handleGetIndex(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    if (!profiler) {
-      res.setHtmlContent("Profiler not initialized");
-      res.setStatus(500);
-      return res;
-    }
-    std::string indexContent =
-        StaticFileService::getInstance().serveIndex(profiler->getIndexPath());
-    res.setHtmlContent(indexContent);
-    res.setStatus(200);
+    localHandler.setBaseDirectory("/home/avr/.local/html/MediaPlayer");
+    localHandler.serveFile("/", res);
   } catch (const std::exception &e) {
     res.setHtmlContent(std::string("Error: ") + e.what());
     res.setStatus(500);
@@ -171,18 +164,8 @@ VideoController::handleServeStatic(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     std::string filename = req.getParam("filename");
-    if (!profiler) {
-      res.setHtmlContent("Profiler not initialized");
-      res.setStatus(500);
-      return res;
-    }
-    std::string fileContent = StaticFileService::getInstance().serveStaticFile(
-        profiler->getDocumentRoot(), filename);
-    std::string contentType =
-        StaticFileService::getInstance().getContentType(filename);
-    res.setBodyContent(fileContent);
-    res.setHeader("Content-Type", contentType);
-    res.setStatus(200);
+    localHandler.setBaseDirectory("/home/avr/.local/html/MediaPlayer");
+    localHandler.serveFile("/static/" + filename, res);
   } catch (const std::exception &e) {
     res.setHtmlContent(std::string("Error: ") + e.what());
     res.setStatus(500);
