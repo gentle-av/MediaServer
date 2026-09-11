@@ -16,6 +16,8 @@ class PlaylistController;
 class PlayerController;
 class VideoController;
 class PowerController;
+class AlbumArtController;
+class AlbumManagementController;
 
 class MediaServerCore {
 public:
@@ -50,6 +52,8 @@ private:
   std::unique_ptr<PlayerController> playerController;
   std::unique_ptr<VideoController> videoController;
   std::unique_ptr<PowerController> powerController;
+  std::unique_ptr<AlbumArtController> albumArtController;
+  std::unique_ptr<AlbumManagementController> albumManagementController;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
 };

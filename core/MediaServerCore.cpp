@@ -1,4 +1,6 @@
 #include "MediaServerCore.h"
+#include "controllers/albums/AlbumArtController.h"
+#include "controllers/albums/AlbumManagementController.h"
 #include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicScanController.h"
 #include "controllers/player/PlayerController.h"
@@ -151,6 +153,17 @@ bool MediaServerCore::initializeControllers() {
   videoController->register_routes();
   powerController = std::make_unique<PowerController>(*app);
   powerController->register_routes();
+  auto musicDbShared =
+      musicRepo ? std::shared_ptr<MusicDatabase>(
+                      musicRepo->getAllTracks(),
+                      reinterpret_cast<MusicDatabase *>(musicRepo.get()))
+                : nullptr;
+  albumArtController =
+      std::make_unique<AlbumArtController>(*app, musicDbShared, *musicRepo);
+  albumArtController->register_routes();
+  albumManagementController = std::make_unique<AlbumManagementController>(
+      *app, musicDbShared, cache, *musicRepo);
+  albumManagementController->register_routes();
   return true;
 }
 

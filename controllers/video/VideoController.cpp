@@ -1,8 +1,8 @@
 #include "VideoController.h"
+#include "models/MkvAudioTrackInfo.h"
 #include "profilers/Profiler.h"
 #include "services/video/FileSystemService.h"
 #include "services/video/PlaybackStatus.h"
-#include "services/video/StaticFileService.h"
 #include "services/video/TrashHandler.h"
 #include "services/video/VideoControlHandler.h"
 
@@ -26,6 +26,10 @@ void VideoController::register_all_routes() {
   app_.post("/api/video/list",
             [this](const StringHttpRequest &req) -> StringHttpResponse {
               return handleListFiles(req);
+            });
+  app_.post("/api/video/tracks",
+            [this](const StringHttpRequest &req) -> StringHttpResponse {
+              return handleGetFileTracks(req);
             });
   app_.post("/api/video/open",
             [this](const StringHttpRequest &req) -> StringHttpResponse {
@@ -570,6 +574,55 @@ VideoController::handleSetAudioTrack(const StringHttpRequest &req) {
         VideoControlHandler::getInstance().handleSetAudioTrack(streamIndex,
                                                                activeSocket);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
+    res.setJsonContent(response.dump());
+    res.setStatus(200);
+  } catch (const std::exception &e) {
+    nlohmann::json response;
+    response["success"] = false;
+    response["error"] = e.what();
+    res.setJsonContent(response.dump());
+    res.setStatus(500);
+  }
+  return res;
+}
+
+StringHttpResponse
+VideoController::handleGetFileTracks(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  try {
+    auto json = parseJsonBody(req);
+    if (json.is_null() || !json.contains("path")) {
+      nlohmann::json response;
+      response["success"] = false;
+      response["error"] = "No path provided";
+      res.setJsonContent(response.dump());
+      res.setStatus(400);
+      return res;
+    }
+    std::string path = json["path"].get<std::string>();
+    MkvAudioTrackInfo trackExtractor;
+    auto result = trackExtractor.openFile(path);
+    if (!result.has_value()) {
+      nlohmann::json response;
+      response["success"] = false;
+      response["error"] = result.error();
+      res.setJsonContent(response.dump());
+      res.setStatus(400);
+      return res;
+    }
+    nlohmann::json tracksJson = nlohmann::json::array();
+    for (const auto &track : trackExtractor.getAudioTracks()) {
+      nlohmann::json t;
+      t["id"] = track.streamIndex;
+      t["codec"] = track.codecName;
+      t["lang"] = track.language;
+      t["title"] = track.title;
+      t["channels"] = track.channels;
+      tracksJson.push_back(t);
+    }
+    nlohmann::json response;
+    response["success"] = true;
+    response["tracks"] = tracksJson;
     res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {

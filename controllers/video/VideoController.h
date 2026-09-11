@@ -38,6 +38,7 @@ private:
   StringHttpResponse handleForceStopVideo(const StringHttpRequest &req);
   StringHttpResponse handleDeleteDirectory(const StringHttpRequest &req);
   StringHttpResponse handleSetAudioTrack(const StringHttpRequest &req);
+  StringHttpResponse handleGetFileTracks(const StringHttpRequest &req);
 
   std::string getQueryParam(const StringHttpRequest &req,
                             const std::string &key,

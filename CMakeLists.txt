@@ -74,6 +74,8 @@ add_library(PlayerController SHARED controllers/player/PlayerController.cpp serv
 add_library(VideoController SHARED controllers/video/VideoController.cpp services/video/StaticFileService.cpp)
 add_library(PowerService SHARED services/system/PowerService.cpp services/system/MonitorService.cpp)
 add_library(PowerController SHARED controllers/power/PowerController.cpp)
+add_library(AlbumArtController SHARED controllers/albums/AlbumArtController.cpp)
+add_library(AlbumManagementController SHARED controllers/albums/AlbumManagementController.cpp)
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_link_libraries(MusicRepository
@@ -111,6 +113,8 @@ target_link_libraries(PlayerController ${COMMON_LIBS})
 target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${COMMON_LIBS})
 target_link_libraries(PowerService ${COMMON_LIBS})
 target_link_libraries(PowerController ${COMMON_LIBS} PowerService)
+target_link_libraries(AlbumArtController MusicRepository MusicDatabase ${COMMON_LIBS})
+target_link_libraries(AlbumManagementController MusicRepository MusicDatabase FileSystemService ${COMMON_LIBS})
 
 target_link_libraries(MediaServerCore
     PRIVATE
@@ -135,6 +139,8 @@ target_link_libraries(MediaServerCore
     MkvAudioTrackInfo
     PlayerController
     VideoController
+    AlbumArtController
+    AlbumManagementController
     ${COMMON_LIBS}
 )
 
@@ -178,6 +184,8 @@ install(TARGETS
     VideoController
     PowerService
     PowerController
+    AlbumArtController
+    AlbumManagementController
     MediaServerCore
     LIBRARY DESTINATION lib/media-explorer/
 )
