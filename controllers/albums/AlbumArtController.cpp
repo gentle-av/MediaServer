@@ -1,6 +1,7 @@
 #include "AlbumArtController.h"
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -14,10 +15,10 @@ void AlbumArtController::register_all_routes() {
                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                    return this->handleGetAlbumArt(req);
                  });
-  this->app_.get("/api/music/albumart/album/:album",
-                 [this](const StringHttpRequest &req) -> StringHttpResponse {
-                   return this->handleGetAlbumArtByAlbum(req);
-                 });
+  this->app_.post("/api/music/albumart/by-album",
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
+                    return this->handleGetAlbumArtByAlbum(req);
+                  });
   this->app_.post("/api/music/upload-album-art",
                   [this](const StringHttpRequest &req) -> StringHttpResponse {
                     return this->handleUploadAlbumArt(req);
@@ -42,16 +43,66 @@ AlbumArtController::handleGetAlbumArt(const StringHttpRequest &req) {
 
 StringHttpResponse
 AlbumArtController::handleGetAlbumArtByAlbum(const StringHttpRequest &req) {
-  std::string album = req.getParam("album");
-  std::string artistFilter = this->getQueryParam(req, "artist");
-  std::string filePath = db->getFilePathByAlbumRaw(album, artistFilter);
-  if (filePath.empty()) {
-    StringHttpResponse res;
-    res.setStatus(404);
+  StringHttpResponse res;
+  auto json = parseJsonBody(req);
+  std::cout << "\n[DEBUG] === New Album Art Request ===" << std::endl;
+  if (json.is_null()) {
+    std::cout << "[DEBUG] Error: JSON body is null or invalid" << std::endl;
+    res.setStatus(400);
+    res.setJsonContent("{\"error\":\"Invalid JSON\"}");
     return res;
   }
-  auto albumArt = db->getAlbumArt(filePath);
-  return createImageResponse(albumArt.data);
+  if (!json.contains("album")) {
+    std::cout << "[DEBUG] Error: JSON missing 'album' field" << std::endl;
+    res.setStatus(400);
+    res.setJsonContent("{\"error\":\"Missing album field\"}");
+    return res;
+  }
+  std::string album = json["album"].get<std::string>();
+  std::string artistFilter =
+      json.contains("artist") ? json["artist"].get<std::string>() : "";
+  std::cout << "[DEBUG] Requested Album: '" << album << "'" << std::endl;
+  std::cout << "[DEBUG] Requested Artist: '" << artistFilter << "'"
+            << std::endl;
+  if (!db) {
+    std::cout << "[DEBUG] Error: MusicDatabase pointer is NULL!" << std::endl;
+    res.setStatus(500);
+    res.setJsonContent("{\"error\":\"Database not initialized\"}");
+    return res;
+  }
+  std::string filePath = db->getFilePathByAlbumRaw(album, artistFilter);
+  std::cout << "[DEBUG] getFilePathByAlbumRaw returned path: '" << filePath
+            << "'" << std::endl;
+  if (!filePath.empty()) {
+    auto albumArt = db->getAlbumArt(filePath);
+    std::cout << "[DEBUG] getAlbumArt size for direct path: "
+              << albumArt.data.size() << " bytes" << std::endl;
+    if (!albumArt.data.empty()) {
+      std::cout << "[DEBUG] Success: Sending direct album art" << std::endl;
+      return createImageResponse(albumArt.data);
+    }
+  }
+  std::cout << "[DEBUG] Falling back to getTracksByAlbumRaw..." << std::endl;
+  auto tracks = db->getTracksByAlbumRaw(album, artistFilter);
+  std::cout << "[DEBUG] Found " << tracks.size() << " tracks for this album"
+            << std::endl;
+  for (const auto &track : tracks) {
+    std::cout << "[DEBUG] Checking track path: '" << track.filePath << "'"
+              << std::endl;
+    auto albumArt = db->getAlbumArt(track.filePath);
+    std::cout << "[DEBUG] Track art size: " << albumArt.data.size() << " bytes"
+              << std::endl;
+    if (!albumArt.data.empty()) {
+      std::cout << "[DEBUG] Success: Sending album art from track" << std::endl;
+      return createImageResponse(albumArt.data);
+    }
+  }
+  std::cout
+      << "[DEBUG] Error: No art data found in DB for this album. Sending 404"
+      << std::endl;
+  res.setStatus(404);
+  res.setJsonContent("{\"error\":\"Album art not found\"}");
+  return res;
 }
 
 StringHttpResponse

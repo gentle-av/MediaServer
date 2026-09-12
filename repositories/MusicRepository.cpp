@@ -347,3 +347,7 @@ void MusicRepository::waitForScan() {
     scanFuture.wait();
   }
 }
+
+std::shared_ptr<MusicDatabase> MusicRepository::getDatabase() const {
+  return db;
+}

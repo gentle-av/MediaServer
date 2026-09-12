@@ -28,6 +28,7 @@ public:
                    const std::string &artistName = "") const;
   std::shared_ptr<const std::vector<MusicMetadata>> getAllTracks() const;
   std::optional<MusicMetadata> getTrack(const std::string &filePath) const;
+  std::shared_ptr<MusicDatabase> getDatabase() const;
   void forEachTrack(std::function<void(const MusicMetadata &)> callback) const;
   void forEachArtist(std::function<void(const std::string &)> callback) const;
 

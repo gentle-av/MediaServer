@@ -153,11 +153,7 @@ bool MediaServerCore::initializeControllers() {
   videoController->register_routes();
   powerController = std::make_unique<PowerController>(*app);
   powerController->register_routes();
-  auto musicDbShared =
-      musicRepo ? std::shared_ptr<MusicDatabase>(
-                      musicRepo->getAllTracks(),
-                      reinterpret_cast<MusicDatabase *>(musicRepo.get()))
-                : nullptr;
+  auto musicDbShared = musicRepo ? musicRepo->getDatabase() : nullptr;
   albumArtController =
       std::make_unique<AlbumArtController>(*app, musicDbShared, *musicRepo);
   albumArtController->register_routes();
