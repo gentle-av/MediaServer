@@ -61,6 +61,26 @@ void PlayerController::register_all_routes() {
     }
     return res;
   });
+  app_.post("/api/audio/index", [this](const StringHttpRequest &req) {
+    StringHttpResponse res;
+    try {
+      auto json = nlohmann::json::parse(req.getBodyString());
+      if (!json.contains("index")) {
+        res.setJsonContent(
+            "{\"success\":false,\"error\":\"Missing index parameter\"}");
+        res.setStatus(400);
+        return res;
+      }
+      int index = json["index"].get<int>();
+      playbackService->loadTrackByIndex(index);
+      res.setJsonContent("{\"success\":true}");
+      res.setStatus(200);
+    } catch (...) {
+      res.setJsonContent("{\"success\":false,\"error\":\"Invalid JSON\"}");
+      res.setStatus(400);
+    }
+    return res;
+  });
   app_.post("/api/audio/file", [this](const StringHttpRequest &req) {
     StringHttpResponse res;
     try {

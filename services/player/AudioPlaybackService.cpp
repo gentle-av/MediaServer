@@ -10,11 +10,13 @@ void AudioPlaybackService::setPlaylist(std::vector<std::string> tracks) {
   currentTracks = std::move(tracks);
   if (!currentTracks.empty()) {
     ipcClient->startMpvIfNeeded();
+    lock.unlock();
     loadTrackByIndex(0);
   }
 }
 
 void AudioPlaybackService::loadTrackByIndex(int index) {
+  std::unique_lock lock(serviceMutex);
   if (index < 0 || index >= static_cast<int>(currentTracks.size())) {
     return;
   }
