@@ -67,12 +67,14 @@ add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
 add_library(VideoControlHandler SHARED services/video/VideoControlHandler.cpp)
 add_library(PlaylistManager SHARED services/music/PlaylistManager.cpp)
 add_library(Profiler SHARED profilers/Profiler.cpp)
+add_library(PowerService SHARED services/system/PowerService.cpp services/system/MonitorService.cpp)
+
 add_library(MusicScanController SHARED controllers/music/MusicScanController.cpp)
 add_library(MusicLibraryController SHARED controllers/music/MusicLibraryController.cpp)
+add_library(MusicMetadataController SHARED controllers/music/MusicMetadataController.cpp)
 add_library(PlaylistController SHARED controllers/playlists/PlaylistController.cpp)
 add_library(PlayerController SHARED controllers/player/PlayerController.cpp services/player/AudioOutputSwitcher.cpp)
 add_library(VideoController SHARED controllers/video/VideoController.cpp services/video/StaticFileService.cpp)
-add_library(PowerService SHARED services/system/PowerService.cpp services/system/MonitorService.cpp)
 add_library(PowerController SHARED controllers/power/PowerController.cpp)
 add_library(AlbumArtController SHARED controllers/albums/AlbumArtController.cpp)
 add_library(AlbumManagementController SHARED controllers/albums/AlbumManagementController.cpp)
@@ -108,8 +110,9 @@ target_link_libraries(PlaylistManager
 target_link_libraries(Profiler ${COMMON_LIBS})
 target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${COMMON_LIBS})
 target_link_libraries(MusicLibraryController MusicRepository ${COMMON_LIBS})
+target_link_libraries(MusicMetadataController MusicDatabase MetadataExtractor ${COMMON_LIBS})
 target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${COMMON_LIBS})
-target_link_libraries(PlayerController ${COMMON_LIBS})
+target_link_libraries(PlayerController ${COMMON_LIBS} AlsaMixer)
 target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${COMMON_LIBS})
 target_link_libraries(PowerService ${COMMON_LIBS})
 target_link_libraries(PowerController ${COMMON_LIBS} PowerService)
@@ -120,6 +123,7 @@ target_link_libraries(MediaServerCore
     PRIVATE
     MusicLibraryController
     MusicScanController
+    MusicMetadataController
     PlaylistController
     PowerController
     PowerService
@@ -146,120 +150,33 @@ target_link_libraries(MediaServerCore
 
 target_compile_definitions(MusicRepository PRIVATE TAGLIB_STATIC)
 
-set_target_properties(MusicRepository PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION 1
-)
-
-set_target_properties(Profiler PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION 1
-)
+set_target_properties(MusicRepository PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 1)
+set_target_properties(Profiler PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 1)
 
 add_executable(MediaServer main.cpp)
 target_link_libraries(MediaServer PRIVATE MediaServerCore)
 
 install(TARGETS MediaServer RUNTIME DESTINATION bin/)
-
 install(TARGETS
-    EventBus
-    TagEditor
-    MetadataExtractor
-    MusicDatabase
-    MkvAudioTrackInfo
-    MusicRepository
-    Playlist
-    PlaylistDatabase
-    PlaylistRepository
-    FileSystemService
-    PlaybackService
-    AlsaMixer
-    VideoControlHandler
-    PlaylistManager
-    Profiler
-    MusicScanController
-    MusicLibraryController
-    PlaylistController
-    PlayerController
-    VideoController
-    PowerService
-    PowerController
-    AlbumArtController
-    AlbumManagementController
-    MediaServerCore
+    EventBus TagEditor MetadataExtractor MusicDatabase MkvAudioTrackInfo
+    MusicRepository Playlist PlaylistDatabase PlaylistRepository FileSystemService
+    PlaybackService AlsaMixer VideoControlHandler PlaylistManager Profiler
+    MusicScanController MusicLibraryController MusicMetadataController
+    PlaylistController PlayerController VideoController PowerService PowerController
+    AlbumArtController AlbumManagementController MediaServerCore
     LIBRARY DESTINATION lib/media-explorer/
 )
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/controllers/
-    DESTINATION include/media-explorer/controllers
-    FILES_MATCHING
-    PATTERN "*.h"
-)
+set(HEADERS_DIRS controllers core database events middlewares models profilers repositories services tagger)
+foreach(DIR ${HEADERS_DIRS})
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${DIR}/
+        DESTINATION include/media-explorer/${DIR}
+        FILES_MATCHING PATTERN "*.h"
+    )
+endforeach()
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/core/
-    DESTINATION include/media-explorer/core
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/database/
-    DESTINATION include/media-explorer/database
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/events/
-    DESTINATION include/media-explorer/events
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/middlewares/
-    DESTINATION include/media-explorer/middlewares
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/models/
-    DESTINATION include/media-explorer/models
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/profilers/
-    DESTINATION include/media-explorer/profilers
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/repositories/
-    DESTINATION include/media-explorer/repositories
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/services/
-    DESTINATION include/media-explorer/services
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tagger/
-    DESTINATION include/media-explorer/tagger
-    FILES_MATCHING
-    PATTERN "*.h"
-)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
-    ${CMAKE_CURRENT_BINARY_DIR}/config.json
-    COPYONLY
-)
-
-install(
-    FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
-    DESTINATION share/media-explorer/
-)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/config.json ${CMAKE_CURRENT_BINARY_DIR}/config.json COPYONLY)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json DESTINATION share/media-explorer/)
 
 add_custom_command(
     TARGET MediaServer POST_BUILD
@@ -278,8 +195,3 @@ add_custom_command(
     COMMENT "Copying config.json to build directory"
 )
 
-message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
-message(STATUS "Executable will be installed to: ${CMAKE_INSTALL_PREFIX}/bin/")
-message(STATUS "Libraries will be installed to: ${CMAKE_INSTALL_PREFIX}/lib/media-explorer/")
-message(STATUS "Headers will be installed to: ${CMAKE_INSTALL_PREFIX}/include/media-explorer/")
-message(STATUS "Config will be installed to: ${CMAKE_INSTALL_PREFIX}/share/media-explorer/")

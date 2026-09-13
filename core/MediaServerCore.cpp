@@ -1,7 +1,8 @@
-#include "MediaServerCore.h"
+#include "core/MediaServerCore.h"
 #include "controllers/albums/AlbumArtController.h"
 #include "controllers/albums/AlbumManagementController.h"
 #include "controllers/music/MusicLibraryController.h"
+#include "controllers/music/MusicMetadataController.h"
 #include "controllers/music/MusicScanController.h"
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
@@ -57,9 +58,7 @@ bool MediaServerCore::initialize() {
   if (!std::filesystem::is_directory(config.databasePath)) {
     std::filesystem::create_directory(config.databasePath);
   }
-  auto dbFuture = std::async(std::launch::async,
-                             [this]() { return initializeDatabases(); });
-  if (!dbFuture.get()) {
+  if (!initializeDatabases()) {
     std::cerr << "Failed to initialize databases" << std::endl;
     return false;
   }
@@ -91,13 +90,13 @@ bool MediaServerCore::initializeCors() {
 }
 
 bool MediaServerCore::initializeDatabases() {
-  musicDb = std::make_unique<MusicDatabase>(config.databasePath + "/music.db");
+  musicDb = std::make_shared<MusicDatabase>(config.databasePath + "/music.db");
   if (!musicDb->init()) {
     std::cerr << "Failed to initialize music database" << std::endl;
     return false;
   }
   playlistDb =
-      std::make_unique<PlaylistDatabase>(config.databasePath + "/playlists.db");
+      std::make_shared<PlaylistDatabase>(config.databasePath + "/playlists.db");
   if (!playlistDb->init()) {
     std::cerr << "Failed to initialize playlist database" << std::endl;
     return false;
@@ -106,9 +105,8 @@ bool MediaServerCore::initializeDatabases() {
 }
 
 bool MediaServerCore::initializeRepositories() {
-  musicRepo = std::make_shared<MusicRepository>(std::move(musicDb));
-  playlistRepo =
-      std::make_shared<PlaylistRepository>(std::move(playlistDb), musicRepo);
+  musicRepo = std::make_shared<MusicRepository>(musicDb);
+  playlistRepo = std::make_shared<PlaylistRepository>(playlistDb, musicRepo);
   return true;
 }
 
@@ -148,17 +146,19 @@ bool MediaServerCore::initializeControllers() {
   playerController = std::make_unique<PlayerController>(*app, *musicRepo,
                                                         *playlistRepo, cache);
   playerController->register_routes();
+  metadataController =
+      std::make_unique<MusicMetadataController>(*app, musicDb, cache);
+  metadataController->register_routes();
   videoController = std::make_unique<VideoController>(
       *app, std::make_shared<Profiler>(*profiler));
   videoController->register_routes();
   powerController = std::make_unique<PowerController>(*app);
   powerController->register_routes();
-  auto musicDbShared = musicRepo ? musicRepo->getDatabase() : nullptr;
   albumArtController =
-      std::make_unique<AlbumArtController>(*app, musicDbShared, *musicRepo);
+      std::make_unique<AlbumArtController>(*app, musicDb, *musicRepo);
   albumArtController->register_routes();
   albumManagementController = std::make_unique<AlbumManagementController>(
-      *app, musicDbShared, cache, *musicRepo);
+      *app, musicDb, cache, *musicRepo);
   albumManagementController->register_routes();
   return true;
 }
@@ -173,7 +173,7 @@ bool MediaServerCore::startServer() {
 
 void MediaServerCore::runMainLoop() {
   mainLoopThread = std::jthread([this](std::stop_token stopToken) {
-    while (!stopToken.stop_requested() && running) {
+    while (!stopToken.stop_requested() && running.load()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
   });

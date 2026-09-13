@@ -1,4 +1,5 @@
 #pragma once
+
 #include "html-server/app/App.h"
 #include "profilers/Profiler.h"
 #include <atomic>
@@ -18,6 +19,7 @@ class VideoController;
 class PowerController;
 class AlbumArtController;
 class AlbumManagementController;
+class MusicMetadataController;
 
 class MediaServerCore {
 public:
@@ -25,7 +27,7 @@ public:
   ~MediaServerCore();
   bool run();
   void shutdown();
-  bool isRunning() const { return running; }
+  bool isRunning() const { return running.load(); }
 
 private:
   bool initialize();
@@ -40,8 +42,8 @@ private:
 
   std::unique_ptr<Profiler> profiler;
   ProfileConfig config;
-  std::unique_ptr<MusicDatabase> musicDb;
-  std::unique_ptr<PlaylistDatabase> playlistDb;
+  std::shared_ptr<MusicDatabase> musicDb;
+  std::shared_ptr<PlaylistDatabase> playlistDb;
   std::shared_ptr<MusicRepository> musicRepo;
   std::shared_ptr<PlaylistRepository> playlistRepo;
   std::shared_ptr<MetadataCache> cache;
@@ -54,6 +56,7 @@ private:
   std::unique_ptr<PowerController> powerController;
   std::unique_ptr<AlbumArtController> albumArtController;
   std::unique_ptr<AlbumManagementController> albumManagementController;
+  std::unique_ptr<MusicMetadataController> metadataController;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
 };
