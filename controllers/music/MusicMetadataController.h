@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../database/MusicDatabase.h"
+#include "../../repositories/MusicRepository.h"
 #include "../../services/music/MetadataCache.h"
 #include <html-server/app/App.h>
 #include <html-server/controllers/RestController.h>
@@ -11,7 +12,8 @@
 class MusicMetadataController : public RestController<App> {
 public:
   MusicMetadataController(App &app, std::shared_ptr<MusicDatabase> db,
-                          std::shared_ptr<MetadataCache> cache);
+                          std::shared_ptr<MetadataCache> cache,
+                          MusicRepository &repo);
   ~MusicMetadataController() = default;
 
 protected:
@@ -20,6 +22,8 @@ protected:
 private:
   std::shared_ptr<MusicDatabase> db;
   std::shared_ptr<MetadataCache> cache;
+  MusicRepository &musicRepository;
+
   StringHttpResponse handleGetFileMetadata(const StringHttpRequest &req);
   StringHttpResponse handleRefreshFileMetadata(const StringHttpRequest &req);
   StringHttpResponse handleUpdateFileTags(const StringHttpRequest &req);

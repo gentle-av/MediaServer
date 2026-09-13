@@ -151,8 +151,8 @@ bool MediaServerCore::initializeControllers() {
   playerController =
       std::make_shared<PlayerController>(*app, playbackService, outputService);
   playerController->register_routes();
-  metadataController =
-      std::make_unique<MusicMetadataController>(*app, musicDb, cache);
+  metadataController = std::make_unique<MusicMetadataController>(
+      *app, musicDb, cache, *musicRepo);
   metadataController->register_routes();
   playbackController =
       std::make_unique<MusicPlaybackController>(*app, musicDb, playbackService);

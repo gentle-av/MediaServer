@@ -7,8 +7,8 @@ namespace fs = std::filesystem;
 
 MusicMetadataController::MusicMetadataController(
     App &app, std::shared_ptr<MusicDatabase> db,
-    std::shared_ptr<MetadataCache> cache)
-    : RestController<App>(app), db(db), cache(cache) {}
+    std::shared_ptr<MetadataCache> cache, MusicRepository &repo)
+    : RestController<App>(app), db(db), cache(cache), musicRepository(repo) {}
 
 void MusicMetadataController::register_all_routes() {
   this->app_.get("/api/music/file-metadata",
@@ -186,6 +186,7 @@ MusicMetadataController::handleUpdateFileTags(const StringHttpRequest &req) {
           this->error_response(404, "File does not exist").dump());
       return res;
     }
+    auto existingArt = db->getAlbumArt(decodedPath);
     MusicMetadata newMetadata;
     if (json.contains("title"))
       newMetadata.title = json["title"].get<std::string>();
@@ -212,21 +213,22 @@ MusicMetadataController::handleUpdateFileTags(const StringHttpRequest &req) {
       db->addFile(decodedPath, updatedMetadata);
       cache->erase(decodedPath);
       cache->put(decodedPath, updatedMetadata);
-      if (json.contains("album")) {
-        std::vector<char> albumArt;
-        if (MetadataExtractor::extractAlbumArt(decodedPath, albumArt)) {
-          db->saveAlbumArt(decodedPath, albumArt);
-        }
+      std::vector<char> albumArt;
+      if (MetadataExtractor::extractAlbumArt(decodedPath, albumArt)) {
+        db->saveAlbumArt(decodedPath, albumArt);
+      } else if (!existingArt.data.empty()) {
+        db->saveAlbumArt(decodedPath, existingArt.data);
       }
     }
+    musicRepository.invalidateAll();
     nlohmann::json data = this->success_response("Tags updated successfully");
     data["path"] = decodedPath;
-    data["title"] = newMetadata.title;
-    data["artist"] = newMetadata.artist;
-    data["album"] = newMetadata.album;
-    data["track"] = newMetadata.track;
-    data["year"] = newMetadata.year;
-    data["genre"] = newMetadata.genre;
+    data["title"] = updatedMetadata.title;
+    data["artist"] = updatedMetadata.artist;
+    data["album"] = updatedMetadata.album;
+    data["track"] = updatedMetadata.track;
+    data["year"] = updatedMetadata.year;
+    data["genre"] = updatedMetadata.genre;
     res.setJsonContent(data.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
@@ -283,7 +285,6 @@ MusicMetadataController::handleGetDatabaseStats(const StringHttpRequest &req) {
   }
   return res;
 }
-
 std::string
 MusicMetadataController::getQueryParam(const StringHttpRequest &req,
                                        const std::string &key,
