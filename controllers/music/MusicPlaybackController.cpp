@@ -2,8 +2,8 @@
 
 MusicPlaybackController::MusicPlaybackController(
     App &app, std::shared_ptr<MusicDatabase> db,
-    std::shared_ptr<PlayerController> playerController)
-    : RestController<App>(app), db(db), playerController(playerController) {}
+    std::shared_ptr<AudioPlaybackService> playbackService)
+    : RestController<App>(app), db(db), playbackService(playbackService) {}
 
 void MusicPlaybackController::register_all_routes() {
   this->app_.post("/api/music/open",
@@ -48,20 +48,11 @@ MusicPlaybackController::handleOpenMusium(const StringHttpRequest &req) {
     res.setJsonContent(this->error_response(400, "No tracks provided").dump());
     return res;
   }
-  nlohmann::json playlistBody;
-  playlistBody["tracks"] = tracks;
-  StringHttpRequest mockReq;
-  mockReq.setBody(playlistBody.dump());
-  StringHttpResponse playerRes = playerController->handleSetPlaylist(mockReq);
-  if (playerRes.getStatus() == 200) {
-    nlohmann::json data = this->success_response("Musium opened");
-    data["tracks_count"] = static_cast<int>(tracks.size());
-    res.setJsonContent(data.dump());
-    res.setStatus(200);
-  } else {
-    res.setStatus(500);
-    res.setJsonContent(this->error_response(500, "Player error").dump());
-  }
+  playbackService->setPlaylist(tracks);
+  nlohmann::json data = this->success_response("Musium opened");
+  data["tracks_count"] = static_cast<int>(tracks.size());
+  res.setJsonContent(data.dump());
+  res.setStatus(200);
   return res;
 }
 
@@ -81,23 +72,14 @@ MusicPlaybackController::handleOpenAlbum(const StringHttpRequest &req) {
   for (const auto &meta : trackMetadata) {
     tracks.push_back(meta.filePath);
   }
-  nlohmann::json playlistBody;
-  playlistBody["tracks"] = tracks;
-  StringHttpRequest mockReq;
-  mockReq.setBody(playlistBody.dump());
-  StringHttpResponse playerRes = playerController->handleSetPlaylist(mockReq);
-  if (playerRes.getStatus() == 200) {
-    nlohmann::json data = this->success_response("Album opened");
-    data["album"] = album;
-    if (!artistFilter.empty()) {
-      data["artist"] = artistFilter;
-    }
-    res.setJsonContent(data.dump());
-    res.setStatus(200);
-  } else {
-    res.setStatus(500);
-    res.setJsonContent(this->error_response(500, "Player error").dump());
+  playbackService->setPlaylist(tracks);
+  nlohmann::json data = this->success_response("Album opened");
+  data["album"] = album;
+  if (!artistFilter.empty()) {
+    data["artist"] = artistFilter;
   }
+  res.setJsonContent(data.dump());
+  res.setStatus(200);
   return res;
 }
 
@@ -117,20 +99,11 @@ MusicPlaybackController::handleOpenArtist(const StringHttpRequest &req) {
   for (const auto &meta : trackMetadata) {
     tracks.push_back(meta.filePath);
   }
-  nlohmann::json playlistBody;
-  playlistBody["tracks"] = tracks;
-  StringHttpRequest mockReq;
-  mockReq.setBody(playlistBody.dump());
-  StringHttpResponse playerRes = playerController->handleSetPlaylist(mockReq);
-  if (playerRes.getStatus() == 200) {
-    nlohmann::json data = this->success_response("Artist opened");
-    data["artist"] = artist;
-    res.setJsonContent(data.dump());
-    res.setStatus(200);
-  } else {
-    res.setStatus(500);
-    res.setJsonContent(this->error_response(500, "Player error").dump());
-  }
+  playbackService->setPlaylist(tracks);
+  nlohmann::json data = this->success_response("Artist opened");
+  data["artist"] = artist;
+  res.setJsonContent(data.dump());
+  res.setStatus(200);
   return res;
 }
 

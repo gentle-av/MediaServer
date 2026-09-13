@@ -7,7 +7,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Install path" FORCE)
 
 find_package(TagLib REQUIRED)
@@ -31,7 +30,7 @@ include_directories(
     ${JSONCPP_INCLUDE_DIRS}
 )
 
-set(COMMON_LIBS
+set(commonLibs
     TagLib::TagLib
     ${SQLITE3_LIBRARIES}
     ${MPV_LIBRARIES}
@@ -54,19 +53,27 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
 add_library(EventBus SHARED events/EventBus.cpp)
 add_library(TagEditor SHARED tagger/TagEditor.cpp)
-add_library(MetadataExtractor SHARED services/music/MetadataExtractor.cpp services/music/MetadataCache.cpp)
 add_library(MusicDatabase SHARED database/MusicDatabase.cpp)
 add_library(MkvAudioTrackInfo SHARED models/MkvAudioTrackInfo.cpp)
-add_library(MusicRepository SHARED repositories/MusicRepository.cpp)
 add_library(Playlist SHARED models/Playlist.cpp)
 add_library(PlaylistDatabase SHARED database/PlaylistDatabase.cpp)
+add_library(Profiler SHARED profilers/Profiler.cpp)
+add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
+
+add_library(MetadataExtractor SHARED
+    services/music/MetadataExtractor.cpp
+    services/music/MetadataCache.cpp
+)
+add_library(MpvIpcClient SHARED services/player/MpvIpcClient.cpp)
+add_library(AudioPlaybackService SHARED services/player/AudioPlaybackService.cpp)
+add_library(AudioOutputService SHARED services/player/AudioOutputService.cpp)
+
+add_library(MusicRepository SHARED repositories/MusicRepository.cpp)
 add_library(PlaylistRepository SHARED repositories/PlaylistRepository.cpp)
 add_library(FileSystemService SHARED services/video/FileSystemService.cpp services/video/TrashHandler.cpp)
 add_library(PlaybackService SHARED services/video/PlaybackService.cpp services/video/PlaybackStatus.cpp services/player/AutoAdvanceTracker.cpp)
-add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
 add_library(VideoControlHandler SHARED services/video/VideoControlHandler.cpp)
 add_library(PlaylistManager SHARED services/music/PlaylistManager.cpp)
-add_library(Profiler SHARED profilers/Profiler.cpp)
 add_library(PowerService SHARED services/system/PowerService.cpp services/system/MonitorService.cpp)
 
 add_library(MusicScanController SHARED controllers/music/MusicScanController.cpp)
@@ -82,7 +89,7 @@ add_library(AlbumManagementController SHARED controllers/albums/AlbumManagementC
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_link_libraries(MusicRepository
-    ${COMMON_LIBS}
+    ${commonLibs}
     MkvAudioTrackInfo
     MusicDatabase
     TagEditor
@@ -90,12 +97,15 @@ target_link_libraries(MusicRepository
     EventBus
 )
 
+target_link_libraries(MpvIpcClient ${commonLibs})
+target_link_libraries(AudioPlaybackService MpvIpcClient ${commonLibs})
+target_link_libraries(AudioOutputService AlsaMixer ${commonLibs})
+
 target_link_libraries(PlaylistDatabase Playlist)
-target_link_libraries(PlaylistRepository Playlist MusicRepository EventBus ${COMMON_LIBS})
-target_link_libraries(FileSystemService ${COMMON_LIBS})
-target_link_libraries(PlaybackService FileSystemService ${COMMON_LIBS})
-target_link_libraries(AlsaMixer ${COMMON_LIBS})
-target_link_libraries(VideoControlHandler PlaybackService FileSystemService AlsaMixer ${COMMON_LIBS})
+target_link_libraries(PlaylistRepository Playlist MusicRepository EventBus ${commonLibraries})
+target_link_libraries(FileSystemService ${commonLibraries})
+target_link_libraries(PlaybackService FileSystemService ${commonLibraries})
+target_link_libraries(VideoControlHandler PlaybackService FileSystemService AlsaMixer ${commonLibraries})
 
 target_link_libraries(PlaylistManager
     Playlist
@@ -105,21 +115,21 @@ target_link_libraries(PlaylistManager
     PlaybackService
     FileSystemService
     AlsaMixer
-    ${COMMON_LIBS}
+    ${commonLibraries}
 )
 
-target_link_libraries(Profiler ${COMMON_LIBS})
-target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${COMMON_LIBS})
-target_link_libraries(MusicLibraryController MusicRepository ${COMMON_LIBS})
-target_link_libraries(MusicMetadataController MusicDatabase MetadataExtractor ${COMMON_LIBS})
-target_link_libraries(MusicPlaybackController MusicDatabase PlayerController ${COMMON_LIBS})
-target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${COMMON_LIBS})
-target_link_libraries(PlayerController ${COMMON_LIBS} AlsaMixer)
-target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${COMMON_LIBS})
-target_link_libraries(PowerService ${COMMON_LIBS})
-target_link_libraries(PowerController ${COMMON_LIBS} PowerService)
-target_link_libraries(AlbumArtController MusicRepository MusicDatabase ${COMMON_LIBS})
-target_link_libraries(AlbumManagementController MusicRepository MusicDatabase FileSystemService ${COMMON_LIBS})
+target_link_libraries(Profiler ${commonLibraries})
+target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${commonLibraries})
+target_link_libraries(MusicLibraryController MusicRepository ${commonLibraries})
+target_link_libraries(MusicMetadataController MusicDatabase MetadataExtractor ${commonLibraries})
+target_link_libraries(MusicPlaybackController MusicDatabase PlayerController ${commonLibraries})
+target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${commonLibraries})
+target_link_libraries(PlayerController AudioPlaybackService AudioOutputService ${commonLibraries} AlsaMixer)
+target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${commonLibraries})
+target_link_libraries(PowerService ${commonLibraries})
+target_link_libraries(PowerController ${commonLibraries} PowerService)
+target_link_libraries(AlbumArtController MusicRepository MusicDatabase ${commonLibraries})
+target_link_libraries(AlbumManagementController MusicRepository MusicDatabase FileSystemService ${commonLibraries})
 
 target_link_libraries(MediaServerCore
     PRIVATE
@@ -141,6 +151,9 @@ target_link_libraries(MediaServerCore
     FileSystemService
     AlsaMixer
     MetadataExtractor
+    MpvIpcClient
+    AudioPlaybackService
+    AudioOutputService
     EventBus
     TagEditor
     MkvAudioTrackInfo
@@ -148,11 +161,10 @@ target_link_libraries(MediaServerCore
     VideoController
     AlbumArtController
     AlbumManagementController
-    ${COMMON_LIBS}
+    ${commonLibs}
 )
 
 target_compile_definitions(MusicRepository PRIVATE TAGLIB_STATIC)
-
 set_target_properties(MusicRepository PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 1)
 set_target_properties(Profiler PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 1)
 
@@ -164,16 +176,17 @@ install(TARGETS
     EventBus TagEditor MetadataExtractor MusicDatabase MkvAudioTrackInfo
     MusicRepository Playlist PlaylistDatabase PlaylistRepository FileSystemService
     PlaybackService AlsaMixer VideoControlHandler PlaylistManager Profiler
+    MpvIpcClient AudioPlaybackService AudioOutputService
     MusicScanController MusicLibraryController MusicMetadataController MusicPlaybackController
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MediaServerCore
     LIBRARY DESTINATION lib/media-explorer/
 )
 
-set(HEADERS_DIRS controllers core database events middlewares models profilers repositories services tagger)
-foreach(DIR ${HEADERS_DIRS})
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${DIR}/
-        DESTINATION include/media-explorer/${DIR}
+set(headersDirs controllers core database events middlewares models profilers repositories services tagger)
+foreach(dir ${headersDirs})
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${dir}/
+        DESTINATION include/media-explorer/${dir}
         FILES_MATCHING PATTERN "*.h"
     )
 endforeach()

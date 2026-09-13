@@ -144,14 +144,18 @@ bool MediaServerCore::initializeControllers() {
   playlistController =
       std::make_unique<PlaylistController>(*app, *playlistRepo, *musicRepo);
   playlistController->register_routes();
-  playerController = std::make_shared<PlayerController>(*app, *musicRepo,
-                                                        *playlistRepo, cache);
+  auto ipcClient = std::make_unique<MpvIpcClient>("");
+  auto playbackService =
+      std::make_shared<AudioPlaybackService>(std::move(ipcClient));
+  auto outputService = std::make_shared<AudioOutputService>();
+  playerController =
+      std::make_shared<PlayerController>(*app, playbackService, outputService);
   playerController->register_routes();
   metadataController =
       std::make_unique<MusicMetadataController>(*app, musicDb, cache);
   metadataController->register_routes();
-  playbackController = std::make_unique<MusicPlaybackController>(
-      *app, musicDb, playerController);
+  playbackController =
+      std::make_unique<MusicPlaybackController>(*app, musicDb, playbackService);
   playbackController->register_routes();
   videoController = std::make_unique<VideoController>(
       *app, std::make_shared<Profiler>(*profiler));

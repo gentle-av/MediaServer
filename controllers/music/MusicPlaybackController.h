@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../controllers/player/PlayerController.h"
-#include "../../database/MusicDatabase.h"
+#include "database/MusicDatabase.h"
+#include "services/player/AudioPlaybackService.h"
 #include <html-server/app/App.h>
 #include <html-server/controllers/RestController.h>
 #include <html-server/templates/HttpResponse.h>
@@ -10,8 +10,9 @@
 
 class MusicPlaybackController : public RestController<App> {
 public:
-  MusicPlaybackController(App &app, std::shared_ptr<MusicDatabase> db,
-                          std::shared_ptr<PlayerController> playerController);
+  MusicPlaybackController(
+      App &app, std::shared_ptr<MusicDatabase> db,
+      std::shared_ptr<AudioPlaybackService> playbackService);
   ~MusicPlaybackController() = default;
 
 protected:
@@ -19,7 +20,7 @@ protected:
 
 private:
   std::shared_ptr<MusicDatabase> db;
-  std::shared_ptr<PlayerController> playerController;
+  std::shared_ptr<AudioPlaybackService> playbackService;
   StringHttpResponse handleOpenMusium(const StringHttpRequest &req);
   StringHttpResponse handleOpenAlbum(const StringHttpRequest &req);
   StringHttpResponse handleOpenArtist(const StringHttpRequest &req);
