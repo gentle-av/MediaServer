@@ -20,6 +20,7 @@ class PowerController;
 class AlbumArtController;
 class AlbumManagementController;
 class MusicMetadataController;
+class MusicPlaybackController;
 
 class MediaServerCore {
 public:
@@ -51,12 +52,13 @@ private:
   std::unique_ptr<MusicLibraryController> libraryController;
   std::unique_ptr<MusicScanController> scanController;
   std::unique_ptr<PlaylistController> playlistController;
-  std::unique_ptr<PlayerController> playerController;
+  std::shared_ptr<PlayerController> playerController;
   std::unique_ptr<VideoController> videoController;
   std::unique_ptr<PowerController> powerController;
   std::unique_ptr<AlbumArtController> albumArtController;
   std::unique_ptr<AlbumManagementController> albumManagementController;
   std::unique_ptr<MusicMetadataController> metadataController;
+  std::unique_ptr<MusicPlaybackController> playbackController;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
 };

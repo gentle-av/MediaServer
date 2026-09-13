@@ -72,6 +72,7 @@ add_library(PowerService SHARED services/system/PowerService.cpp services/system
 add_library(MusicScanController SHARED controllers/music/MusicScanController.cpp)
 add_library(MusicLibraryController SHARED controllers/music/MusicLibraryController.cpp)
 add_library(MusicMetadataController SHARED controllers/music/MusicMetadataController.cpp)
+add_library(MusicPlaybackController SHARED controllers/music/MusicPlaybackController.cpp)
 add_library(PlaylistController SHARED controllers/playlists/PlaylistController.cpp)
 add_library(PlayerController SHARED controllers/player/PlayerController.cpp services/player/AudioOutputSwitcher.cpp)
 add_library(VideoController SHARED controllers/video/VideoController.cpp services/video/StaticFileService.cpp)
@@ -111,6 +112,7 @@ target_link_libraries(Profiler ${COMMON_LIBS})
 target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${COMMON_LIBS})
 target_link_libraries(MusicLibraryController MusicRepository ${COMMON_LIBS})
 target_link_libraries(MusicMetadataController MusicDatabase MetadataExtractor ${COMMON_LIBS})
+target_link_libraries(MusicPlaybackController MusicDatabase PlayerController ${COMMON_LIBS})
 target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${COMMON_LIBS})
 target_link_libraries(PlayerController ${COMMON_LIBS} AlsaMixer)
 target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${COMMON_LIBS})
@@ -124,6 +126,7 @@ target_link_libraries(MediaServerCore
     MusicLibraryController
     MusicScanController
     MusicMetadataController
+    MusicPlaybackController
     PlaylistController
     PowerController
     PowerService
@@ -161,7 +164,7 @@ install(TARGETS
     EventBus TagEditor MetadataExtractor MusicDatabase MkvAudioTrackInfo
     MusicRepository Playlist PlaylistDatabase PlaylistRepository FileSystemService
     PlaybackService AlsaMixer VideoControlHandler PlaylistManager Profiler
-    MusicScanController MusicLibraryController MusicMetadataController
+    MusicScanController MusicLibraryController MusicMetadataController MusicPlaybackController
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MediaServerCore
     LIBRARY DESTINATION lib/media-explorer/

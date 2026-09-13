@@ -14,6 +14,8 @@
 #include <shared_mutex>
 
 class PlayerController : public RestController<App> {
+  friend class MusicPlaybackController;
+
 public:
   explicit PlayerController(App &app, MusicRepository &musicRepo,
                             PlaylistRepository &playlistRepo,
