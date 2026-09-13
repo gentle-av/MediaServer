@@ -8,6 +8,104 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+void PlayerController::loadTrack(int index) {
+  if (index < 0 || index >= static_cast<int>(currentPlaylistTracks.size())) {
+    return;
+  }
+  currentIndex = index;
+  isPlaying = true;
+  std::string trackPath = currentPlaylistTracks[index];
+  std::cout << "[BACKEND DEBUG] loadTrack path: " << trackPath << std::endl;
+  nlohmann::json cmd;
+  cmd["command"] = nlohmann::json::array({"loadfile", trackPath});
+  std::string dumpedCmd = cmd.dump();
+  std::cout << "[BACKEND DEBUG] Dumped MPV CMD: " << dumpedCmd << std::endl;
+  sendMpvCommand(dumpedCmd);
+  resetIdleTimer();
+}
+
+StringHttpResponse
+PlayerController::handlePlayFile(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  try {
+    auto json = parseJsonBody(req);
+    std::cout << "\n[BACKEND DEBUG] === Received /api/audio/file ===";
+    std::cout << "\n[BACKEND DEBUG] Raw Body: " << req.getBodyString();
+    if (json.is_null()) {
+      std::cout << "\n[BACKEND DEBUG] Error: Invalid JSON body";
+      res.setJsonContent(error_response(400, "Invalid JSON body").dump());
+      res.setStatus(400);
+      return res;
+    }
+    if (!json.contains("path") || !json["path"].is_string()) {
+      std::cout << "\n[BACKEND DEBUG] Error: Missing path parameter";
+      res.setJsonContent(error_response(400, "Missing path parameter").dump());
+      res.setStatus(400);
+      return res;
+    }
+    std::string path = json["path"].get<std::string>();
+    std::cout << "\n[BACKEND DEBUG] Extracted path: " << path << std::endl;
+    std::lock_guard<std::shared_mutex> lock(stateMutex);
+    currentPlaylistName.clear();
+    currentPlaylistTracks.clear();
+    currentPlaylistTracks.push_back(path);
+    startMpvIfNeeded();
+    loadTrack(0);
+    resetIdleTimer();
+    nlohmann::json data;
+    data["path"] = path;
+    res.setJsonContent(success_with_data(data).dump());
+    res.setStatus(200);
+  } catch (const std::exception &e) {
+    std::cout << "\n[BACKEND DEBUG] Exception: " << e.what() << std::endl;
+    res.setJsonContent(error_response(500, e.what()).dump());
+    res.setStatus(500);
+  }
+  return res;
+}
+
+std::string PlayerController::sendMpvCommand(const std::string &command) const {
+  if (socketPath.empty()) {
+    std::cout << "[BACKEND DEBUG] Error: socketPath is empty" << std::endl;
+    return "";
+  }
+  int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sock < 0) {
+    std::cout << "[BACKEND DEBUG] Error: Cannot create socket" << std::endl;
+    return "";
+  }
+  struct timeval tv;
+  tv.tv_sec = 0;
+  tv.tv_usec = 100000;
+  ::setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  ::setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+  struct sockaddr_un addr;
+  std::memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  std::strncpy(addr.sun_path, socketPath.c_str(), sizeof(addr.sun_path) - 1);
+  if (::connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    std::cout << "[BACKEND DEBUG] Connect failed to: " << socketPath
+              << std::endl;
+    ::close(sock);
+    return "";
+  }
+  std::string cmd = command + "\n";
+  std::cout << "[BACKEND DEBUG] Writing to Unix Socket: " << cmd;
+  ::send(sock, cmd.c_str(), cmd.length(), 0);
+  char buffer[4096] = {0};
+  int bytesRead = ::recv(sock, buffer, sizeof(buffer) - 1, 0);
+  ::close(sock);
+  if (bytesRead > 0) {
+    std::string responseStr(buffer, bytesRead);
+    std::cout << "[BACKEND DEBUG] Raw MPV Response: " << responseStr
+              << std::endl;
+    return responseStr;
+  }
+  std::cout << "[BACKEND DEBUG] Warning: MPV returned no data (timeout)"
+            << std::endl;
+  return "";
+}
+
 PlayerController::PlayerController(App &app, MusicRepository &musicRepo,
                                    PlaylistRepository &playlistRepo,
                                    std::shared_ptr<MetadataCache> cache)
@@ -136,33 +234,6 @@ void PlayerController::register_all_routes() {
             });
 }
 
-std::string PlayerController::sendMpvCommand(const std::string &command) const {
-  if (socketPath.empty()) {
-    return "";
-  }
-  int sock = socket(AF_UNIX, SOCK_STREAM, 0);
-  if (sock < 0) {
-    return "";
-  }
-  struct sockaddr_un addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.sun_family = AF_UNIX;
-  strncpy(addr.sun_path, socketPath.c_str(), sizeof(addr.sun_path) - 1);
-  if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    close(sock);
-    return "";
-  }
-  std::string cmd = command + "\n";
-  send(sock, cmd.c_str(), cmd.length(), 0);
-  char buffer[4096] = {0};
-  int bytesRead = recv(sock, buffer, sizeof(buffer) - 1, 0);
-  close(sock);
-  if (bytesRead > 0) {
-    return std::string(buffer, bytesRead);
-  }
-  return "";
-}
-
 double PlayerController::parseMpvResponse(const std::string &response) const {
   size_t pos = response.find("\"data\"");
   if (pos == std::string::npos)
@@ -190,38 +261,41 @@ void PlayerController::startMpvIfNeeded() {
       return;
     }
   }
-  socketPath = "/tmp/mpv-socket-" + std::to_string(getpid());
-  std::string cmd =
-      "mpv --input-ipc-server=" + socketPath + " --no-video --really-quiet &";
-  system(cmd.c_str());
-  for (int i = 0; i < 50; ++i) {
-    usleep(100000);
-    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+  socketPath = "/tmp/mpv-socket-" + std::to_string(::getpid());
+  ::unlink(socketPath.c_str());
+  pid_t pid = ::fork();
+  if (pid == 0) {
+    std::vector<std::string> args = {
+        "mpv",           "--input-ipc-server=" + socketPath,
+        "--no-video",    "--idle=yes",
+        "--no-terminal", "--really-quiet"};
+    std::vector<char *> argv;
+    for (const auto &arg : args) {
+      argv.push_back(const_cast<char *>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    ::execvp(argv[0], argv.data());
+    ::_exit(127);
+  }
+  for (int i = 0; i < 30; ++i) {
+    ::usleep(100000);
+    int sock = ::socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock >= 0) {
       struct sockaddr_un addr;
-      memset(&addr, 0, sizeof(addr));
+      std::memset(&addr, 0, sizeof(addr));
       addr.sun_family = AF_UNIX;
-      strncpy(addr.sun_path, socketPath.c_str(), sizeof(addr.sun_path) - 1);
-      if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
-        close(sock);
+      std::strncpy(addr.sun_path, socketPath.c_str(),
+                   sizeof(addr.sun_path) - 1);
+      if (::connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+        ::close(sock);
         resetIdleTimer();
+        std::cout << "[BACKEND DEBUG] MPV Socket created successfully";
         return;
       }
-      close(sock);
+      ::close(sock);
     }
   }
-}
-
-void PlayerController::loadTrack(int index) {
-  if (index < 0 || index >= static_cast<int>(currentPlaylistTracks.size())) {
-    return;
-  }
-  std::lock_guard<std::shared_mutex> lock(stateMutex);
-  currentIndex = index;
-  isPlaying = true;
-  std::string trackPath = currentPlaylistTracks[index];
-  sendMpvCommand(R"({"command": ["loadfile", ")" + trackPath + R"("]})");
-  resetIdleTimer();
+  std::cout << "[BACKEND DEBUG] Error: Timeout waiting for MPV socket";
 }
 
 void PlayerController::loadPlaylistInternal(const std::string &name) {
@@ -559,40 +633,6 @@ PlayerController::handleLoadPlaylist(const StringHttpRequest &req) {
     nlohmann::json data;
     data["name"] = name;
     data["count"] = static_cast<int>(currentPlaylistTracks.size());
-    res.setJsonContent(success_with_data(data).dump());
-    res.setStatus(200);
-  } catch (const std::exception &e) {
-    res.setJsonContent(error_response(500, e.what()).dump());
-    res.setStatus(500);
-  }
-  return res;
-}
-
-StringHttpResponse
-PlayerController::handlePlayFile(const StringHttpRequest &req) {
-  StringHttpResponse res;
-  try {
-    auto json = parseJsonBody(req);
-    if (json.is_null()) {
-      res.setJsonContent(error_response(400, "Invalid JSON body").dump());
-      res.setStatus(400);
-      return res;
-    }
-    if (!json.contains("path") || !json["path"].is_string()) {
-      res.setJsonContent(error_response(400, "Missing path parameter").dump());
-      res.setStatus(400);
-      return res;
-    }
-    std::string path = json["path"].get<std::string>();
-    std::lock_guard<std::shared_mutex> lock(stateMutex);
-    currentPlaylistName.clear();
-    currentPlaylistTracks.clear();
-    currentPlaylistTracks.push_back(path);
-    startMpvIfNeeded();
-    loadTrack(0);
-    resetIdleTimer();
-    nlohmann::json data;
-    data["path"] = path;
     res.setJsonContent(success_with_data(data).dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
