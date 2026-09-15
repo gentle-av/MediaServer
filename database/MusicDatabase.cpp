@@ -369,8 +369,15 @@ MusicDatabase::getFilePathByAlbumRaw(const std::string &albumName,
     return "";
   std::string albumParam = albumName;
   std::string artistParam = artistName;
-  if (artistParam == "Unknown Artist") {
+  if (artistParam == "Unknown Artist" || artistParam.empty() ||
+      artistParam == "Unknown") {
     artistParam = "%";
+  }
+  if (albumParam.find('%') == std::string::npos) {
+    albumParam = "%" + albumParam + "%";
+  }
+  if (artistParam != "%" && artistParam.find('%') == std::string::npos) {
+    artistParam = "%" + artistParam + "%";
   }
   sqlite3_bind_text(stmt, 1, albumParam.c_str(), -1, SQLITE_TRANSIENT);
   sqlite3_bind_text(stmt, 2, artistParam.c_str(), -1, SQLITE_TRANSIENT);
