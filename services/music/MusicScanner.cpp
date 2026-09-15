@@ -4,20 +4,15 @@
 #include "services/music/MetadataExtractor.h"
 #include <algorithm>
 #include <filesystem>
-#include <iostream>
 #include <unordered_set>
 
 namespace fs = std::filesystem;
 
 MusicScanner::MusicScanner(MusicDatabase &db, MetadataCache &cache,
                            const std::string &musicDir)
-    : db(db), cache(cache), musicDir(musicDir) {
-  std::cout << "[MusicScanner] Created with musicDir: " << musicDir
-            << std::endl;
-}
+    : db(db), cache(cache), musicDir(musicDir) {}
 
 MusicScanner::~MusicScanner() {
-  std::cout << "[MusicScanner] Destructor" << std::endl;
   if (rescanThread && rescanThread->joinable()) {
     rescanThread->join();
   }
@@ -33,8 +28,6 @@ bool MusicScanner::isMusicFile(const std::string &path) {
 std::vector<std::string> MusicScanner::scanMusicDirectory() {
   std::vector<std::string> musicFiles;
   if (!fs::exists(musicDir)) {
-    std::cerr << "[MusicScanner] Music directory does not exist: " << musicDir
-              << std::endl;
     return musicFiles;
   }
   try {
@@ -43,11 +36,7 @@ std::vector<std::string> MusicScanner::scanMusicDirectory() {
         musicFiles.push_back(entry.path().string());
       }
     }
-    std::cout << "[MusicScanner] Found " << musicFiles.size() << " music files"
-              << std::endl;
-  } catch (const std::exception &e) {
-    std::cerr << "[MusicScanner] Error scanning directory: " << e.what()
-              << std::endl;
+  } catch (...) {
   }
   return musicFiles;
 }
@@ -89,12 +78,11 @@ bool MusicScanner::shouldProcessFile(const std::string &path,
 
 void MusicScanner::scanNewFiles(bool skipExistingInDb) {
   if (status.inProgress) {
-    std::cout << "[MusicScanner] Scan already in progress" << std::endl;
     return;
   }
   std::thread([this, skipExistingInDb]() {
     std::lock_guard<std::mutex> lock(mutex);
-    auto existingFiles = db.getAllFiles();
+    auto existingFiles = db.getAllFilePaths();
     std::unordered_set<std::string> existingSet(existingFiles.begin(),
                                                 existingFiles.end());
     auto musicFiles = scanMusicDirectory();
@@ -106,12 +94,11 @@ void MusicScanner::scanNewFiles(bool skipExistingInDb) {
       }
       status.processedFiles++;
     }
-    std::cout << "[MusicScanner] Scan completed" << std::endl;
   }).detach();
 }
 
 void MusicScanner::removeMissingFiles() {
-  auto allFiles = db.getAllFiles();
+  auto allFiles = db.getAllFilePaths();
   for (const auto &path : allFiles) {
     if (!fs::exists(path)) {
       db.removeFile(path);
@@ -122,7 +109,6 @@ void MusicScanner::removeMissingFiles() {
 
 void MusicScanner::forceRescan(std::function<void()> onComplete) {
   if (status.inProgress) {
-    std::cout << "[MusicScanner] Rescan already in progress" << std::endl;
     if (onComplete)
       onComplete();
     return;
@@ -141,10 +127,9 @@ void MusicScanner::doRescan(std::function<void()> onComplete) {
   rescanThread = std::make_unique<std::thread>([this, onComplete]() {
     std::lock_guard<std::mutex> lock(mutex);
     try {
-      std::cout << "[MusicScanner] Starting force rescan" << std::endl;
-      auto oldAlbums = db.getAlbums();
+      auto oldAlbums = db.getAlbumsRaw();
       status.oldAlbumsCount = static_cast<int>(oldAlbums.size());
-      auto dbFiles = db.getAllFiles();
+      auto dbFiles = db.getAllFilePaths();
       std::unordered_set<std::string> dbFilesSet(dbFiles.begin(),
                                                  dbFiles.end());
       auto musicFiles = scanMusicDirectory();
@@ -155,9 +140,7 @@ void MusicScanner::doRescan(std::function<void()> onComplete) {
       status.processedFiles = 0;
       for (const auto &path : musicFiles) {
         foundFiles.insert(path);
-        if (dbFilesSet.find(path) == dbFilesSet.end()) {
-          processFile(path, true);
-        }
+        processFile(path, true);
         status.processedFiles++;
       }
       for (const auto &path : dbFiles) {
@@ -166,12 +149,9 @@ void MusicScanner::doRescan(std::function<void()> onComplete) {
           cache.erase(path);
         }
       }
-      auto newAlbums = db.getAlbums();
+      auto newAlbums = db.getAlbumsRaw();
       status.newAlbumsCount = static_cast<int>(newAlbums.size());
-      std::cout << "[MusicScanner] Force rescan completed" << std::endl;
-    } catch (const std::exception &e) {
-      std::cerr << "[MusicScanner] Force rescan error: " << e.what()
-                << std::endl;
+    } catch (...) {
       status.errorCount++;
     }
     status.inProgress = false;

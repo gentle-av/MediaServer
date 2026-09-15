@@ -1,7 +1,6 @@
 #include "MusicRepository.h"
 #include "../services/music/MetadataExtractor.h"
 #include <filesystem>
-#include <iostream>
 #include <unordered_set>
 
 namespace fs = std::filesystem;
@@ -236,6 +235,10 @@ std::shared_future<bool> MusicRepository::scanMusicDirectoryAsync(
       return std::shared_future<bool>();
     }
   }
+  {
+    std::unique_lock cacheLock(mutex);
+    invalidateAllLocked();
+  }
   stopSource = std::stop_source{};
   scanPromise = std::promise<bool>();
   scanFuture = scanPromise.get_future().share();
@@ -255,8 +258,6 @@ bool MusicRepository::doScanMusicDirectory(
     if (stopToken.stop_requested())
       return false;
     if (!fs::exists(musicDir) || !fs::is_directory(musicDir)) {
-      std::cerr << "[MusicRepository] Music directory does not exist: "
-                << musicDir << std::endl;
       return false;
     }
     std::vector<std::string> allFiles;
@@ -267,16 +268,12 @@ bool MusicRepository::doScanMusicDirectory(
         allFiles.push_back(entry.path().string());
       }
     }
-    std::cout << "[MusicRepository] Found " << allFiles.size() << " music files"
-              << std::endl;
     auto existingPaths = db->getAllFilePaths();
     std::unordered_set<std::string> existingSet(existingPaths.begin(),
                                                 existingPaths.end());
     std::unordered_set<std::string> foundSet;
     int total = static_cast<int>(allFiles.size());
     int processed = 0;
-    int added = 0;
-    int errors = 0;
     for (const auto &path : allFiles) {
       if (stopToken.stop_requested())
         return false;
@@ -286,30 +283,23 @@ bool MusicRepository::doScanMusicDirectory(
         if (MetadataExtractor::extractMetadata(path, metadata)) {
           metadata.filePath = path;
           if (db->addFile(path, metadata)) {
-            added++;
             std::vector<char> albumArt;
             if (MetadataExtractor::extractAlbumArt(path, albumArt)) {
               db->saveAlbumArt(path, albumArt);
             }
           }
-        } else {
-          errors++;
-          std::cerr << "[MusicRepository] Failed to extract metadata: " << path
-                    << std::endl;
         }
       }
       processed++;
       if (progressCallback)
         progressCallback(total, processed);
     }
-    int removed = 0;
     std::vector<std::string> removedPaths;
     for (const auto &path : existingSet) {
       if (stopToken.stop_requested())
         return false;
       if (foundSet.find(path) == foundSet.end()) {
         if (db->removeFile(path)) {
-          removed++;
           removedPaths.push_back(path);
         }
       }
@@ -322,12 +312,8 @@ bool MusicRepository::doScanMusicDirectory(
       eventBus.publish("track_removed", path);
     }
     eventBus.publish("scan_completed");
-    std::cout << "[MusicRepository] Scan completed: added " << added
-              << ", removed " << removed << ", errors " << errors << " files"
-              << std::endl;
     return true;
-  } catch (const std::exception &e) {
-    std::cerr << "[MusicRepository] Scan error: " << e.what() << std::endl;
+  } catch (...) {
     return false;
   }
 }
