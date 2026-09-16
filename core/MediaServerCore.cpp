@@ -8,6 +8,7 @@
 #include "controllers/player/PlayerController.h"
 #include "controllers/playlists/PlaylistController.h"
 #include "controllers/power/PowerController.h"
+#include "controllers/system/MonitorController.h"
 #include "controllers/video/VideoController.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
@@ -168,6 +169,9 @@ bool MediaServerCore::initializeControllers() {
   albumManagementController = std::make_unique<AlbumManagementController>(
       *app, musicDb, cache, *musicRepo);
   albumManagementController->register_routes();
+  monitorController = std::make_unique<MonitorController>(
+      *app, std::make_shared<Profiler>(*profiler));
+  monitorController->register_routes();
   return true;
 }
 

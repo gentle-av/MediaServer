@@ -188,8 +188,10 @@ AlbumArtController::createImageResponse(const std::vector<char> &artData) {
   jsonResponse["success"] = true;
   jsonResponse["mimeType"] = detectMimeType(artData);
   jsonResponse["imageData"] = b64Str;
+  std::string bodyStr = jsonResponse.dump();
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setBodyContent(jsonResponse.dump());
+  res.setHeader("Content-Length", std::to_string(bodyStr.length()));
+  res.setBodyContent(bodyStr);
   res.setStatus(200);
   return res;
 }

@@ -86,6 +86,7 @@ add_library(VideoController SHARED controllers/video/VideoController.cpp service
 add_library(PowerController SHARED controllers/power/PowerController.cpp)
 add_library(AlbumArtController SHARED controllers/albums/AlbumArtController.cpp)
 add_library(AlbumManagementController SHARED controllers/albums/AlbumManagementController.cpp)
+add_library(MonitorController SHARED controllers/system/MonitorController.cpp)
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_link_libraries(MusicRepository
@@ -130,6 +131,7 @@ target_link_libraries(PowerService ${commonLibraries})
 target_link_libraries(PowerController ${commonLibraries} PowerService)
 target_link_libraries(AlbumArtController MusicRepository MusicDatabase ${commonLibraries})
 target_link_libraries(AlbumManagementController MusicRepository MusicDatabase FileSystemService ${commonLibraries})
+target_link_libraries(MonitorController PowerService ${commonLibraries})
 
 target_link_libraries(MediaServerCore
     PRIVATE
@@ -161,6 +163,7 @@ target_link_libraries(MediaServerCore
     VideoController
     AlbumArtController
     AlbumManagementController
+    MonitorController
     ${commonLibs}
 )
 
@@ -179,7 +182,7 @@ install(TARGETS
     MpvIpcClient AudioPlaybackService AudioOutputService
     MusicScanController MusicLibraryController MusicMetadataController MusicPlaybackController
     PlaylistController PlayerController VideoController PowerService PowerController
-    AlbumArtController AlbumManagementController MediaServerCore
+    AlbumArtController AlbumManagementController MonitorController MediaServerCore
     LIBRARY DESTINATION lib/media-explorer/
 )
 
@@ -210,4 +213,3 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/config.json
     COMMENT "Copying config.json to build directory"
 )
-
