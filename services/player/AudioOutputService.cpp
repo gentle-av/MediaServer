@@ -1,7 +1,9 @@
 #include "AudioOutputService.h"
 #include "../../services/system/AlsaMixer.h"
+#include <iostream>
 
 AudioOutputService::AudioOutputService() {
+  std::cout << "[AudioOutputService::ctor] constructed" << std::endl;
   outputSwitcher = std::make_unique<AudioOutputSwitcher>();
 }
 
@@ -28,11 +30,19 @@ bool AudioOutputService::isMuted() const {
 }
 
 bool AudioOutputService::switchToSpeakers() {
-  return outputSwitcher->switchToSpeakers();
+  std::cout << "[AudioOutputService::switchToSpeakers] ENTER" << std::endl;
+  bool ok = outputSwitcher->switchToSpeakers();
+  std::cout << "[AudioOutputService::switchToSpeakers] result=" << ok
+            << std::endl;
+  return ok;
 }
 
 bool AudioOutputService::switchToHeadphones() {
-  return outputSwitcher->switchToHeadphones();
+  std::cout << "[AudioOutputService::switchToHeadphones] ENTER" << std::endl;
+  bool ok = outputSwitcher->switchToHeadphones();
+  std::cout << "[AudioOutputService::switchToHeadphones] result=" << ok
+            << std::endl;
+  return ok;
 }
 
 std::string AudioOutputService::getCurrentOutput() const {

@@ -156,4 +156,57 @@ void PlayerController::register_all_routes() {
     res.setStatus(200);
     return res;
   });
+  app_.post("/api/audio/output", [this](const StringHttpRequest &req) {
+    StringHttpResponse res;
+    std::cout << "[PlayerController] POST /api/audio/output: handler called"
+              << std::endl;
+    std::cout << "[PlayerController] body: '" << req.getBodyString() << "'"
+              << std::endl;
+    try {
+      auto json = nlohmann::json::parse(req.getBodyString());
+      if (!json.contains("output") || !json["output"].is_string()) {
+        std::cout << "[PlayerController] missing 'output' field" << std::endl;
+        res.setJsonContent(
+            "{\"success\":false,\"error\":\"Missing output parameter\"}");
+        res.setStatus(400);
+        return res;
+      }
+      std::string target = json["output"].get<std::string>();
+      std::cout << "[PlayerController] target='" << target << "'" << std::endl;
+      bool ok = false;
+      if (target == "speakers") {
+        std::cout << "[PlayerController] calling switchToSpeakers()"
+                  << std::endl;
+        ok = outputService->switchToSpeakers();
+        std::cout << "[PlayerController] switchToSpeakers returned " << ok
+                  << std::endl;
+      } else if (target == "headphones") {
+        std::cout << "[PlayerController] calling switchToHeadphones()"
+                  << std::endl;
+        ok = outputService->switchToHeadphones();
+        std::cout << "[PlayerController] switchToHeadphones returned " << ok
+                  << std::endl;
+      } else {
+        std::cout << "[PlayerController] unknown target" << std::endl;
+        res.setJsonContent(
+            "{\"success\":false,\"error\":\"Unknown output target\"}");
+        res.setStatus(400);
+        return res;
+      }
+      nlohmann::json wrapped;
+      wrapped["success"] = ok;
+      if (!ok) {
+        wrapped["error"] = "Failed to switch output";
+      }
+      res.setJsonContent(wrapped.dump());
+      res.setStatus(ok ? 200 : 500);
+      std::cout << "[PlayerController] response: " << wrapped.dump()
+                << std::endl;
+    } catch (const std::exception &e) {
+      std::cout << "[PlayerController] exception: " << e.what() << std::endl;
+      res.setJsonContent("{\"success\":false,\"error\":\"Invalid JSON\"}");
+      res.setStatus(400);
+    }
+    return res;
+  });
 }

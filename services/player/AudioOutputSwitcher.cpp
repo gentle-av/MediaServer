@@ -3,26 +3,36 @@
 #include <iostream>
 
 AudioOutputSwitcher::AudioOutputSwitcher() {
-  if (AlsaMixer::getInstance().getVolume() >= 0) {
+  std::cout << "[AudioOutputSwitcher::ctor] constructed" << std::endl;
+  int vol = AlsaMixer::getInstance().getVolume();
+  std::cout << "[AudioOutputSwitcher::ctor] getVolume() returned " << vol
+            << std::endl;
+  if (vol >= 0) {
     detectCurrentOutput();
   }
 }
 
 bool AudioOutputSwitcher::switchToSpeakers() {
+  std::cout << "[AudioOutputSwitcher::switchToSpeakers] ENTER" << std::endl;
   std::lock_guard<std::mutex> lock(mutex);
-  if (AlsaMixer::getInstance().switchToSpeakers()) {
+  bool ok = AlsaMixer::getInstance().switchToSpeakers();
+  std::cout << "[AudioOutputSwitcher::switchToSpeakers] AlsaMixer returned "
+            << ok << std::endl;
+  if (ok) {
     currentOutput = "speakers";
-    std::cout << "[AudioOutputSwitcher] Switched to speakers" << std::endl;
     return true;
   }
   return false;
 }
 
 bool AudioOutputSwitcher::switchToHeadphones() {
+  std::cout << "[AudioOutputSwitcher::switchToHeadphones] ENTER" << std::endl;
   std::lock_guard<std::mutex> lock(mutex);
-  if (AlsaMixer::getInstance().switchToHeadphones()) {
+  bool ok = AlsaMixer::getInstance().switchToHeadphones();
+  std::cout << "[AudioOutputSwitcher::switchToHeadphones] AlsaMixer returned "
+            << ok << std::endl;
+  if (ok) {
     currentOutput = "headphones";
-    std::cout << "[AudioOutputSwitcher] Switched to headphones" << std::endl;
     return true;
   }
   return false;

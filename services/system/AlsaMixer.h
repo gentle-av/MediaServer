@@ -30,6 +30,8 @@ private:
   int parseVolumeFromOutput(const std::string &output);
   void detectCurrentOutput();
   bool init();
+  bool runAmixerRaw(const std::string &command, std::string &output);
+
   std::mutex mutex;
   std::string controlName;
   int currentVolume;
