@@ -1,6 +1,5 @@
 #include "AlbumArtController.h"
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 
 namespace fs = std::filesystem;
@@ -48,14 +47,14 @@ AlbumArtController::handleGetAlbumArtByAlbum(const StringHttpRequest &req) {
   if (!filePath.empty()) {
     auto albumArt = db->getAlbumArt(filePath);
     if (!albumArt.data.empty()) {
-      return createImageResponse(albumArt.data);
+      return createImageResponse(albumArt.data, req);
     }
   }
   auto tracks = db->getTracksByAlbumRaw(album, artistFilter);
   for (const auto &track : tracks) {
     auto albumArt = db->getAlbumArt(track.filePath);
     if (!albumArt.data.empty()) {
-      return createImageResponse(albumArt.data);
+      return createImageResponse(albumArt.data, req);
     }
   }
   res.setStatus(404);
@@ -72,7 +71,7 @@ AlbumArtController::handleGetAlbumArt(const StringHttpRequest &req) {
     return res;
   }
   auto albumArt = db->getAlbumArt(filePath);
-  return createImageResponse(albumArt.data);
+  return createImageResponse(albumArt.data, req);
 }
 
 StringHttpResponse
@@ -83,8 +82,7 @@ AlbumArtController::handleUploadAlbumArt(const StringHttpRequest &req) {
       !json.contains("image_data")) {
     res.setStatus(400);
     res.setJsonContent(
-        this->error_response(400, "Missing 'path' or 'image_data' parameter")
-            .dump());
+        this->error_response(400, "Missing required parameters").dump());
     return res;
   }
   std::string filePath = json["path"].get<std::string>();
@@ -98,18 +96,9 @@ AlbumArtController::handleUploadAlbumArt(const StringHttpRequest &req) {
   if (imageData.empty()) {
     res.setStatus(400);
     res.setJsonContent(
-        this->error_response(400, "Failed to decode base64 image data").dump());
+        this->error_response(400, "Failed to decode base64").dump());
     return res;
   }
-  std::ofstream file(filePath, std::ios::binary);
-  if (!file.is_open()) {
-    res.setStatus(500);
-    res.setJsonContent(
-        this->error_response(500, "Failed to write album art to file").dump());
-    return res;
-  }
-  file.write(imageData.data(), imageData.size());
-  file.close();
   db->saveAlbumArt(filePath, imageData);
   musicRepository.invalidateAll();
   nlohmann::json responseData;
@@ -143,8 +132,7 @@ AlbumArtController::handleDeleteAlbumArt(const StringHttpRequest &req) {
   } catch (...) {
     res.setStatus(500);
     res.setJsonContent(
-        this->error_response(500, "Failed to remove album art from file")
-            .dump());
+        this->error_response(500, "Failed to remove album art file").dump());
     return res;
   }
   db->removeAlbumArt(filePath);
@@ -158,40 +146,19 @@ AlbumArtController::handleDeleteAlbumArt(const StringHttpRequest &req) {
 }
 
 StringHttpResponse
-AlbumArtController::createImageResponse(const std::vector<char> &artData) {
+AlbumArtController::createImageResponse(const std::vector<char> &artData,
+                                        const StringHttpRequest &req) {
   StringHttpResponse res;
+  std::string albumName = req.getQuery("album");
+  std::cout << "Album name: " << albumName << std::endl;
   if (artData.empty()) {
     res.setStatus(404);
     return res;
   }
-  static const char b64Chars[] =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  std::string b64Str;
-  b64Str.reserve(((artData.size() + 2) / 3) * 4);
-  int val = 0;
-  int valb = -6;
-  for (unsigned char c : artData) {
-    val = (val << 8) + c;
-    valb += 8;
-    while (valb >= 0) {
-      b64Str.push_back(b64Chars[(val >> valb) & 0x3F]);
-      valb -= 6;
-    }
-  }
-  if (valb > -6) {
-    b64Str.push_back(b64Chars[((val << (8 - (valb + 8))) >> 2) & 0x3F]);
-  }
-  while (b64Str.size() % 4) {
-    b64Str.push_back('=');
-  }
-  nlohmann::json jsonResponse;
-  jsonResponse["success"] = true;
-  jsonResponse["mimeType"] = detectMimeType(artData);
-  jsonResponse["imageData"] = b64Str;
-  std::string bodyStr = jsonResponse.dump();
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Content-Length", std::to_string(bodyStr.length()));
-  res.setBodyContent(bodyStr);
+  std::string mime = detectMimeType(artData);
+  res.setHeader("Content-Type", mime);
+  res.setHeader("Content-Length", std::to_string(artData.size()));
+  res.setBodyContent(std::string(artData.data(), artData.size()));
   res.setStatus(200);
   return res;
 }
@@ -218,9 +185,13 @@ AlbumArtController::getQueryParam(const StringHttpRequest &req,
 
 nlohmann::json
 AlbumArtController::parseJsonBody(const StringHttpRequest &req) const {
+  std::string body = req.getBodyString();
+  std::cerr << "[AlbumArt] body size = " << body.size() << std::endl;
+  std::cerr << "[AlbumArt] body head = " << body.substr(0, 200) << std::endl;
   try {
-    return nlohmann::json::parse(req.getBodyString());
-  } catch (...) {
+    return nlohmann::json::parse(body);
+  } catch (const std::exception &e) {
+    std::cerr << "[AlbumArt] JSON parse error: " << e.what() << std::endl;
     return nlohmann::json();
   }
 }

@@ -9,9 +9,10 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Install path" FORCE)
 
+set(HTML_SERVER_ROOT "$ENV{HOME}/code/projects/cpp/HtmlServer")
+
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
-find_package(HtmlServer REQUIRED)
 find_package(OpenSSL REQUIRED)
 
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
@@ -19,6 +20,17 @@ pkg_check_modules(MPV REQUIRED mpv)
 pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
+
+add_subdirectory(
+    ${HTML_SERVER_ROOT}
+    ${CMAKE_BINARY_DIR}/HtmlServer
+)
+
+add_library(HtmlServer::AppCore ALIAS AppCore)
+add_library(HtmlServer::AuthCore ALIAS AuthCore)
+add_library(HtmlServer::FileServerCore ALIAS FileServerCore)
+add_library(HtmlServer::JsonCore ALIAS JsonCore)
+add_library(HtmlServer::Core ALIAS Core)
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -28,6 +40,18 @@ include_directories(
     ${LIBCURL_INCLUDE_DIRS}
     ${DBUS_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
+    ${HTML_SERVER_ROOT}/include
+    ${HTML_SERVER_ROOT}/include/app
+    ${HTML_SERVER_ROOT}/include/auth
+    ${HTML_SERVER_ROOT}/include/concepts
+    ${HTML_SERVER_ROOT}/include/controllers
+    ${HTML_SERVER_ROOT}/include/core
+    ${HTML_SERVER_ROOT}/include/fs
+    ${HTML_SERVER_ROOT}/include/interfaces
+    ${HTML_SERVER_ROOT}/include/serializer
+    ${HTML_SERVER_ROOT}/include/session
+    ${HTML_SERVER_ROOT}/include/templates
+    ${HTML_SERVER_ROOT}/include/web
 )
 
 set(commonLibs
@@ -103,10 +127,10 @@ target_link_libraries(AudioPlaybackService MpvIpcClient ${commonLibs})
 target_link_libraries(AudioOutputService AlsaMixer ${commonLibs})
 
 target_link_libraries(PlaylistDatabase Playlist)
-target_link_libraries(PlaylistRepository Playlist MusicRepository EventBus ${commonLibraries})
-target_link_libraries(FileSystemService ${commonLibraries})
-target_link_libraries(PlaybackService FileSystemService ${commonLibraries})
-target_link_libraries(VideoControlHandler PlaybackService FileSystemService AlsaMixer ${commonLibraries})
+target_link_libraries(PlaylistRepository Playlist MusicRepository EventBus ${commonLibs})
+target_link_libraries(FileSystemService ${commonLibs})
+target_link_libraries(PlaybackService FileSystemService ${commonLibs})
+target_link_libraries(VideoControlHandler PlaybackService FileSystemService AlsaMixer ${commonLibs})
 
 target_link_libraries(PlaylistManager
     Playlist
@@ -116,22 +140,22 @@ target_link_libraries(PlaylistManager
     PlaybackService
     FileSystemService
     AlsaMixer
-    ${commonLibraries}
+    ${commonLibs}
 )
 
-target_link_libraries(Profiler ${commonLibraries})
-target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${commonLibraries})
-target_link_libraries(MusicLibraryController MusicRepository ${commonLibraries})
-target_link_libraries(MusicMetadataController MusicDatabase MetadataExtractor ${commonLibraries})
-target_link_libraries(MusicPlaybackController MusicDatabase PlayerController ${commonLibraries})
-target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${commonLibraries})
-target_link_libraries(PlayerController AudioPlaybackService AudioOutputService ${commonLibraries} AlsaMixer)
-target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${commonLibraries})
-target_link_libraries(PowerService ${commonLibraries})
-target_link_libraries(PowerController ${commonLibraries} PowerService)
-target_link_libraries(AlbumArtController MusicRepository MusicDatabase ${commonLibraries})
-target_link_libraries(AlbumManagementController MusicRepository MusicDatabase FileSystemService ${commonLibraries})
-target_link_libraries(MonitorController PowerService ${commonLibraries})
+target_link_libraries(Profiler ${commonLibs})
+target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${commonLibs})
+target_link_libraries(MusicLibraryController MusicRepository ${commonLibs})
+target_link_libraries(MusicMetadataController MusicDatabase MetadataExtractor ${commonLibs})
+target_link_libraries(MusicPlaybackController MusicDatabase PlayerController ${commonLibs})
+target_link_libraries(PlaylistController PlaylistRepository MusicRepository ${commonLibs})
+target_link_libraries(PlayerController AudioPlaybackService AudioOutputService ${commonLibs} AlsaMixer)
+target_link_libraries(VideoController FileSystemService PlaybackService VideoControlHandler ${commonLibs})
+target_link_libraries(PowerService ${commonLibs})
+target_link_libraries(PowerController ${commonLibs} PowerService)
+target_link_libraries(AlbumArtController MusicRepository MusicDatabase ${commonLibs})
+target_link_libraries(AlbumManagementController MusicRepository MusicDatabase FileSystemService ${commonLibs})
+target_link_libraries(MonitorController PowerService ${commonLibs})
 
 target_link_libraries(MediaServerCore
     PRIVATE
@@ -203,7 +227,6 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
         $ENV{HOME}/.local/share/media-explorer/config.json
-    COMMENT "Copying config.json to user config directory"
 )
 
 add_custom_command(
@@ -211,5 +234,4 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
         ${CMAKE_CURRENT_BINARY_DIR}/config.json
-    COMMENT "Copying config.json to build directory"
 )

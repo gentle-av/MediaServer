@@ -24,15 +24,14 @@ private:
   StringHttpResponse handleGetAlbumArtByAlbum(const StringHttpRequest &req);
   StringHttpResponse handleUploadAlbumArt(const StringHttpRequest &req);
   StringHttpResponse handleDeleteAlbumArt(const StringHttpRequest &req);
-
   std::string getQueryParam(const StringHttpRequest &req,
                             const std::string &key,
                             const std::string &defaultValue = "") const;
   nlohmann::json parseJsonBody(const StringHttpRequest &req) const;
   std::string detectMimeType(const std::vector<char> &data);
-  StringHttpResponse createImageResponse(const std::vector<char> &artData);
+  StringHttpResponse createImageResponse(const std::vector<char> &artData,
+                                         const StringHttpRequest &req);
   std::vector<char> base64Decode(const std::string &base64Str);
-
   std::shared_ptr<MusicDatabase> db;
   MusicRepository &musicRepository;
 };

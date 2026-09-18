@@ -91,7 +91,7 @@ bool MetadataExtractor::extractMetadata(const std::string &filePath,
     std::string filename = fs::path(filePath).stem().string();
     metadata.title = filename.empty() ? "Unknown" : filename;
   }
-  return success && metadata.duration > 0;
+  return success;
 }
 
 bool MetadataExtractor::extractFlacAlbumArt(const std::string &filePath,
