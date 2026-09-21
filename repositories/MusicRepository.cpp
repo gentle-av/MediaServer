@@ -14,12 +14,15 @@ bool MusicRepository::isExpired(
 }
 
 std::vector<std::string> MusicRepository::getArtists() const {
-  std::shared_lock lock(mutex);
-  if (!artistsCache.data.empty() && !isExpired(artistsCache.timestamp))
-    return artistsCache.data;
-  lock.unlock();
-  refreshArtistsCache();
   std::shared_lock readLock(mutex);
+  if (!artistsCache.data.empty() && !isExpired(artistsCache.timestamp)) {
+    return artistsCache.data;
+  }
+  readLock.unlock();
+  auto freshlyLoadedArtists = db->getArtistsRaw();
+  std::unique_lock writeLock(mutex);
+  artistsCache.data = freshlyLoadedArtists;
+  artistsCache.timestamp = std::chrono::steady_clock::now();
   return artistsCache.data;
 }
 
@@ -32,14 +35,17 @@ void MusicRepository::refreshArtistsCache() const {
 
 std::vector<std::tuple<std::string, std::string, std::string>>
 MusicRepository::getAlbums(const std::string &artistFilter) const {
-  std::shared_lock lock(mutex);
+  std::shared_lock readLock(mutex);
   if (!albumsCache.data.empty() && !isExpired(albumsCache.timestamp) &&
       albumsCache.filter == artistFilter) {
     return albumsCache.data;
   }
-  lock.unlock();
-  refreshAlbumsCache(artistFilter);
-  std::shared_lock readLock(mutex);
+  readLock.unlock();
+  auto freshlyLoadedAlbums = db->getAlbumsRaw(artistFilter);
+  std::unique_lock writeLock(mutex);
+  albumsCache.data = freshlyLoadedAlbums;
+  albumsCache.filter = artistFilter;
+  albumsCache.timestamp = std::chrono::steady_clock::now();
   return albumsCache.data;
 }
 

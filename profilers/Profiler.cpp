@@ -19,7 +19,7 @@ void Profiler::setDefaultConfigValues() {
   config.isTest = true;
   config.port = 8083;
   config.address = "127.0.0.1";
-  config.threads = 2;
+  config.threads = 8;
   config.logLevel = "DEBUG";
   config.logPath = "./logs";
   config.uploadPath = "./uploads";
@@ -128,7 +128,7 @@ void Profiler::extractConfigValues(const nlohmann::json &profileConfig) {
       config.htmlPath = app["document_root"].get<std::string>();
       config.documentRoot = config.htmlPath;
     }
-    config.threads = app.value("number_of_threads", config.isTest ? 2 : 8);
+    config.threads = app.value("number_of_threads", 8);
     if (app.contains("log")) {
       const auto &logConfig = app["log"];
       config.logLevel =
@@ -179,7 +179,7 @@ void Profiler::applyConfigDefaults() {
   if (!config.htmlPath.empty() && config.htmlPath != "./views") {
     return;
   }
-  config.threads = config.isTest ? 2 : 8;
+  config.threads = 8;
   config.logLevel = config.isTest ? "DEBUG" : "INFO";
   config.logPath = config.isTest ? "./logs" : "/var/log/media-explorer";
   config.uploadPath =

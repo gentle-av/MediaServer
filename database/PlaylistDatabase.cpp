@@ -1,5 +1,5 @@
 #include "PlaylistDatabase.h"
-#include <iostream>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <random>
 #include <sqlite3.h>
@@ -9,20 +9,20 @@ class PlaylistDatabase::Impl {
 public:
   explicit Impl(const std::string &dbPath)
       : dbPath_(dbPath), dbHandle(nullptr) {}
+
   ~Impl() {
     if (dbHandle)
       sqlite3_close(dbHandle);
   }
+
   bool init() {
     if (sqlite3_open(dbPath_.c_str(), &dbHandle) != SQLITE_OK) {
-      std::cerr << "Can't open database: " << sqlite3_errmsg(dbHandle)
-                << std::endl;
       return false;
     }
-    const char *encodingSQL = "PRAGMA encoding = \"UTF-8\";";
-    char *errMsg = nullptr;
-    sqlite3_exec(dbHandle, encodingSQL, nullptr, nullptr, &errMsg);
-    const char *createTableSQL = R"(
+    const char *encodingQuery = "PRAGMA encoding = \"UTF-8\";";
+    char *errorText = nullptr;
+    sqlite3_exec(dbHandle, encodingQuery, nullptr, nullptr, &errorText);
+    const char *schemaQuery = R"(
             CREATE TABLE IF NOT EXISTS playlists (
                 playlist_name TEXT PRIMARY KEY,
                 current_index INTEGER DEFAULT 0,
@@ -46,15 +46,16 @@ public:
             CREATE INDEX IF NOT EXISTS idx_playlist_tracks_name ON playlist_tracks(playlist_name);
             CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position ON playlist_tracks(playlist_name, position);
         )";
-    if (sqlite3_exec(dbHandle, createTableSQL, nullptr, nullptr, &errMsg) !=
+    if (sqlite3_exec(dbHandle, schemaQuery, nullptr, nullptr, &errorText) !=
         SQLITE_OK) {
-      std::cerr << "SQL error: " << errMsg << std::endl;
-      sqlite3_free(errMsg);
+      sqlite3_free(errorText);
       return false;
     }
     return true;
   }
+
   sqlite3 *db() { return dbHandle; }
+  std::mutex databaseMutex;
 
 private:
   std::string dbPath_;
@@ -77,85 +78,90 @@ bool PlaylistDatabase::savePlaylist(const std::string &playlistName,
 
 bool PlaylistDatabase::savePlaylist(const std::string &playlistName,
                                     const std::vector<MusicMetadata> &tracks) {
-  char *errMsg = nullptr;
+  std::lock_guard<std::mutex> lock(pImpl->databaseMutex);
+  char *errorText = nullptr;
   if (sqlite3_exec(pImpl->db(), "BEGIN TRANSACTION", nullptr, nullptr,
-                   &errMsg) != SQLITE_OK) {
-    std::cerr << "Failed to begin transaction: " << errMsg << std::endl;
-    sqlite3_free(errMsg);
+                   &errorText) != SQLITE_OK) {
+    sqlite3_free(errorText);
     return false;
   }
-  bool success = true;
-  const char *playlistSQL =
+  bool isSuccess = true;
+  const char *playlistSql =
       "INSERT OR REPLACE INTO playlists (playlist_name, current_index, "
       "updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)";
-  sqlite3_stmt *stmt;
-  if (sqlite3_prepare_v2(pImpl->db(), playlistSQL, -1, &stmt, nullptr) ==
-      SQLITE_OK) {
-    sqlite3_bind_text(stmt, 1, playlistName.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 2, 0);
-    if (sqlite3_step(stmt) != SQLITE_DONE)
-      success = false;
-    sqlite3_finalize(stmt);
+  sqlite3_stmt *statementHandle;
+  if (sqlite3_prepare_v2(pImpl->db(), playlistSql, -1, &statementHandle,
+                         nullptr) == SQLITE_OK) {
+    sqlite3_bind_text(statementHandle, 1, playlistName.c_str(), -1,
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_int(statementHandle, 2, 0);
+    if (sqlite3_step(statementHandle) != SQLITE_DONE) {
+      isSuccess = false;
+    }
+    sqlite3_finalize(statementHandle);
   } else {
-    success = false;
+    isSuccess = false;
   }
-  if (success) {
-    const char *deleteSQL =
+  if (isSuccess) {
+    const char *deleteSql =
         "DELETE FROM playlist_tracks WHERE playlist_name = ?";
-    if (sqlite3_prepare_v2(pImpl->db(), deleteSQL, -1, &stmt, nullptr) ==
-        SQLITE_OK) {
-      sqlite3_bind_text(stmt, 1, playlistName.c_str(), -1, SQLITE_TRANSIENT);
-      if (sqlite3_step(stmt) != SQLITE_DONE)
-        success = false;
-      sqlite3_finalize(stmt);
+    if (sqlite3_prepare_v2(pImpl->db(), deleteSql, -1, &statementHandle,
+                           nullptr) == SQLITE_OK) {
+      sqlite3_bind_text(statementHandle, 1, playlistName.c_str(), -1,
+                        SQLITE_TRANSIENT);
+      if (sqlite3_step(statementHandle) != SQLITE_DONE) {
+        isSuccess = false;
+      }
+      sqlite3_finalize(statementHandle);
     } else {
-      success = false;
+      isSuccess = false;
     }
   }
-  if (success) {
-    const char *insertSQL =
+  if (isSuccess) {
+    const char *insertSql =
         "INSERT INTO playlist_tracks (playlist_name, position, file_path, "
         "title, artist, album, duration, track, year, genre) VALUES (?, ?, ?, "
         "?, ?, ?, ?, ?, ?, ?)";
-    if (sqlite3_prepare_v2(pImpl->db(), insertSQL, -1, &stmt, nullptr) ==
-        SQLITE_OK) {
-      for (size_t i = 0; i < tracks.size(); ++i) {
-        const auto &track = tracks[i];
-        sqlite3_bind_text(stmt, 1, playlistName.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(stmt, 2, static_cast<int>(i));
-        sqlite3_bind_text(stmt, 3, track.filePath.c_str(), -1,
+    if (sqlite3_prepare_v2(pImpl->db(), insertSql, -1, &statementHandle,
+                           nullptr) == SQLITE_OK) {
+      for (size_t trackIndex = 0; trackIndex < tracks.size(); ++trackIndex) {
+        const auto &trackMetadata = tracks[trackIndex];
+        sqlite3_bind_text(statementHandle, 1, playlistName.c_str(), -1,
                           SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, track.title.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 5, track.artist.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 6, track.album.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(stmt, 7, track.duration);
-        sqlite3_bind_int(stmt, 8, track.track);
-        sqlite3_bind_int(stmt, 9, track.year);
-        sqlite3_bind_text(stmt, 10, track.genre.c_str(), -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-          success = false;
+        sqlite3_bind_int(statementHandle, 2, static_cast<int>(trackIndex));
+        sqlite3_bind_text(statementHandle, 3, trackMetadata.filePath.c_str(),
+                          -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statementHandle, 4, trackMetadata.title.c_str(), -1,
+                          SQLITE_TRANSIENT);
+        sqlite3_bind_text(statementHandle, 5, trackMetadata.artist.c_str(), -1,
+                          SQLITE_TRANSIENT);
+        sqlite3_bind_text(statementHandle, 6, trackMetadata.album.c_str(), -1,
+                          SQLITE_TRANSIENT);
+        sqlite3_bind_int(statementHandle, 7, trackMetadata.duration);
+        sqlite3_bind_int(statementHandle, 8, trackMetadata.track);
+        sqlite3_bind_int(statementHandle, 9, trackMetadata.year);
+        sqlite3_bind_text(statementHandle, 10, trackMetadata.genre.c_str(), -1,
+                          SQLITE_TRANSIENT);
+        if (sqlite3_step(statementHandle) != SQLITE_DONE) {
+          isSuccess = false;
           break;
         }
-        sqlite3_reset(stmt);
+        sqlite3_reset(statementHandle);
       }
-      sqlite3_finalize(stmt);
+      sqlite3_finalize(statementHandle);
     } else {
-      success = false;
+      isSuccess = false;
     }
   }
-  if (success) {
-    if (sqlite3_exec(pImpl->db(), "COMMIT", nullptr, nullptr, &errMsg) !=
-        SQLITE_OK) {
-      std::cerr << "Failed to commit transaction: " << errMsg << std::endl;
-      sqlite3_free(errMsg);
-      success = false;
-    }
+  if (isSuccess) {
+    sqlite3_exec(pImpl->db(), "COMMIT", nullptr, nullptr, &errorText);
   } else {
-    sqlite3_exec(pImpl->db(), "ROLLBACK", nullptr, nullptr, &errMsg);
-    if (errMsg)
-      sqlite3_free(errMsg);
+    sqlite3_exec(pImpl->db(), "ROLLBACK", nullptr, nullptr, &errorText);
+    if (errorText) {
+      sqlite3_free(errorText);
+    }
   }
-  return success;
+  return isSuccess;
 }
 
 std::optional<Playlist>

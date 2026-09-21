@@ -16,6 +16,7 @@ void VideoController::init(std::shared_ptr<Profiler> profiler) {
 }
 
 void VideoController::register_all_routes() {
+  localHandler.setBaseDirectory("/home/avr/.local/html/MediaPlayer");
   app_.get("/", [this](const StringHttpRequest &req) -> StringHttpResponse {
     return handleGetIndex(req);
   });
@@ -154,7 +155,6 @@ StringHttpResponse
 VideoController::handleGetIndex(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    localHandler.setBaseDirectory("/home/avr/.local/html/MediaPlayer");
     localHandler.serveFile("/", res);
   } catch (const std::exception &e) {
     res.setHtmlContent(std::string("Error: ") + e.what());
@@ -168,7 +168,6 @@ VideoController::handleServeStatic(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     std::string filename = req.getParam("filename");
-    localHandler.setBaseDirectory("/home/avr/.local/html/MediaPlayer");
     localHandler.serveFile("/static/" + filename, res);
   } catch (const std::exception &e) {
     res.setHtmlContent(std::string("Error: ") + e.what());
