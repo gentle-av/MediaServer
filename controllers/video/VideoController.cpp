@@ -220,6 +220,9 @@ VideoController::handleListFiles(const StringHttpRequest &req) {
 
 StringHttpResponse
 VideoController::handleOpenVideo(const StringHttpRequest &req) {
+  auto start = std::chrono::steady_clock::now();
+  std::cout << "[PERF] [VideoController::handleOpenVideo] HTTP Request Received"
+            << std::endl;
   StringHttpResponse res;
   try {
     auto json = parseJsonBody(req);
@@ -244,6 +247,11 @@ VideoController::handleOpenVideo(const StringHttpRequest &req) {
     res.setJsonContent(response.dump());
     res.setStatus(500);
   }
+  auto end = std::chrono::steady_clock::now();
+  auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+                  .count();
+  std::cout << "[PERF] [VideoController::handleOpenVideo] HTTP Response Ready: "
+            << diff << " ms" << std::endl;
   return res;
 }
 

@@ -2,9 +2,11 @@
 
 #include <atomic>
 #include <chrono>
+#include <fstream>
 #include <mpv/client.h>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 
 enum class PlaybackMode { Video, AudioOnly };
@@ -29,17 +31,20 @@ public:
   bool isSeekInProgress() const { return seekInProgress_.load(); }
 
 private:
-  PlaybackService();
-  PlaybackService(const PlaybackService &) = delete;
-  PlaybackService &operator=(const PlaybackService &) = delete;
   std::string getCachedOrFetch(const std::string &property);
   void configureMpv(PlaybackMode mode);
   void setCommonOptions();
   void setAudioOptions();
   void setVideoOptions();
+  void logWorkerLoop(std::stop_token stopToken);
   mpv_handle *mpv;
   bool isPlaying;
+  std::ofstream logFileStream;
+  std::jthread logWorkerThread;
   PlaybackMode currentMode = PlaybackMode::Video;
+  PlaybackService();
+  PlaybackService(const PlaybackService &) = delete;
+  PlaybackService &operator=(const PlaybackService &) = delete;
   std::unordered_map<
       std::string,
       std::pair<std::string, std::chrono::steady_clock::time_point>>
