@@ -3,7 +3,10 @@
 
 MusicLibraryController::MusicLibraryController(
     App &app, MusicRepository &repo, std::shared_ptr<MetadataCache> cache)
-    : RestController<App>(app), musicRepository(repo), metadataCache(cache) {}
+    : RestController<App>(app), musicRepository(repo), metadataCache(cache) {
+  this->musicRepository.getEventBus().subscribe(
+      "cacheinvalidated", [this](const std::string &) { this->clear_cache(); });
+}
 
 void MusicLibraryController::register_all_routes() {
   this->app_.get("/api/music/tracks/artist/:artist",
@@ -39,13 +42,9 @@ MusicLibraryController::handleGetTracksByArtist(const StringHttpRequest &req,
                                                 const std::string &artist) {
   StringHttpResponse res;
   try {
-    std::string cacheKey = "artist_tracks_" + artist;
-    std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
-      auto tracks = musicRepository.getTracksByArtist(artist);
-      auto response = this->buildTrackResponse(*tracks);
-      return response.dump();
-    });
-    res.setJsonContent(cached);
+    auto tracks = musicRepository.getTracksByArtist(artist);
+    auto response = this->buildTrackResponse(*tracks);
+    res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
     auto error = this->error_response(500, e.what());
@@ -61,13 +60,9 @@ MusicLibraryController::handleGetTracksByAlbum(const StringHttpRequest &req,
   StringHttpResponse res;
   try {
     std::string artistFilter = this->getQueryParam(req, "artist");
-    std::string cacheKey = "album_tracks_" + album + "_" + artistFilter;
-    std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
-      auto tracks = musicRepository.getTracksByAlbum(album, artistFilter);
-      auto response = this->buildTrackResponse(*tracks);
-      return response.dump();
-    });
-    res.setJsonContent(cached);
+    auto tracks = musicRepository.getTracksByAlbum(album, artistFilter);
+    auto response = this->buildTrackResponse(*tracks);
+    res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
     auto error = this->error_response(500, e.what());
@@ -81,37 +76,39 @@ StringHttpResponse
 MusicLibraryController::handleListFiles(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string cacheKey = "list_files";
-    std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
-      auto allFiles = musicRepository.getAllTracks();
-      nlohmann::json filesJson = nlohmann::json::array();
-      for (const auto &track : *allFiles) {
-        if (std::filesystem::exists(track.filePath)) {
-          nlohmann::json fileInfo;
-          fileInfo["path"] = track.filePath;
-          fileInfo["filename"] =
-              std::filesystem::path(track.filePath).filename().string();
-          fileInfo["title"] = track.title;
-          fileInfo["artist"] = track.artist;
-          fileInfo["album"] = track.album;
-          fileInfo["duration"] = track.duration;
-          fileInfo["track"] = track.track;
-          fileInfo["year"] = track.year;
-          fileInfo["genre"] = track.genre;
-          filesJson.push_back(fileInfo);
-        } else {
-          musicRepository.removeTrack(track.filePath);
-        }
+    auto allFiles = musicRepository.getAllTracks();
+    std::cerr << "[MUSIC_LIST] repository size=" << allFiles->size()
+              << std::endl;
+    nlohmann::json filesJson = nlohmann::json::array();
+    int skippedNotOnDisk = 0;
+    for (const auto &track : *allFiles) {
+      if (!std::filesystem::exists(track.filePath)) {
+        skippedNotOnDisk++;
+        continue;
       }
-      nlohmann::json response;
-      response["success"] = true;
-      response["files"] = filesJson;
-      response["count"] = static_cast<int>(filesJson.size());
-      return response.dump();
-    });
-    res.setJsonContent(cached);
+      nlohmann::json fileInfo;
+      fileInfo["path"] = track.filePath;
+      fileInfo["filename"] =
+          std::filesystem::path(track.filePath).filename().string();
+      fileInfo["title"] = track.title;
+      fileInfo["artist"] = track.artist;
+      fileInfo["album"] = track.album;
+      fileInfo["duration"] = track.duration;
+      fileInfo["track"] = track.track;
+      fileInfo["year"] = track.year;
+      fileInfo["genre"] = track.genre;
+      filesJson.push_back(fileInfo);
+    }
+    std::cerr << "[MUSIC_LIST] emitted=" << filesJson.size()
+              << " skippedNotOnDisk=" << skippedNotOnDisk << std::endl;
+    nlohmann::json response;
+    response["success"] = true;
+    response["files"] = filesJson;
+    response["count"] = static_cast<int>(filesJson.size());
+    res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
+    std::cerr << "[MUSIC_LIST] exception: " << e.what() << std::endl;
     auto error = this->error_response(500, e.what());
     res.setStatus(500);
     res.setJsonContent(error.dump());
@@ -123,15 +120,11 @@ StringHttpResponse
 MusicLibraryController::handleGetArtists(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string cacheKey = "artists_list";
-    std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
-      auto artists = musicRepository.getArtists();
-      nlohmann::json response;
-      response["success"] = true;
-      response["artists"] = nlohmann::json(artists);
-      return response.dump();
-    });
-    res.setJsonContent(cached);
+    auto artists = musicRepository.getArtists();
+    nlohmann::json response;
+    response["success"] = true;
+    response["artists"] = nlohmann::json(artists);
+    res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
     auto error = this->error_response(500, e.what());
@@ -146,23 +139,19 @@ MusicLibraryController::handleGetAlbums(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     std::string artistFilter = this->getQueryParam(req, "artist");
-    std::string cacheKey = "albums_list_" + artistFilter;
-    std::string cached = this->get_cached_or_generate(cacheKey, [&]() {
-      auto albums = musicRepository.getAlbums(artistFilter);
-      nlohmann::json albumsJson = nlohmann::json::array();
-      for (const auto &[album, artist, year] : albums) {
-        nlohmann::json albumObj;
-        albumObj["album"] = album;
-        albumObj["artist"] = artist;
-        albumObj["year"] = year;
-        albumsJson.push_back(albumObj);
-      }
-      nlohmann::json response;
-      response["success"] = true;
-      response["albums"] = albumsJson;
-      return response.dump();
-    });
-    res.setJsonContent(cached);
+    auto albums = musicRepository.getAlbums(artistFilter);
+    nlohmann::json albumsJson = nlohmann::json::array();
+    for (const auto &[album, artist, year] : albums) {
+      nlohmann::json albumObj;
+      albumObj["album"] = album;
+      albumObj["artist"] = artist;
+      albumObj["year"] = year;
+      albumsJson.push_back(albumObj);
+    }
+    nlohmann::json response;
+    response["success"] = true;
+    response["albums"] = albumsJson;
+    res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
     auto error = this->error_response(500, e.what());

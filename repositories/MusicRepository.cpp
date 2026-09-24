@@ -36,7 +36,7 @@ void MusicRepository::refreshArtistsCache() const {
 std::vector<std::tuple<std::string, std::string, std::string>>
 MusicRepository::getAlbums(const std::string &artistFilter) const {
   std::shared_lock readLock(mutex);
-  if (!albumsCache.data.empty() && !isExpired(albumsCache.timestamp) &&
+  if (albumsCache.data.size() > 0 && !isExpired(albumsCache.timestamp) &&
       albumsCache.filter == artistFilter) {
     return albumsCache.data;
   }
@@ -133,9 +133,13 @@ MusicRepository::loadAllTracksFromDB() const {
   auto tracks = std::make_shared<std::vector<MusicMetadata>>();
   tracks->reserve(paths.size());
   for (const auto &path : paths) {
+    if (!fs::exists(path)) {
+      continue;
+    }
     MusicMetadata meta;
-    if (db->getMetadata(path, meta))
+    if (db->getMetadata(path, meta)) {
       tracks->push_back(meta);
+    }
   }
   return tracks;
 }
@@ -182,8 +186,11 @@ bool MusicRepository::addTrack(const std::string &filePath,
 bool MusicRepository::removeTrack(const std::string &filePath) {
   bool success = db->removeFile(filePath);
   if (success) {
-    invalidateAll();
+    std::unique_lock lock(mutex);
+    invalidateAllLocked();
+    lock.unlock();
     eventBus.publish("track_removed", filePath);
+    eventBus.publish("cacheinvalidated");
   }
   return success;
 }
@@ -204,10 +211,14 @@ void MusicRepository::invalidateAll() {
 
 void MusicRepository::invalidateAllLocked() {
   artistsCache.data.clear();
+  artistsCache.timestamp = std::chrono::steady_clock::time_point{};
   albumsCache.data.clear();
+  albumsCache.filter.clear();
+  albumsCache.timestamp = std::chrono::steady_clock::time_point{};
   tracksByArtistCache.clear();
   tracksByAlbumCache.clear();
   allTracksCache.data.reset();
+  allTracksCache.timestamp = std::chrono::steady_clock::time_point{};
 }
 
 size_t MusicRepository::getCacheSize() const {
@@ -342,4 +353,14 @@ void MusicRepository::waitForScan() {
 
 std::shared_ptr<MusicDatabase> MusicRepository::getDatabase() const {
   return db;
+}
+
+void MusicRepository::waitForPendingReload() {
+  {
+    std::unique_lock lock(mutex);
+    invalidateAllLocked();
+  }
+  refreshAllTracksCache();
+  refreshArtistsCache();
+  refreshAlbumsCache("");
 }

@@ -150,7 +150,6 @@ AlbumArtController::createImageResponse(const std::vector<char> &artData,
                                         const StringHttpRequest &req) {
   StringHttpResponse res;
   std::string albumName = req.getQuery("album");
-  std::cout << "Album name: " << albumName << std::endl;
   if (artData.empty()) {
     res.setStatus(404);
     return res;

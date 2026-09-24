@@ -23,6 +23,8 @@ protected:
 private:
   StringHttpResponse handleDeleteAlbum(const StringHttpRequest &req);
   nlohmann::json parseJsonBody(const StringHttpRequest &req) const;
+  void logAlbumState(const std::string &tag, const std::string &album,
+                     const std::string &artist);
 
   std::shared_ptr<MusicDatabase> db;
   std::shared_ptr<MetadataCache> cache;

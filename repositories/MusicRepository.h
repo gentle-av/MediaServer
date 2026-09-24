@@ -18,6 +18,7 @@ public:
   explicit MusicRepository(std::shared_ptr<MusicDatabase> db);
   ~MusicRepository() = default;
 
+  void waitForPendingReload();
   std::vector<std::string> getArtists() const;
   std::vector<std::tuple<std::string, std::string, std::string>>
   getAlbums(const std::string &artistFilter = "") const;

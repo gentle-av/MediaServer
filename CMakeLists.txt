@@ -237,3 +237,5 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
         ${CMAKE_CURRENT_BINARY_DIR}/config.json
 )
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/systemd/mediaserver.service DESTINATION config/systemd/user/)

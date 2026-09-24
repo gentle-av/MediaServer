@@ -20,7 +20,6 @@ protected:
 private:
   MusicRepository &musicRepository;
   std::shared_ptr<MetadataCache> metadataCache;
-
   StringHttpResponse handleGetTracksByArtist(const StringHttpRequest &req,
                                              const std::string &artist);
   StringHttpResponse handleGetTracksByAlbum(const StringHttpRequest &req,
@@ -29,7 +28,6 @@ private:
   StringHttpResponse handleGetArtists(const StringHttpRequest &req);
   StringHttpResponse handleGetAlbums(const StringHttpRequest &req);
   StringHttpResponse handleGetAlbumsPaginated(const StringHttpRequest &req);
-
   nlohmann::json trackToJson(const MusicMetadata &track);
   nlohmann::json buildTrackResponse(const std::vector<MusicMetadata> &tracks);
   std::string getQueryParam(const StringHttpRequest &req,

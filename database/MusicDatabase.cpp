@@ -1,4 +1,5 @@
 #include "MusicDatabase.h"
+#include <filesystem>
 #include <mutex>
 #include <sqlite3.h>
 
@@ -290,9 +291,9 @@ MusicDatabase::getTracksByAlbumRaw(const std::string &albumName,
   std::vector<MusicMetadata> tracks;
   std::string sqlQuery =
       "SELECT file_path, title, artist, album, duration, track, "
-      "year, genre FROM music_files WHERE album LIKE ?";
+      "year, genre FROM music_files WHERE album = ?";
   if (!artistName.empty() && artistName != "Unknown") {
-    sqlQuery += " AND artist LIKE ?";
+    sqlQuery += " AND artist = ?";
   }
   sqlQuery += " ORDER BY track";
   sqlite3_stmt *statementHandle = nullptr;
@@ -300,13 +301,12 @@ MusicDatabase::getTracksByAlbumRaw(const std::string &albumName,
                          nullptr) != SQLITE_OK) {
     return tracks;
   }
-  std::string albumParam = albumName;
-  sqlite3_bind_text(statementHandle, 1, albumParam.c_str(), -1,
+  sqlite3_bind_text(statementHandle, 1, albumName.c_str(), -1,
                     SQLITE_TRANSIENT);
   if (!artistName.empty() && artistName != "Unknown") {
     std::string artistParam = artistName;
     if (artistParam == "Unknown Artist") {
-      artistParam = "%";
+      artistParam = "Unknown";
     }
     sqlite3_bind_text(statementHandle, 2, artistParam.c_str(), -1,
                       SQLITE_TRANSIENT);
@@ -351,15 +351,14 @@ MusicDatabase::getAlbumsRaw(const std::string &artistFilter) {
       "SELECT album, artist, MAX(year) FROM music_files WHERE "
       "album != '' AND album IS NOT NULL AND album != 'Unknown'";
   if (!artistFilter.empty()) {
-    sqlQuery += " AND artist LIKE ?";
+    sqlQuery += " AND artist = ?";
   }
   sqlQuery += " GROUP BY album, artist ORDER BY artist, album";
   sqlite3_stmt *statementHandle;
   if (sqlite3_prepare_v2(pImpl->getDb(), sqlQuery.c_str(), -1, &statementHandle,
                          nullptr) == SQLITE_OK) {
     if (!artistFilter.empty()) {
-      std::string artistParam = artistFilter;
-      sqlite3_bind_text(statementHandle, 1, artistParam.c_str(), -1,
+      sqlite3_bind_text(statementHandle, 1, artistFilter.c_str(), -1,
                         SQLITE_TRANSIENT);
     }
     while (sqlite3_step(statementHandle) == SQLITE_ROW) {
