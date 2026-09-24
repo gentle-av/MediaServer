@@ -1,5 +1,7 @@
 #include "MpvIpcClient.h"
+#include <cerrno>
 #include <cstring>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -16,7 +18,7 @@ MpvIpcClient::~MpvIpcClient() {
 }
 
 void MpvIpcClient::startMpvIfNeeded() {
-  if (!socketPath.empty()) {
+  if (!socketPath.empty() && ::access(socketPath.c_str(), F_OK) == 0) {
     std::string response =
         sendCommand(R"({"command": ["get_property", "idle-active"]})");
     if (!response.empty()) {
@@ -24,18 +26,6 @@ void MpvIpcClient::startMpvIfNeeded() {
     }
   }
   socketPath = "/tmp/mpv-socket-" + std::to_string(::getpid());
-  int checkSock = ::socket(AF_UNIX, SOCK_STREAM, 0);
-  if (checkSock >= 0) {
-    struct sockaddr_un addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, socketPath.c_str(), sizeof(addr.sun_path) - 1);
-    if (::connect(checkSock, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
-      ::close(checkSock);
-      return;
-    }
-    ::close(checkSock);
-  }
   ::unlink(socketPath.c_str());
   pid_t pid = ::fork();
   if (pid == 0) {
@@ -46,6 +36,7 @@ void MpvIpcClient::startMpvIfNeeded() {
                                      "--audio-stream-silence=yes",
                                      "--no-video",
                                      "--idle=yes",
+                                     "--keep-open=yes",
                                      "--no-terminal",
                                      "--really-quiet"};
     std::vector<char *> argv;
@@ -91,10 +82,31 @@ std::string MpvIpcClient::sendCommand(const std::string &jsonCommand) const {
   std::memset(&addr, 0, sizeof(addr));
   addr.sun_family = AF_UNIX;
   std::strncpy(addr.sun_path, socketPath.c_str(), sizeof(addr.sun_path) - 1);
-  if (::connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+  int flags = ::fcntl(sock, F_GETFL, 0);
+  ::fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+  int connResult = ::connect(sock, (struct sockaddr *)&addr, sizeof(addr));
+  if (connResult < 0 && errno != EINPROGRESS) {
     ::close(sock);
     return "";
   }
+  if (connResult < 0) {
+    fd_set writeSet;
+    FD_ZERO(&writeSet);
+    FD_SET(sock, &writeSet);
+    int selResult = ::select(sock + 1, nullptr, &writeSet, nullptr, &tv);
+    if (selResult <= 0) {
+      ::close(sock);
+      return "";
+    }
+    int sockErr = 0;
+    socklen_t len = sizeof(sockErr);
+    if (::getsockopt(sock, SOL_SOCKET, SO_ERROR, &sockErr, &len) < 0 ||
+        sockErr != 0) {
+      ::close(sock);
+      return "";
+    }
+  }
+  ::fcntl(sock, F_SETFL, flags);
   std::string cmd = jsonCommand + "\n";
   ::send(sock, cmd.c_str(), cmd.length(), 0);
   char buffer[4096] = {0};

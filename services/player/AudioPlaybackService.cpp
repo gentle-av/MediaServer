@@ -8,11 +8,27 @@ AudioPlaybackService::AudioPlaybackService(
 void AudioPlaybackService::setPlaylist(std::vector<std::string> tracks) {
   std::unique_lock lock(serviceMutex);
   currentTracks = std::move(tracks);
-  if (!currentTracks.empty()) {
-    ipcClient->startMpvIfNeeded();
-    lock.unlock();
-    loadTrackByIndex(0);
+  currentIndex = -1;
+  isPlaying = false;
+  if (currentTracks.empty()) {
+    return;
   }
+  ipcClient->startMpvIfNeeded();
+  ipcClient->sendCommand(R"({"command": ["playlist-clear"]})");
+  nlohmann::json cmd;
+  cmd["command"] = nlohmann::json::array({"loadlist"});
+  cmd["command"].push_back(""); // плейсхолдер, перезапишем ниже
+  cmd["command"].erase(cmd["command"].begin() + 1);
+  for (const auto &track : currentTracks) {
+    nlohmann::json item;
+    item["command"] = nlohmann::json::array({"loadfile", track, "append"});
+    ipcClient->sendCommand(item.dump());
+  }
+  nlohmann::json playIndex;
+  playIndex["command"] = nlohmann::json::array({"playlist-play-index", 0});
+  ipcClient->sendCommand(playIndex.dump());
+  currentIndex = 0;
+  isPlaying = true;
 }
 
 void AudioPlaybackService::loadTrackByIndex(int index) {
@@ -22,10 +38,9 @@ void AudioPlaybackService::loadTrackByIndex(int index) {
   }
   currentIndex = index;
   isPlaying = true;
-  std::string trackPath = currentTracks[index];
-  ipcClient->sendCommand(R"({"command": ["playlist-clear"]})");
+  ipcClient->startMpvIfNeeded();
   nlohmann::json cmd;
-  cmd["command"] = nlohmann::json::array({"loadfile", trackPath, "replace"});
+  cmd["command"] = nlohmann::json::array({"playlist-play-index", index});
   ipcClient->sendCommand(cmd.dump());
 }
 
