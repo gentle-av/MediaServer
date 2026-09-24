@@ -1,3 +1,4 @@
+// === ./controllers/playlists/PlaylistController.cpp ===
 #include "PlaylistController.h"
 #include <algorithm>
 #include <filesystem>
@@ -102,7 +103,7 @@ StringHttpResponse
 PlaylistController::handleGetPlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     auto playlist = playlistRepository.loadPlaylist(name);
     if (!playlist) {
       auto error = this->error_response(404, "Playlist not found: " + name);
@@ -184,7 +185,7 @@ StringHttpResponse
 PlaylistController::handleUpdatePlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     if (!playlistRepository.playlistExists(name)) {
       auto error = this->error_response(404, "Playlist not found: " + name);
       res.setStatus(404);
@@ -239,7 +240,7 @@ StringHttpResponse
 PlaylistController::handleDeletePlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     if (!playlistRepository.playlistExists(name)) {
       auto error = this->error_response(404, "Playlist not found: " + name);
       res.setStatus(404);
@@ -270,7 +271,7 @@ StringHttpResponse
 PlaylistController::handleRenamePlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string oldName = req.getParam("name");
+    std::string oldName = StringHttpRequest::urlDecode(req.getParam("name"));
     nlohmann::json body;
     try {
       body = nlohmann::json::parse(req.getBodyString());
@@ -326,7 +327,7 @@ StringHttpResponse
 PlaylistController::handleAddTracks(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     auto playlist = playlistRepository.loadPlaylist(name);
     if (!playlist) {
       auto error = this->error_response(404, "Playlist not found: " + name);
@@ -398,7 +399,7 @@ StringHttpResponse
 PlaylistController::handleRemoveTrack(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     int index = std::stoi(req.getParam("index"));
     auto playlist = playlistRepository.loadPlaylist(name);
     if (!playlist) {
@@ -441,7 +442,7 @@ StringHttpResponse
 PlaylistController::handleShufflePlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     auto playlist = playlistRepository.loadPlaylist(name);
     if (!playlist) {
       auto error = this->error_response(404, "Playlist not found: " + name);
@@ -475,7 +476,7 @@ StringHttpResponse
 PlaylistController::handleClearPlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     auto playlist = playlistRepository.loadPlaylist(name);
     if (!playlist) {
       auto error = this->error_response(404, "Playlist not found: " + name);
@@ -508,7 +509,7 @@ StringHttpResponse
 PlaylistController::handleExportPlaylist(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string name = req.getParam("name");
+    std::string name = StringHttpRequest::urlDecode(req.getParam("name"));
     std::string filePath = getQueryParam(req, "path", "");
     if (filePath.empty()) {
       auto error =

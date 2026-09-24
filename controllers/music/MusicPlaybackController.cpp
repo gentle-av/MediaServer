@@ -1,5 +1,56 @@
 #include "controllers/music/MusicPlaybackController.h"
 
+StringHttpResponse
+MusicPlaybackController::handleOpenAlbum(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  std::string album = StringHttpRequest::urlDecode(req.getParam("album"));
+  std::string artistFilter = this->getQueryParam(req, "artist");
+  auto trackMetadata = db->getTracksByAlbumRaw(album, artistFilter);
+  if (trackMetadata.empty()) {
+    res.setStatus(404);
+    res.setJsonContent(this->error_response(404, "Album empty or dead").dump());
+    return res;
+  }
+  std::vector<std::string> tracks;
+  tracks.reserve(trackMetadata.size());
+  for (const auto &meta : trackMetadata) {
+    tracks.push_back(meta.filePath);
+  }
+  playbackService->setPlaylist(tracks);
+  nlohmann::json data = this->success_response("Album opened");
+  data["album"] = album;
+  if (!artistFilter.empty()) {
+    data["artist"] = artistFilter;
+  }
+  res.setJsonContent(data.dump());
+  res.setStatus(200);
+  return res;
+}
+
+StringHttpResponse
+MusicPlaybackController::handleOpenArtist(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  std::string artist = StringHttpRequest::urlDecode(req.getParam("artist"));
+  auto trackMetadata = db->getTracksByArtistRaw(artist);
+  if (trackMetadata.empty()) {
+    res.setStatus(404);
+    res.setJsonContent(
+        this->error_response(404, "Artist has no tracks").dump());
+    return res;
+  }
+  std::vector<std::string> tracks;
+  tracks.reserve(trackMetadata.size());
+  for (const auto &meta : trackMetadata) {
+    tracks.push_back(meta.filePath);
+  }
+  playbackService->setPlaylist(tracks);
+  nlohmann::json data = this->success_response("Artist opened");
+  data["artist"] = artist;
+  res.setJsonContent(data.dump());
+  res.setStatus(200);
+  return res;
+}
+
 MusicPlaybackController::MusicPlaybackController(
     App &app, std::shared_ptr<MusicDatabase> db,
     std::shared_ptr<AudioPlaybackService> playbackService)
@@ -51,57 +102,6 @@ MusicPlaybackController::handleOpenMusium(const StringHttpRequest &req) {
   playbackService->setPlaylist(tracks);
   nlohmann::json data = this->success_response("Musium opened");
   data["tracks_count"] = static_cast<int>(tracks.size());
-  res.setJsonContent(data.dump());
-  res.setStatus(200);
-  return res;
-}
-
-StringHttpResponse
-MusicPlaybackController::handleOpenAlbum(const StringHttpRequest &req) {
-  StringHttpResponse res;
-  std::string album = req.getParam("album");
-  std::string artistFilter = this->getQueryParam(req, "artist");
-  auto trackMetadata = db->getTracksByAlbumRaw(album, artistFilter);
-  if (trackMetadata.empty()) {
-    res.setStatus(404);
-    res.setJsonContent(this->error_response(404, "Album empty or dead").dump());
-    return res;
-  }
-  std::vector<std::string> tracks;
-  tracks.reserve(trackMetadata.size());
-  for (const auto &meta : trackMetadata) {
-    tracks.push_back(meta.filePath);
-  }
-  playbackService->setPlaylist(tracks);
-  nlohmann::json data = this->success_response("Album opened");
-  data["album"] = album;
-  if (!artistFilter.empty()) {
-    data["artist"] = artistFilter;
-  }
-  res.setJsonContent(data.dump());
-  res.setStatus(200);
-  return res;
-}
-
-StringHttpResponse
-MusicPlaybackController::handleOpenArtist(const StringHttpRequest &req) {
-  StringHttpResponse res;
-  std::string artist = req.getParam("artist");
-  auto trackMetadata = db->getTracksByArtistRaw(artist);
-  if (trackMetadata.empty()) {
-    res.setStatus(404);
-    res.setJsonContent(
-        this->error_response(404, "Artist has no tracks").dump());
-    return res;
-  }
-  std::vector<std::string> tracks;
-  tracks.reserve(trackMetadata.size());
-  for (const auto &meta : trackMetadata) {
-    tracks.push_back(meta.filePath);
-  }
-  playbackService->setPlaylist(tracks);
-  nlohmann::json data = this->success_response("Artist opened");
-  data["artist"] = artist;
   res.setJsonContent(data.dump());
   res.setStatus(200);
   return res;
