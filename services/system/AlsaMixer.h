@@ -29,10 +29,11 @@ private:
   bool executeAmixer(const std::string &command, std::string &output);
   int parseVolumeFromOutput(const std::string &output);
   void detectCurrentOutput();
+  void detectCurrentOutputUnlocked();
   bool init();
   bool runAmixerRaw(const std::string &command, std::string &output);
 
-  std::mutex mutex;
+  std::recursive_mutex mutex;
   std::string controlName;
   int currentVolume;
   bool muted;

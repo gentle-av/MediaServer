@@ -14,7 +14,6 @@ AudioOutputSwitcher::AudioOutputSwitcher() {
 
 bool AudioOutputSwitcher::switchToSpeakers() {
   std::cout << "[AudioOutputSwitcher::switchToSpeakers] ENTER" << std::endl;
-  std::lock_guard<std::mutex> lock(mutex);
   bool ok = AlsaMixer::getInstance().switchToSpeakers();
   std::cout << "[AudioOutputSwitcher::switchToSpeakers] AlsaMixer returned "
             << ok << std::endl;
@@ -27,7 +26,6 @@ bool AudioOutputSwitcher::switchToSpeakers() {
 
 bool AudioOutputSwitcher::switchToHeadphones() {
   std::cout << "[AudioOutputSwitcher::switchToHeadphones] ENTER" << std::endl;
-  std::lock_guard<std::mutex> lock(mutex);
   bool ok = AlsaMixer::getInstance().switchToHeadphones();
   std::cout << "[AudioOutputSwitcher::switchToHeadphones] AlsaMixer returned "
             << ok << std::endl;
@@ -39,7 +37,6 @@ bool AudioOutputSwitcher::switchToHeadphones() {
 }
 
 std::string AudioOutputSwitcher::getCurrentOutput() {
-  std::lock_guard<std::mutex> lock(mutex);
   std::string realOutput = AlsaMixer::getInstance().getCurrentOutput();
   if (realOutput != currentOutput) {
     std::cout << "[AudioOutputSwitcher] State mismatch - real: " << realOutput
@@ -54,7 +51,6 @@ std::vector<std::string> AudioOutputSwitcher::getAvailableOutputs() const {
 }
 
 void AudioOutputSwitcher::detectCurrentOutput() {
-  std::lock_guard<std::mutex> lock(mutex);
   currentOutput = AlsaMixer::getInstance().getCurrentOutput();
   std::cout << "[AudioOutputSwitcher] Initial output: " << currentOutput
             << std::endl;

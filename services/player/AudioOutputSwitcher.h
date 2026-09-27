@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -15,6 +14,5 @@ public:
 
 private:
   std::string currentOutput;
-  mutable std::mutex mutex;
   void detectCurrentOutput();
 };
