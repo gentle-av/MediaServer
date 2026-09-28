@@ -163,8 +163,15 @@ bool WpVolumeControl::switchToSpeakers() {
   currentOutput = "speakers";
   auto some_future = std::async(std::launch::async, [this]() {
     std::lock_guard<std::mutex> lock(mutex);
-    std::string output;
-    this->executeWpctl("set-profile @DEFAULT_AUDIO_SINK@ speakers", output);
+    std::array<char, 128> buffer;
+    std::string result;
+    FILE *pipe = popen("amixer -c 0 cset numid=22 Speakers 2>&1", "r");
+    if (pipe) {
+      while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        result += buffer.data();
+      }
+      pclose(pipe);
+    }
   });
   return true;
 }
@@ -175,8 +182,15 @@ bool WpVolumeControl::switchToHeadphones() {
   currentOutput = "headphones";
   auto some_future = std::async(std::launch::async, [this]() {
     std::lock_guard<std::mutex> lock(mutex);
-    std::string output;
-    this->executeWpctl("set-profile @DEFAULT_AUDIO_SINK@ headphones", output);
+    std::array<char, 128> buffer;
+    std::string result;
+    FILE *pipe = popen("amixer -c 0 cset numid=22 Headphones 2>&1", "r");
+    if (pipe) {
+      while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        result += buffer.data();
+      }
+      pclose(pipe);
+    }
   });
   return true;
 }

@@ -52,7 +52,8 @@ void PlayerController::register_all_routes() {
         tracks.push_back(
             StringHttpRequest::urlDecode(track.get<std::string>()));
       }
-      playbackService->setPlaylist(std::move(tracks));
+      int initialIndex = json.value("index", 0);
+      playbackService->setPlaylist(std::move(tracks), initialIndex);
       res.setJsonContent("{\"success\":true}");
       res.setStatus(200);
     } catch (...) {

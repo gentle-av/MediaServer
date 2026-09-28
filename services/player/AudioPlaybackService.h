@@ -11,7 +11,7 @@ class AudioPlaybackService {
 public:
   explicit AudioPlaybackService(std::unique_ptr<MpvIpcClient> ipcClient);
 
-  void setPlaylist(std::vector<std::string> tracks);
+  void setPlaylist(std::vector<std::string> tracks, int initialIndex = 0);
   void loadTrackByIndex(int index);
   void togglePause(bool pause);
   void stop();
