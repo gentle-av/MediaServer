@@ -85,6 +85,7 @@ add_library(Playlist SHARED models/Playlist.cpp)
 add_library(PlaylistDatabase SHARED database/PlaylistDatabase.cpp)
 add_library(Profiler SHARED profilers/Profiler.cpp)
 add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
+add_library(WpVolumeControl SHARED services/system/WpVolumeControl.cpp)
 
 add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
@@ -142,6 +143,7 @@ target_link_libraries(PlaylistManager
     PlaybackService
     FileSystemService
     AlsaMixer
+    WpVolumeControl
     ${commonLibs}
 )
 
@@ -178,6 +180,7 @@ target_link_libraries(MediaServerCore
     PlaybackService
     FileSystemService
     AlsaMixer
+    WpVolumeControl
     MetadataExtractor
     MpvIpcClient
     AudioPlaybackService

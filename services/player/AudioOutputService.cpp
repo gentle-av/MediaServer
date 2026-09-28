@@ -1,5 +1,5 @@
 #include "AudioOutputService.h"
-#include "../../services/system/AlsaMixer.h"
+#include "../../services/system/WpVolumeControl.h"
 #include <iostream>
 
 AudioOutputService::AudioOutputService() {
@@ -8,25 +8,27 @@ AudioOutputService::AudioOutputService() {
 }
 
 int AudioOutputService::getVolume() const {
-  return AlsaMixer::getInstance().getVolume();
+  return WpVolumeControl::getInstance().getVolume();
 }
 
 void AudioOutputService::setVolume(int percent) {
-  AlsaMixer::getInstance().setVolume(percent);
+  WpVolumeControl::getInstance().setVolume(percent);
 }
 
 void AudioOutputService::adjustVolume(int delta) {
   if (delta > 0) {
-    AlsaMixer::getInstance().increaseVolume(delta);
+    WpVolumeControl::getInstance().increaseVolume(delta);
   } else {
-    AlsaMixer::getInstance().decreaseVolume(-delta);
+    WpVolumeControl::getInstance().decreaseVolume(-delta);
   }
 }
 
-void AudioOutputService::toggleMute() { AlsaMixer::getInstance().toggleMute(); }
+void AudioOutputService::toggleMute() {
+  WpVolumeControl::getInstance().toggleMute();
+}
 
 bool AudioOutputService::isMuted() const {
-  return AlsaMixer::getInstance().isMuted();
+  return WpVolumeControl::getInstance().isMuted();
 }
 
 bool AudioOutputService::switchToSpeakers() {

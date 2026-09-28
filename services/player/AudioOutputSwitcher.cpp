@@ -1,10 +1,10 @@
 #include "services/player/AudioOutputSwitcher.h"
-#include "services/system/AlsaMixer.h"
+#include "services/system/WpVolumeControl.h"
 #include <iostream>
 
 AudioOutputSwitcher::AudioOutputSwitcher() {
   std::cout << "[AudioOutputSwitcher::ctor] constructed" << std::endl;
-  int vol = AlsaMixer::getInstance().getVolume();
+  int vol = WpVolumeControl::getInstance().getVolume();
   std::cout << "[AudioOutputSwitcher::ctor] getVolume() returned " << vol
             << std::endl;
   if (vol >= 0) {
@@ -14,9 +14,9 @@ AudioOutputSwitcher::AudioOutputSwitcher() {
 
 bool AudioOutputSwitcher::switchToSpeakers() {
   std::cout << "[AudioOutputSwitcher::switchToSpeakers] ENTER" << std::endl;
-  bool ok = AlsaMixer::getInstance().switchToSpeakers();
-  std::cout << "[AudioOutputSwitcher::switchToSpeakers] AlsaMixer returned "
-            << ok << std::endl;
+  bool ok = WpVolumeControl::getInstance().switchToSpeakers();
+  std::cout << "[AudioOutputSwitcher::switchToSpeakers] Wpctl returned " << ok
+            << std::endl;
   if (ok) {
     currentOutput = "speakers";
     return true;
@@ -26,9 +26,9 @@ bool AudioOutputSwitcher::switchToSpeakers() {
 
 bool AudioOutputSwitcher::switchToHeadphones() {
   std::cout << "[AudioOutputSwitcher::switchToHeadphones] ENTER" << std::endl;
-  bool ok = AlsaMixer::getInstance().switchToHeadphones();
-  std::cout << "[AudioOutputSwitcher::switchToHeadphones] AlsaMixer returned "
-            << ok << std::endl;
+  bool ok = WpVolumeControl::getInstance().switchToHeadphones();
+  std::cout << "[AudioOutputSwitcher::switchToHeadphones] Wpctl returned " << ok
+            << std::endl;
   if (ok) {
     currentOutput = "headphones";
     return true;
@@ -37,7 +37,7 @@ bool AudioOutputSwitcher::switchToHeadphones() {
 }
 
 std::string AudioOutputSwitcher::getCurrentOutput() {
-  std::string realOutput = AlsaMixer::getInstance().getCurrentOutput();
+  std::string realOutput = WpVolumeControl::getInstance().getCurrentOutput();
   if (realOutput != currentOutput) {
     std::cout << "[AudioOutputSwitcher] State mismatch - real: " << realOutput
               << ", cached: " << currentOutput << std::endl;
@@ -47,11 +47,11 @@ std::string AudioOutputSwitcher::getCurrentOutput() {
 }
 
 std::vector<std::string> AudioOutputSwitcher::getAvailableOutputs() const {
-  return AlsaMixer::getInstance().getAvailableOutputs();
+  return WpVolumeControl::getInstance().getAvailableOutputs();
 }
 
 void AudioOutputSwitcher::detectCurrentOutput() {
-  currentOutput = AlsaMixer::getInstance().getCurrentOutput();
+  currentOutput = WpVolumeControl::getInstance().getCurrentOutput();
   std::cout << "[AudioOutputSwitcher] Initial output: " << currentOutput
             << std::endl;
 }
