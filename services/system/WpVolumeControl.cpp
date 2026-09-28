@@ -1,6 +1,7 @@
 #include "WpVolumeControl.h"
 #include <array>
 #include <cstdio>
+#include <future>
 #include <regex>
 #include <sys/wait.h>
 
@@ -81,17 +82,17 @@ bool WpVolumeControl::setVolume(int percent) {
     percent = 0;
   if (percent > 100)
     percent = 100;
-  std::lock_guard<std::mutex> lock(mutex);
   double volCoef = percent / 100.0;
   char buf[32];
   snprintf(buf, sizeof(buf), "%.2f", volCoef);
-  std::string output;
+  currentVolume = percent;
   std::string cmd = "set-volume " + targetSink + " " + std::string(buf);
-  if (executeWpctl(cmd, output)) {
-    currentVolume = percent;
-    return true;
-  }
-  return false;
+  auto some_future = std::async(std::launch::async, [this, cmd]() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::string output;
+    this->executeWpctl(cmd, output);
+  });
+  return true;
 }
 
 bool WpVolumeControl::increaseVolume(int delta) {
@@ -99,15 +100,18 @@ bool WpVolumeControl::increaseVolume(int delta) {
     return false;
   if (delta <= 0)
     return false;
-  std::lock_guard<std::mutex> lock(mutex);
-  std::string output;
   std::string cmd =
       "set-volume " + targetSink + " " + std::to_string(delta) + "%+";
-  if (executeWpctl(cmd, output)) {
-    getVolume();
-    return true;
-  }
-  return false;
+  auto some_future = std::async(std::launch::async, [this, cmd]() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::string output;
+    if (this->executeWpctl(cmd, output)) {
+      std::string volOutput;
+      this->executeWpctl("get-volume " + this->targetSink, volOutput);
+      this->currentVolume = this->parseVolumeFromOutput(volOutput);
+    }
+  });
+  return true;
 }
 
 bool WpVolumeControl::decreaseVolume(int delta) {
@@ -115,27 +119,31 @@ bool WpVolumeControl::decreaseVolume(int delta) {
     return false;
   if (delta <= 0)
     return false;
-  std::lock_guard<std::mutex> lock(mutex);
-  std::string output;
   std::string cmd =
       "set-volume " + targetSink + " " + std::to_string(delta) + "%-";
-  if (executeWpctl(cmd, output)) {
-    getVolume();
-    return true;
-  }
-  return false;
+  auto some_future = std::async(std::launch::async, [this, cmd]() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::string output;
+    if (this->executeWpctl(cmd, output)) {
+      std::string volOutput;
+      this->executeWpctl("get-volume " + this->targetSink, volOutput);
+      this->currentVolume = this->parseVolumeFromOutput(volOutput);
+    }
+  });
+  return true;
 }
 
 bool WpVolumeControl::toggleMute() {
   if (!initialized && !init())
     return false;
-  std::lock_guard<std::mutex> lock(mutex);
-  std::string output;
-  if (executeWpctl("set-mute " + targetSink + " toggle", output)) {
-    muted = !muted;
-    return true;
-  }
-  return false;
+  muted = !muted;
+  std::string cmd = "set-mute " + targetSink + " toggle";
+  auto some_future = std::async(std::launch::async, [this, cmd]() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::string output;
+    this->executeWpctl(cmd, output);
+  });
+  return true;
 }
 
 bool WpVolumeControl::isMuted() {
@@ -152,26 +160,24 @@ std::string WpVolumeControl::getControlName() { return controlName; }
 bool WpVolumeControl::switchToSpeakers() {
   if (!initialized && !init())
     return false;
-  std::lock_guard<std::mutex> lock(mutex);
-  std::string output;
-  if (executeWpctl("set-profile @DEFAULT_AUDIO_SINK@ speakers", output)) {
-    currentOutput = "speakers";
-    return true;
-  }
   currentOutput = "speakers";
+  auto some_future = std::async(std::launch::async, [this]() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::string output;
+    this->executeWpctl("set-profile @DEFAULT_AUDIO_SINK@ speakers", output);
+  });
   return true;
 }
 
 bool WpVolumeControl::switchToHeadphones() {
   if (!initialized && !init())
     return false;
-  std::lock_guard<std::mutex> lock(mutex);
-  std::string output;
-  if (executeWpctl("set-profile @DEFAULT_AUDIO_SINK@ headphones", output)) {
-    currentOutput = "headphones";
-    return true;
-  }
   currentOutput = "headphones";
+  auto some_future = std::async(std::launch::async, [this]() {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::string output;
+    this->executeWpctl("set-profile @DEFAULT_AUDIO_SINK@ headphones", output);
+  });
   return true;
 }
 
