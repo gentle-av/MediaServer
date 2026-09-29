@@ -1,13 +1,18 @@
 #pragma once
 
+#include <chrono>
+
 class MonitorService {
 public:
-  void turnOnDisplay();
-  void turnOffDisplay();
-  bool isSessionIdle();
-  bool isInitialized() const { return initialized; }
+  explicit MonitorService(
+      std::chrono::milliseconds delay = std::chrono::milliseconds(500));
+  ~MonitorService() noexcept = default;
+
+  [[nodiscard]] bool turnOff() noexcept;
+  [[nodiscard]] bool turnOn() noexcept;
+  [[nodiscard]] bool isOff() const noexcept;
 
 private:
-  bool initialized = false;
-  bool init();
+  std::chrono::milliseconds delayDuration;
+  bool monitorIsOff;
 };

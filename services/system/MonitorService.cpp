@@ -1,90 +1,44 @@
-#include "services/system/MonitorService.h"
-#include <dbus/dbus.h>
-#include <string>
+#include "MonitorService.h"
+#include <cstdlib>
 #include <sys/wait.h>
-#include <unistd.h>
-#include <vector>
+#include <thread>
 
-static bool executeCommandNoOutput(const std::vector<std::string> &args) {
-  pid_t pid = fork();
-  if (pid == -1)
-    return false;
-  if (pid == 0) {
-    std::vector<char *> argv;
-    for (const auto &arg : args) {
-      argv.push_back(const_cast<char *>(arg.c_str()));
-    }
-    argv.push_back(nullptr);
-    execvp(argv[0], argv.data());
-    _exit(127);
-  }
-  int status;
-  waitpid(pid, &status, 0);
-  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
+MonitorService::MonitorService(std::chrono::milliseconds delay)
+    : delayDuration(delay), monitorIsOff(false) {}
 
-bool MonitorService::init() {
-  if (initialized)
+bool MonitorService::turnOff() noexcept {
+  if (monitorIsOff) {
     return true;
-  DBusError err;
-  dbus_error_init(&err);
-  DBusConnection *conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
-  if (dbus_error_is_set(&err)) {
-    dbus_error_free(&err);
+  }
+  if (delayDuration.count() > 0) {
+    std::this_thread::sleep_for(delayDuration);
+  }
+  int status = std::system("ddcutil setvcp D6 4 > /dev/null 2>&1");
+  if (status == -1) {
     return false;
   }
-  dbus_connection_unref(conn);
-  initialized = true;
-  return true;
+  int exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+  if (exitCode == 0 || exitCode == 1) {
+    monitorIsOff = true;
+    return true;
+  }
+  return false;
 }
 
-bool MonitorService::isSessionIdle() {
-  if (!init())
-    return false;
-  DBusError err;
-  dbus_error_init(&err);
-  DBusConnection *conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
-  if (dbus_error_is_set(&err)) {
-    dbus_error_free(&err);
+bool MonitorService::turnOn() noexcept {
+  if (!monitorIsOff) {
+    return true;
+  }
+  int status = std::system("ddcutil setvcp D6 1 > /dev/null 2>&1");
+  if (status == -1) {
     return false;
   }
-  DBusMessage *msg = dbus_message_new_method_call(
-      "org.freedesktop.ScreenSaver", "/org/freedesktop/ScreenSaver",
-      "org.freedesktop.ScreenSaver", "GetActive");
-  if (!msg) {
-    dbus_connection_unref(conn);
-    return false;
+  int exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+  if (exitCode == 0 || exitCode == 1) {
+    monitorIsOff = false;
+    return true;
   }
-  DBusMessage *reply =
-      dbus_connection_send_with_reply_and_block(conn, msg, 100, &err);
-  dbus_message_unref(msg);
-  if (dbus_error_is_set(&err) || !reply) {
-    dbus_error_free(&err);
-    dbus_connection_unref(conn);
-    return false;
-  }
-  dbus_bool_t active = false;
-  dbus_message_get_args(reply, &err, DBUS_TYPE_BOOLEAN, &active,
-                        DBUS_TYPE_INVALID);
-  dbus_message_unref(reply);
-  dbus_connection_unref(conn);
-  if (dbus_error_is_set(&err)) {
-    dbus_error_free(&err);
-    return false;
-  }
-  return active;
+  return false;
 }
 
-void MonitorService::turnOnDisplay() {
-  if (!init())
-    return;
-  std::vector<std::string> args = {"kscreen-doctor", "--dpms", "on"};
-  executeCommandNoOutput(args);
-}
-
-void MonitorService::turnOffDisplay() {
-  if (!init())
-    return;
-  std::vector<std::string> args = {"kscreen-doctor", "--dpms", "off"};
-  executeCommandNoOutput(args);
-}
+bool MonitorService::isOff() const noexcept { return monitorIsOff; }

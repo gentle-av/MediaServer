@@ -211,7 +211,7 @@ install(TARGETS
     MpvIpcClient AudioPlaybackService AudioOutputService
     MusicScanController MusicLibraryController MusicMetadataController MusicPlaybackController
     PlaylistController PlayerController VideoController PowerService PowerController
-    AlbumArtController AlbumManagementController MonitorController MediaServerCore
+    AlbumArtController AlbumManagementController MonitorController MediaServerCore WpVolumeControl
     LIBRARY DESTINATION lib/media-explorer/
 )
 
