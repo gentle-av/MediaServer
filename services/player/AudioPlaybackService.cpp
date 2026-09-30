@@ -7,28 +7,33 @@ AudioPlaybackService::AudioPlaybackService(
 
 void AudioPlaybackService::setPlaylist(std::vector<std::string> tracks,
                                        int initialIndex) {
-  std::unique_lock lock(serviceMutex);
-  currentTracks = std::move(tracks);
-  currentIndex = -1;
-  isPlaying = false;
-  if (currentTracks.empty()) {
-    return;
+  std::vector<std::string> localTracks;
+  {
+    std::unique_lock lock(serviceMutex);
+    currentTracks = std::move(tracks);
+    currentIndex = -1;
+    isPlaying = false;
+    if (currentTracks.empty()) {
+      return;
+    }
+    localTracks = currentTracks;
   }
   ipcClient->startMpvIfNeeded();
   ipcClient->sendCommand(R"({"command": ["playlist-clear"]})");
-  for (size_t i = 0; i < currentTracks.size(); ++i) {
+  for (size_t i = 0; i < localTracks.size(); ++i) {
     nlohmann::json item;
     if (i == 0) {
       item["command"] =
-          nlohmann::json::array({"loadfile", currentTracks[i], "replace"});
+          nlohmann::json::array({"loadfile", localTracks[i], "replace"});
     } else {
       item["command"] =
-          nlohmann::json::array({"loadfile", currentTracks[i], "append"});
+          nlohmann::json::array({"loadfile", localTracks[i], "append"});
     }
     ipcClient->sendCommand(item.dump());
   }
   if (initialIndex >= 0 &&
-      initialIndex < static_cast<int>(currentTracks.size())) {
+      initialIndex < static_cast<int>(localTracks.size())) {
+    std::unique_lock lock(serviceMutex);
     currentIndex = initialIndex;
     isPlaying = true;
     if (initialIndex > 0) {
@@ -41,12 +46,16 @@ void AudioPlaybackService::setPlaylist(std::vector<std::string> tracks,
 }
 
 void AudioPlaybackService::loadTrackByIndex(int index) {
-  std::unique_lock lock(serviceMutex);
-  if (index < 0 || index >= static_cast<int>(currentTracks.size())) {
-    return;
+  std::string targetTrack;
+  {
+    std::unique_lock lock(serviceMutex);
+    if (index < 0 || index >= static_cast<int>(currentTracks.size())) {
+      return;
+    }
+    currentIndex = index;
+    isPlaying = true;
+    targetTrack = currentTracks[index];
   }
-  currentIndex = index;
-  isPlaying = true;
   ipcClient->startMpvIfNeeded();
   nlohmann::json cmd;
   cmd["command"] = nlohmann::json::array({"playlist-play-index", index});
