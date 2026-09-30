@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdio>
 #include <future>
+#include <iostream>
 #include <regex>
 #include <sys/wait.h>
 
@@ -182,14 +183,20 @@ bool WpVolumeControl::switchToHeadphones() {
   currentOutput = "headphones";
   auto some_future = std::async(std::launch::async, [this]() {
     std::lock_guard<std::mutex> lock(mutex);
-    std::array<char, 128> buffer;
+    std::array<char, 256> buffer;
     std::string result;
     FILE *pipe = popen("amixer -c 0 cset numid=22 Headphones 2>&1", "r");
     if (pipe) {
       while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         result += buffer.data();
       }
-      pclose(pipe);
+      int status = pclose(pipe);
+      int exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+      std::cerr << "[WpVolumeControl::switchToHeadphones] exit=" << exitCode
+                << " output='" << result << "'" << std::endl;
+    } else {
+      std::cerr << "[WpVolumeControl::switchToHeadphones] popen failed"
+                << std::endl;
     }
   });
   return true;
@@ -208,15 +215,49 @@ std::vector<std::string> WpVolumeControl::getAvailableOutputs() {
 void WpVolumeControl::detectCurrentOutputUnlocked() {
   if (!initialized)
     return;
-  std::string output;
-  if (!executeWpctl("inspect", output)) {
-    currentOutput = "speakers";
+
+  std::string amixerOutput;
+  {
+    std::array<char, 256> buffer;
+    FILE *pipe = popen("amixer -c 0 cget numid=22 2>&1", "r");
+    if (pipe) {
+      while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        amixerOutput += buffer.data();
+      }
+      pclose(pipe);
+    }
+  }
+
+  std::cerr << "[WpVolumeControl::detectCurrentOutputUnlocked] amixerOutput='"
+            << amixerOutput << "'" << '\n';
+  size_t pos = amixerOutput.find(": values=");
+  if (pos == std::string::npos) {
+    std::cerr << "[WpVolumeControl::detectCurrentOutputUnlocked] "
+                 "': values=' not found, fallback to wpctl"
+              << '\n';
+    std::string output;
+    if (!executeWpctl("inspect", output)) {
+      currentOutput = "speakers";
+      return;
+    }
+    if (output.find("headphone") != std::string::npos ||
+        output.find("phone") != std::string::npos) {
+      currentOutput = "headphones";
+    } else {
+      currentOutput = "speakers";
+    }
     return;
   }
-  if (output.find("headphone") != std::string::npos ||
-      output.find("phone") != std::string::npos) {
-    currentOutput = "headphones";
-  } else {
-    currentOutput = "speakers";
+  pos += 9;
+  if (pos < amixerOutput.size()) {
+    char digit = amixerOutput[pos];
+    if (digit == '1' || digit == '2') {
+      currentOutput = "headphones";
+    } else {
+      currentOutput = "speakers";
+    }
+    std::cerr << "[WpVolumeControl::detectCurrentOutputUnlocked] digit='"
+              << digit << "' -> currentOutput='" << currentOutput << "'"
+              << '\n';
   }
 }
