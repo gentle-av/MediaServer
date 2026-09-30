@@ -1,6 +1,7 @@
 #pragma once
 #include "../../repositories/MusicRepository.h"
 #include "../../repositories/PlaylistRepository.h"
+#include "../../services/player/AudioPlaybackService.h"
 #include <html-server/app/App.h>
 #include <html-server/controllers/RestController.h>
 #include <html-server/templates/HttpResponse.h>
@@ -8,8 +9,9 @@
 
 class PlaylistController : public RestController<App> {
 public:
-  explicit PlaylistController(App &app, PlaylistRepository &playlistRepo,
-                              MusicRepository &musicRepo);
+  explicit PlaylistController(
+      App &app, PlaylistRepository &playlistRepo, MusicRepository &musicRepo,
+      std::shared_ptr<AudioPlaybackService> playbackService);
   ~PlaylistController() = default;
 
 protected:
@@ -18,7 +20,7 @@ protected:
 private:
   PlaylistRepository &playlistRepository;
   MusicRepository &musicRepository;
-
+  std::shared_ptr<AudioPlaybackService> playbackService;
   StringHttpResponse handleGetPlaylists(const StringHttpRequest &req);
   StringHttpResponse handleGetPlaylist(const StringHttpRequest &req);
   StringHttpResponse handleCreatePlaylist(const StringHttpRequest &req);
@@ -36,7 +38,6 @@ private:
   StringHttpResponse handleCreateFromSearch(const StringHttpRequest &req);
   StringHttpResponse handleValidatePlaylists(const StringHttpRequest &req);
   StringHttpResponse handleScanPlaylists(const StringHttpRequest &req);
-
   nlohmann::json playlistToJson(const Playlist &playlist,
                                 const std::string &name);
   nlohmann::json playlistListToJson(const std::vector<std::string> &names);

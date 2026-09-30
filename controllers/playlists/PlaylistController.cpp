@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <filesystem>
 
-PlaylistController::PlaylistController(App &app,
-                                       PlaylistRepository &playlistRepo,
-                                       MusicRepository &musicRepo)
+PlaylistController::PlaylistController(
+    App &app, PlaylistRepository &playlistRepo, MusicRepository &musicRepo,
+    std::shared_ptr<AudioPlaybackService> playbackService)
     : RestController<App>(app), playlistRepository(playlistRepo),
-      musicRepository(musicRepo) {}
+      musicRepository(musicRepo), playbackService(playbackService) {}
 
 void PlaylistController::register_all_routes() {
   this->app_.get("/api/playlists",
@@ -220,6 +220,9 @@ PlaylistController::handleUpdatePlaylist(const StringHttpRequest &req) {
       res.setStatus(500);
       res.setJsonContent(error.dump());
       return res;
+    }
+    if (playbackService) {
+      playbackService->setPlaylist(paths, 0);
     }
     nlohmann::json response;
     response["success"] = true;
@@ -458,6 +461,13 @@ PlaylistController::handleShufflePlaylist(const StringHttpRequest &req) {
       res.setJsonContent(error.dump());
       return res;
     }
+    if (playbackService) {
+      std::vector<std::string> paths;
+      for (const auto &track : shuffledPlaylist.getAllTracks()) {
+        paths.push_back(track.filePath);
+      }
+      playbackService->setPlaylist(paths, 0);
+    }
     nlohmann::json response;
     response["success"] = true;
     response["message"] = "Playlist shuffled successfully";
@@ -490,6 +500,9 @@ PlaylistController::handleClearPlaylist(const StringHttpRequest &req) {
       res.setStatus(500);
       res.setJsonContent(error.dump());
       return res;
+    }
+    if (playbackService) {
+      playbackService->stop();
     }
     nlohmann::json response;
     response["success"] = true;

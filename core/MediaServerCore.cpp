@@ -142,13 +142,13 @@ bool MediaServerCore::initializeControllers() {
   scanController = std::make_unique<MusicScanController>(
       *app, *musicRepo, *playlistRepo, config.musicDirectory);
   scanController->register_routes();
-  playlistController =
-      std::make_unique<PlaylistController>(*app, *playlistRepo, *musicRepo);
-  playlistController->register_routes();
   auto ipcClient = std::make_unique<MpvIpcClient>("");
   auto playbackService =
       std::make_shared<AudioPlaybackService>(std::move(ipcClient));
   auto outputService = std::make_shared<AudioOutputService>();
+  playlistController = std::make_unique<PlaylistController>(
+      *app, *playlistRepo, *musicRepo, playbackService);
+  playlistController->register_routes();
   playerController =
       std::make_shared<PlayerController>(*app, playbackService, outputService);
   playerController->register_routes();
