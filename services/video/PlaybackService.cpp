@@ -202,8 +202,8 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
         response = "{\"error\":\"invalid seek time\"}";
         return false;
       }
-      const char *cmd[] = {"seek", std::to_string(seekTime).c_str(), "absolute",
-                           nullptr};
+      std::string seekTimeStr = std::to_string(seekTime);
+      const char *cmd[] = {"seek", seekTimeStr.c_str(), "absolute", nullptr};
       result = mpv_command(mpv, cmd);
     }
   } else if (command == "fullscreen" ||
@@ -217,12 +217,11 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
   }
   response =
       result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"command failed\"}";
-  if (result >= 0 && command.find("seek") != std::string::npos) {
-    cache["time-pos"] = {"", std::chrono::steady_clock::now()};
+  if (result >= 0) {
+    cache.erase("time-pos");
   }
   return result >= 0;
 }
-
 bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
                            std::string &response) {
   if (!mpv || !isPlaying)
@@ -232,15 +231,59 @@ bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
     return false;
   }
   std::lock_guard<std::mutex> lock(mpvMutex);
-  const char *cmd[] = {"seek", std::to_string(seekTime).c_str(), "absolute",
-                       nullptr};
+  std::string seekTimeStr = std::to_string(seekTime);
+  const char *cmd[] = {"seek", seekTimeStr.c_str(), "absolute", nullptr};
   int result = mpv_command(mpv, cmd);
   response =
       result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"seek failed\"}";
   if (result >= 0) {
-    cache["time-pos"] = {"", std::chrono::steady_clock::now()};
+    cache.erase("time-pos");
   }
   return result >= 0;
+}
+
+std::string PlaybackService::getCachedOrFetch(const std::string &property) {
+  auto now = std::chrono::steady_clock::now();
+  std::lock_guard<std::mutex> lock(mpvMutex);
+  auto it = cache.find(property);
+  if (it != cache.end() && (now - it->second.second) < CACHE_TTL) {
+    return it->second.first;
+  }
+  if (!mpv || !isPlaying)
+    return "";
+  std::string result;
+  if (property == "time-pos") {
+    double val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  } else if (property == "duration") {
+    double val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  } else if (property == "pause") {
+    int val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_FLAG, &val) >= 0) {
+      result = val ? "{\"data\":true}" : "{\"data\":false}";
+    }
+  } else if (property == "path") {
+    const char *val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_STRING, &val) >= 0 &&
+        val) {
+      result = "{\"data\":\"" + std::string(val) + "\"}";
+      mpv_free((void *)val);
+    }
+  } else if (property == "aid") {
+    int64_t val;
+    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val) >= 0) {
+      result = "{\"data\":" + std::to_string(val) + "}";
+    }
+  }
+  if (!result.empty()) {
+    cache[property] = {result, now};
+  }
+  return result;
 }
 
 bool PlaybackService::getProperty(const std::string &activeSocket,
@@ -283,48 +326,4 @@ void PlaybackService::logWorkerLoop(std::stop_token stopToken) {
       }
     }
   }
-}
-
-std::string PlaybackService::getCachedOrFetch(const std::string &property) {
-  auto now = std::chrono::steady_clock::now();
-  auto it = cache.find(property);
-  if (it != cache.end() && (now - it->second.second) < CACHE_TTL) {
-    return it->second.first;
-  }
-  if (!mpv || !isPlaying)
-    return "";
-  std::string result;
-  std::lock_guard<std::mutex> lock(mpvMutex);
-  if (property == "time-pos") {
-    double val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
-      result = "{\"data\":" + std::to_string(val) + "}";
-    }
-  } else if (property == "duration") {
-    double val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_DOUBLE, &val) >= 0) {
-      result = "{\"data\":" + std::to_string(val) + "}";
-    }
-  } else if (property == "pause") {
-    int val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_FLAG, &val) >= 0) {
-      result = val ? "{\"data\":true}" : "{\"data\":false}";
-    }
-  } else if (property == "path") {
-    const char *val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_STRING, &val) >= 0 &&
-        val) {
-      result = "{\"data\":\"" + std::string(val) + "\"}";
-      mpv_free((void *)val);
-    }
-  } else if (property == "aid") {
-    int64_t val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val) >= 0) {
-      result = "{\"data\":" + std::to_string(val) + "}";
-    }
-  }
-  if (!result.empty()) {
-    cache[property] = {result, now};
-  }
-  return result;
 }
