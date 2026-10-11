@@ -2,6 +2,7 @@
 
 #include "../../repositories/MusicRepository.h"
 #include "../../repositories/PlaylistRepository.h"
+#include <atomic>
 #include <html-server/app/App.h>
 #include <html-server/controllers/RestController.h>
 
@@ -10,6 +11,14 @@ private:
   MusicRepository &musicRepository;
   PlaylistRepository &playlistRepository;
   std::string musicDirectory;
+
+  std::atomic<int> scanTotal{0};
+  std::atomic<int> scanProcessed{0};
+  std::atomic<int> scanAdded{0};
+  std::atomic<int> scanErrors{0};
+  std::atomic<bool> scanFinished{false};
+  std::atomic<bool> scanSuccess{true};
+  std::atomic<bool> scanRunning{false};
 
 public:
   explicit MusicScanController(App &app, MusicRepository &repo,
@@ -26,12 +35,4 @@ private:
   nlohmann::json handleRemoveMissing(const StringHttpRequest &req);
   nlohmann::json handleStartScan(const StringHttpRequest &req);
   nlohmann::json handleScanStatus(const StringHttpRequest &req);
-
-  std::atomic<int> scanTotal{0};
-  std::atomic<int> scanProcessed{0};
-  std::atomic<int> scanAdded{0};
-  std::atomic<int> scanErrors{0};
-  std::atomic<bool> scanFinished{false};
-  std::atomic<bool> scanSuccess{true};
-  std::atomic<bool> scanRunning{false};
 };
