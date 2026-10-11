@@ -24,4 +24,6 @@ private:
   nlohmann::json handleForceRescan(const StringHttpRequest &req,
                                    const std::string &targetDir);
   nlohmann::json handleRemoveMissing(const StringHttpRequest &req);
+  nlohmann::json handleStartScan(const StringHttpRequest &req);
+  nlohmann::json handleScanStatus(const StringHttpRequest &req);
 };

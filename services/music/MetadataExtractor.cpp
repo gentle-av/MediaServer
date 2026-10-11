@@ -2,6 +2,8 @@
 #include "../../tagger/TagEditor.h"
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <regex>
 #include <taglib/fileref.h>
 #include <taglib/flacfile.h>
@@ -124,11 +126,9 @@ bool MetadataExtractor::extractFlacAlbumArt(const std::string &filePath,
 
 bool MetadataExtractor::extractAlbumArt(const std::string &filePath,
                                         std::vector<char> &albumArt) {
-  std::string ext = fs::path(filePath).extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-  if (ext == ".flac")
-    return extractFlacAlbumArt(filePath, albumArt);
-  return false;
+  if (extractFlacAlbumArt(filePath, albumArt))
+    return true;
+  return extractFolderAlbumArt(filePath, albumArt);
 }
 
 bool MetadataExtractor::updateFileTags(const std::string &filePath,
@@ -155,6 +155,24 @@ bool MetadataExtractor::updateFileTags(const std::string &filePath,
       editor.setDate(std::to_string(metadata.year));
     return editor.save();
   } catch (const std::exception &) {
+  }
+  return false;
+}
+
+bool MetadataExtractor::extractFolderAlbumArt(const std::string &filePath,
+                                              std::vector<char> &albumArt) {
+  fs::path folder = fs::path(filePath).parent_path();
+  const std::vector<std::string> names = {"cover.jpg",   "cover.jpeg",
+                                          "cover.png",   "folder.jpg",
+                                          "folder.jpeg", "folder.png"};
+  for (const auto &name : names) {
+    fs::path candidate = folder / name;
+    if (fs::exists(candidate)) {
+      std::ifstream f(candidate, std::ios::binary);
+      albumArt.assign(std::istreambuf_iterator<char>(f),
+                      std::istreambuf_iterator<char>());
+      return !albumArt.empty();
+    }
   }
   return false;
 }

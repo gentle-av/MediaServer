@@ -34,6 +34,45 @@ MusicScanController::handleRemoveMissing(const StringHttpRequest &req) {
   return this->handleForceRescan(req, targetDir);
 }
 
+nlohmann::json
+MusicScanController::handleStartScan(const StringHttpRequest &req) {
+  if (musicRepository.isScanning()) {
+    auto resp = this->error_response(409, "Scan already in progress");
+    resp["scanning"] = true;
+    return resp;
+  }
+  std::string targetDir = musicDirectory;
+  auto queryDir = req.getQuery("dir");
+  if (!queryDir.empty()) {
+    targetDir = queryDir;
+  } else {
+    auto body = req.getBodyString();
+    if (!body.empty()) {
+      try {
+        auto json = nlohmann::json::parse(body);
+        if (json.contains("dir") && json["dir"].is_string()) {
+          targetDir = json["dir"].get<std::string>();
+        }
+      } catch (...) {
+      }
+    }
+  }
+  musicRepository.scanMusicDirectoryAsync(targetDir,
+                                          [](int total, int processed) {});
+  nlohmann::json resp = this->success_response("Scan started");
+  resp["scanning"] = true;
+  resp["directory"] = targetDir;
+  return resp;
+}
+
+nlohmann::json
+MusicScanController::handleScanStatus(const StringHttpRequest &req) {
+  nlohmann::json resp;
+  resp["success"] = true;
+  resp["scanning"] = musicRepository.isScanning();
+  return resp;
+}
+
 void MusicScanController::register_all_routes() {
   this->app_.post(
       "/api/music/remove-missing",
@@ -76,4 +115,20 @@ void MusicScanController::register_all_routes() {
                     }
                     return res;
                   });
+  this->app_.post("/api/music/scan",
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
+                    StringHttpResponse res;
+                    nlohmann::json result = handleStartScan(req);
+                    res.setJsonContent(result.dump());
+                    res.setStatus(result.value("success", false) ? 200 : 409);
+                    return res;
+                  });
+  this->app_.get("/api/music/scan/status",
+                 [this](const StringHttpRequest &req) -> StringHttpResponse {
+                   StringHttpResponse res;
+                   nlohmann::json result = handleScanStatus(req);
+                   res.setJsonContent(result.dump());
+                   res.setStatus(200);
+                   return res;
+                 });
 }

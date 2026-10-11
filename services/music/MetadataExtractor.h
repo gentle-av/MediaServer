@@ -24,4 +24,6 @@ private:
                                    MusicMetadata &metadata);
   static bool extractFlacAlbumArt(const std::string &filePath,
                                   std::vector<char> &albumArt);
+  static bool extractFolderAlbumArt(const std::string &filePath,
+                                    std::vector<char> &albumArt);
 };
