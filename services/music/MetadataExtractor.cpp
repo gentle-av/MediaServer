@@ -162,9 +162,10 @@ bool MetadataExtractor::updateFileTags(const std::string &filePath,
 bool MetadataExtractor::extractFolderAlbumArt(const std::string &filePath,
                                               std::vector<char> &albumArt) {
   fs::path folder = fs::path(filePath).parent_path();
-  const std::vector<std::string> names = {"cover.jpg",   "cover.jpeg",
-                                          "cover.png",   "folder.jpg",
-                                          "folder.jpeg", "folder.png"};
+  const std::vector<std::string> names = {
+      "cover.jpg",  "cover.jpeg", "cover.png",   "Cover.jpg",
+      "Cover.jpeg", "Cover.png",  "folder.jpg",  "folder.jpeg",
+      "folder.png", "Folder.jpg", "Folder.jpeg", "Folder.png"};
   for (const auto &name : names) {
     fs::path candidate = folder / name;
     if (fs::exists(candidate)) {

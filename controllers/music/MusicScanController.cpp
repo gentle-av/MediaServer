@@ -57,8 +57,24 @@ MusicScanController::handleStartScan(const StringHttpRequest &req) {
       }
     }
   }
-  musicRepository.scanMusicDirectoryAsync(targetDir,
-                                          [](int total, int processed) {});
+  scanTotal = 0;
+  scanProcessed = 0;
+  scanAdded = 0;
+  scanErrors = 0;
+  scanFinished = false;
+  scanSuccess = true;
+  scanRunning = true;
+  auto future = musicRepository.scanMusicDirectoryAsync(
+      targetDir, [this](int total, int processed) {
+        scanTotal = total;
+        scanProcessed = processed;
+      });
+  std::thread([this, future]() mutable {
+    bool ok = future.get();
+    scanSuccess = ok;
+    scanFinished = true;
+    scanRunning = false;
+  }).detach();
   nlohmann::json resp = this->success_response("Scan started");
   resp["scanning"] = true;
   resp["directory"] = targetDir;
@@ -68,8 +84,15 @@ MusicScanController::handleStartScan(const StringHttpRequest &req) {
 nlohmann::json
 MusicScanController::handleScanStatus(const StringHttpRequest &req) {
   nlohmann::json resp;
-  resp["success"] = true;
+  resp["success"] = true; // HTTP-запрос ок
   resp["scanning"] = musicRepository.isScanning();
+  resp["finished"] = scanFinished.load();
+  resp["scan_result"] = scanSuccess.load() ? "ok" : "error";
+  resp["total"] = scanTotal.load();
+  resp["processed"] = scanProcessed.load();
+  resp["progress"] = scanTotal.load() > 0
+                         ? (scanProcessed.load() * 100 / scanTotal.load())
+                         : 0;
   return resp;
 }
 

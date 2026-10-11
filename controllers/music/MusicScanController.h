@@ -26,4 +26,12 @@ private:
   nlohmann::json handleRemoveMissing(const StringHttpRequest &req);
   nlohmann::json handleStartScan(const StringHttpRequest &req);
   nlohmann::json handleScanStatus(const StringHttpRequest &req);
+
+  std::atomic<int> scanTotal{0};
+  std::atomic<int> scanProcessed{0};
+  std::atomic<int> scanAdded{0};
+  std::atomic<int> scanErrors{0};
+  std::atomic<bool> scanFinished{false};
+  std::atomic<bool> scanSuccess{true};
+  std::atomic<bool> scanRunning{false};
 };
