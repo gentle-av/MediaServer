@@ -13,10 +13,7 @@ AudioOutputSwitcher::AudioOutputSwitcher() {
 }
 
 bool AudioOutputSwitcher::switchToSpeakers() {
-  std::cout << "[AudioOutputSwitcher::switchToSpeakers] ENTER" << std::endl;
   bool ok = WpVolumeControl::getInstance().switchToSpeakers();
-  std::cout << "[AudioOutputSwitcher::switchToSpeakers] Wpctl returned " << ok
-            << std::endl;
   if (ok) {
     currentOutput = "speakers";
     return true;
@@ -25,10 +22,7 @@ bool AudioOutputSwitcher::switchToSpeakers() {
 }
 
 bool AudioOutputSwitcher::switchToHeadphones() {
-  std::cout << "[AudioOutputSwitcher::switchToHeadphones] ENTER" << std::endl;
   bool ok = WpVolumeControl::getInstance().switchToHeadphones();
-  std::cout << "[AudioOutputSwitcher::switchToHeadphones] Wpctl returned " << ok
-            << std::endl;
   if (ok) {
     currentOutput = "headphones";
     return true;

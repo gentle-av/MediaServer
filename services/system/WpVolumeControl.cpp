@@ -166,14 +166,21 @@ bool WpVolumeControl::switchToSpeakers() {
   currentOutput = "speakers";
   std::thread([this]() {
     std::lock_guard<std::mutex> lock(mutex);
-    std::array<char, 128> buffer;
+    std::array<char, 256> buffer;
     std::string result;
-    FILE *pipe = popen("amixer -c 0 cset numid=22 Speakers 2>&1", "r");
+    FILE *pipe =
+        popen("timeout 2 amixer -c 0 cset numid=22 Speakers 2>&1", "r");
     if (pipe) {
       while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         result += buffer.data();
       }
-      pclose(pipe);
+      int status = pclose(pipe);
+      int exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+      std::cerr << "[WpVolumeControl::switchToSpeakers] exit=" << exitCode
+                << " output='" << result << "'" << std::endl;
+    } else {
+      std::cerr << "[WpVolumeControl::switchToSpeakers] popen failed"
+                << std::endl;
     }
   }).detach();
   return true;
@@ -188,7 +195,8 @@ bool WpVolumeControl::switchToHeadphones() {
     std::lock_guard<std::mutex> lock(mutex);
     std::array<char, 256> buffer;
     std::string result;
-    FILE *pipe = popen("amixer -c 0 cset numid=22 Headphones 2>&1", "r");
+    FILE *pipe =
+        popen("timeout 2 amixer -c 0 cset numid=22 Headphones 2>&1", "r");
     if (pipe) {
       while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         result += buffer.data();
