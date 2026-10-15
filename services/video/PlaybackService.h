@@ -36,6 +36,8 @@ public:
   void setActiveSocket(const std::string &socket);
   std::string getCurrentFilePath() const;
 
+  bool disableSubtitles();
+
   struct TrackInfo {
     int id{-1};
     std::string type;

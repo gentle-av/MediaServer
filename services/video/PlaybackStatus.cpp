@@ -102,3 +102,14 @@ bool PlaybackStatus::seek(const std::string &activeSocket, double seekTime,
                             std::to_string(seekTime) + ", \"absolute\"]}";
   return playbackService.sendCommand(activeSocket, seekCommand, response);
 }
+
+bool PlaybackService::disableSubtitles() {
+  if (!mpv || !isPlaying)
+    return false;
+  std::lock_guard<std::mutex> lock(mpvMutex);
+  int result = mpv_set_property_string(mpv, "sid", "no");
+  if (result >= 0) {
+    cache.erase("sid");
+  }
+  return result >= 0;
+}

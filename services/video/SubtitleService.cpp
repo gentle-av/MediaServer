@@ -106,7 +106,7 @@ std::expected<bool, std::string> SubtitleService::disableSubtitles() {
   if (!playbackService.checkProcessAlive(activeSocket)) {
     return std::unexpected("MPV process is dead");
   }
-  if (!playbackService.setSubtitleTrack(-1)) {
+  if (!playbackService.disableSubtitles()) {
     return std::unexpected("Failed to disable subtitles");
   }
   return true;
