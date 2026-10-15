@@ -27,6 +27,7 @@ public:
                    std::string &value);
   bool checkProcessAlive(const std::string &activeSocket);
   bool setAudioTrack(int streamIndex);
+  bool setSubtitleTrack(int streamIndex);
   void setSeekInProgress(bool inProgress) { seekInProgress_ = inProgress; }
   bool isSeekInProgress() const { return seekInProgress_.load(); }
 

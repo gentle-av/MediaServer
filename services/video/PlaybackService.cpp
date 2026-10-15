@@ -327,3 +327,15 @@ void PlaybackService::logWorkerLoop(std::stop_token stopToken) {
     }
   }
 }
+
+bool PlaybackService::setSubtitleTrack(int streamIndex) {
+  if (!mpv || !isPlaying)
+    return false;
+  std::lock_guard<std::mutex> lock(mpvMutex);
+  int64_t sid = streamIndex;
+  int result = mpv_set_property(mpv, "sid", MPV_FORMAT_INT64, &sid);
+  if (result >= 0) {
+    cache.erase("sid");
+  }
+  return result >= 0;
+}
