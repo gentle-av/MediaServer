@@ -114,6 +114,7 @@ add_library(PowerController SHARED controllers/power/PowerController.cpp)
 add_library(AlbumArtController SHARED controllers/albums/AlbumArtController.cpp)
 add_library(AlbumManagementController SHARED controllers/albums/AlbumManagementController.cpp)
 add_library(MonitorController SHARED controllers/system/MonitorController.cpp)
+add_library(SubtitleController SHARED controllers/video/SubtitleController.cpp)
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_link_libraries(MusicRepository
@@ -134,6 +135,7 @@ target_link_libraries(PlaylistRepository Playlist MusicRepository EventBus ${com
 target_link_libraries(FileSystemService ${commonLibs})
 target_link_libraries(PlaybackService FileSystemService ${commonLibs})
 target_link_libraries(VideoControlHandler PlaybackService FileSystemService AlsaMixer ${commonLibs})
+target_link_libraries(SubtitleController ${commonLibs})
 
 target_link_libraries(PlaylistManager
     Playlist
