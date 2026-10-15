@@ -2,6 +2,7 @@
 #include "models/MkvAudioTrackInfo.h"
 #include "profilers/Profiler.h"
 #include "services/video/FileSystemService.h"
+#include "services/video/PlaybackService.h"
 #include "services/video/PlaybackStatus.h"
 #include "services/video/TrashHandler.h"
 #include "services/video/VideoControlHandler.h"
@@ -238,6 +239,9 @@ VideoController::handleOpenVideo(const StringHttpRequest &req) {
     Json::Value jsonResponse = VideoControlHandler::getInstance().handleOpen(
         path, activeSocket, false);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
+    if (response.value("success", false)) {
+      PlaybackService::getInstance().setActiveSocket(activeSocket);
+    }
     res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
@@ -272,6 +276,9 @@ VideoController::handleOpenAudio(const StringHttpRequest &req) {
     Json::Value jsonResponse =
         VideoControlHandler::getInstance().handleOpen(path, activeSocket, true);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
+    if (response.value("success", false)) {
+      PlaybackService::getInstance().setActiveSocket(activeSocket);
+    }
     res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
@@ -503,6 +510,7 @@ VideoController::handleCloseVideo(const StringHttpRequest &req) {
     Json::Value jsonResponse =
         VideoControlHandler::getInstance().handleClose(activeSocket);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
+    PlaybackService::getInstance().setActiveSocket("");
     res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {
@@ -522,6 +530,7 @@ VideoController::handleForceStopVideo(const StringHttpRequest &req) {
     Json::Value jsonResponse =
         VideoControlHandler::getInstance().handleForceStop(activeSocket);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
+    PlaybackService::getInstance().setActiveSocket("");
     res.setJsonContent(response.dump());
     res.setStatus(200);
   } catch (const std::exception &e) {

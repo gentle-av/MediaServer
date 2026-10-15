@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <expected>
 #include <fstream>
 #include <mpv/client.h>
 #include <mutex>
@@ -31,7 +32,25 @@ public:
   void setSeekInProgress(bool inProgress) { seekInProgress_ = inProgress; }
   bool isSeekInProgress() const { return seekInProgress_.load(); }
 
+  std::string getActiveSocket() const;
+  void setActiveSocket(const std::string &socket);
+  std::string getCurrentFilePath() const;
+
+  struct TrackInfo {
+    int id{-1};
+    std::string type;
+    std::string codec;
+    std::string lang;
+    std::string title;
+    bool selected{false};
+  };
+
+  std::optional<TrackInfo> getTrackById(int id);
+  std::expected<std::vector<TrackInfo>, std::string> getSubtitleTracksFromMpv();
+  std::optional<TrackInfo> getTrackById(int id, const std::string &type = "");
+
 private:
+  void dumpTrackList();
   std::string getCachedOrFetch(const std::string &property);
   void configureMpv(PlaybackMode mode);
   void setCommonOptions();
@@ -53,4 +72,7 @@ private:
   static constexpr auto CACHE_TTL = std::chrono::milliseconds(100);
   std::atomic<bool> seekInProgress_{false};
   std::mutex mpvMutex;
+  mutable std::mutex socketMutex;
+  std::string activeSocket_;
+  std::string currentFilePath_;
 };

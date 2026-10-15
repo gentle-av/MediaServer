@@ -62,24 +62,12 @@ void PlaybackService::setAudioOptions() {
 
 void PlaybackService::setVideoOptions() {
   std::cout << "VIDEO PLAYING!!!!\n";
+  mpv_set_option_string(mpv, "slang", "rus,ru,eng,en");
   mpv_set_option_string(mpv, "vo", "gpu");
   mpv_set_option_string(mpv, "gpu-api", "opengl");
   mpv_set_option_string(mpv, "gpu-context", "wayland");
-  mpv_set_option_string(mpv, "hwdec", "nvdec-copy");
-  mpv_set_option_string(mpv, "hwdec-codecs", "hevc,h264");
-  mpv_set_option_string(mpv, "scale", "bilinear");
-  mpv_set_option_string(mpv, "dither", "no");
-  mpv_set_option_string(mpv, "correct-downscaling", "no");
-  mpv_set_option_string(mpv, "linear-downscaling", "no");
-  mpv_set_option_string(mpv, "video-rotate", "0");
-  mpv_set_option_string(mpv, "video-unscaled", "no");
   mpv_set_option_string(mpv, "fullscreen", "yes");
-  mpv_set_option_string(mpv, "cache", "no");
-  mpv_set_option_string(mpv, "cache-secs", "0");
-  mpv_set_option_string(mpv, "demuxer-readahead-secs", "0");
-  mpv_set_option_string(mpv, "demuxer-mkv-subtitle-preroll", "no");
-  mpv_set_option_string(mpv, "demuxer-mkv-probe-start-time", "no");
-  mpv_set_option_string(mpv, "vd-lavc-threads", "4");
+  mpv_set_option_string(mpv, "keep-open", "yes");
 }
 
 void PlaybackService::configureMpv(PlaybackMode mode) {
@@ -146,6 +134,11 @@ void PlaybackService::openVideo(const std::string &path,
   if (success) {
     isPlaying = true;
     activeSocket = "libmpv-internal";
+    {
+      std::lock_guard<std::mutex> socketLock(socketMutex);
+      activeSocket_ = activeSocket;
+      currentFilePath_ = path;
+    }
     int pause = 0;
     mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
     if (mode == PlaybackMode::Video) {
@@ -164,6 +157,11 @@ void PlaybackService::closeVideo(std::string &activeSocket) {
     isPlaying = false;
   }
   activeSocket.clear();
+  {
+    std::lock_guard<std::mutex> socketLock(socketMutex);
+    activeSocket_.clear();
+    currentFilePath_.clear();
+  }
   cache.clear();
 }
 
@@ -175,6 +173,11 @@ void PlaybackService::forceStop(std::string &activeSocket) {
     isPlaying = false;
   }
   activeSocket.clear();
+  {
+    std::lock_guard<std::mutex> socketLock(socketMutex);
+    activeSocket_.clear();
+    currentFilePath_.clear();
+  }
   cache.clear();
 }
 
@@ -222,6 +225,7 @@ bool PlaybackService::sendCommand(const std::string &activeSocket,
   }
   return result >= 0;
 }
+
 bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
                            std::string &response) {
   if (!mpv || !isPlaying)
@@ -247,10 +251,19 @@ std::string PlaybackService::getCachedOrFetch(const std::string &property) {
   std::lock_guard<std::mutex> lock(mpvMutex);
   auto it = cache.find(property);
   if (it != cache.end() && (now - it->second.second) < CACHE_TTL) {
+    if (property == "sid") {
+      std::cerr << "[PlaybackService::getCachedOrFetch] sid CACHE HIT value='"
+                << it->second.first << "'" << std::endl;
+    }
     return it->second.first;
   }
-  if (!mpv || !isPlaying)
+  if (!mpv || !isPlaying) {
+    if (property == "sid") {
+      std::cerr << "[PlaybackService::getCachedOrFetch] sid early return mpv="
+                << (mpv != nullptr) << " isPlaying=" << isPlaying << std::endl;
+    }
     return "";
+  }
   std::string result;
   if (property == "time-pos") {
     double val;
@@ -276,9 +289,28 @@ std::string PlaybackService::getCachedOrFetch(const std::string &property) {
     }
   } else if (property == "aid") {
     int64_t val;
-    if (mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val) >= 0) {
+    int ret = mpv_get_property(mpv, property.c_str(), MPV_FORMAT_INT64, &val);
+    if (ret >= 0) {
       result = "{\"data\":" + std::to_string(val) + "}";
     }
+  } else if (property == "sid") {
+    char *val = nullptr;
+    int ret = mpv_get_property(mpv, property.c_str(), MPV_FORMAT_STRING, &val);
+    std::cerr << "[PlaybackService::getCachedOrFetch] sid mpv_get_property ret="
+              << ret << " val=" << (val ? val : "(null)") << std::endl;
+    if (ret >= 0 && val) {
+      std::string sval(val);
+      mpv_free(val);
+      if (sval == "no") {
+        result = "{\"data\":-1}";
+      } else {
+        result = "{\"data\":" + sval + "}";
+      }
+    }
+  }
+  if (property == "sid") {
+    std::cerr << "[PlaybackService::getCachedOrFetch] sid result='" << result
+              << "'" << std::endl;
   }
   if (!result.empty()) {
     cache[property] = {result, now};
@@ -290,6 +322,10 @@ bool PlaybackService::getProperty(const std::string &activeSocket,
                                   const std::string &property,
                                   std::string &value) {
   value = getCachedOrFetch(property);
+  if (property == "sid") {
+    std::cerr << "[PlaybackService::getProperty] property=sid value='" << value
+              << "' empty=" << value.empty() << std::endl;
+  }
   return !value.empty();
 }
 
@@ -304,6 +340,33 @@ bool PlaybackService::setAudioTrack(int streamIndex) {
   int64_t aid = streamIndex;
   int result = mpv_set_property(mpv, "aid", MPV_FORMAT_INT64, &aid);
   return result >= 0;
+}
+
+bool PlaybackService::setSubtitleTrack(int streamIndex) {
+  if (!mpv || !isPlaying)
+    return false;
+  std::lock_guard<std::mutex> lock(mpvMutex);
+  int64_t sid = streamIndex;
+  int result = mpv_set_property(mpv, "sid", MPV_FORMAT_INT64, &sid);
+  if (result >= 0) {
+    cache.erase("sid");
+  }
+  return result >= 0;
+}
+
+std::string PlaybackService::getActiveSocket() const {
+  std::lock_guard<std::mutex> lock(socketMutex);
+  return activeSocket_;
+}
+
+void PlaybackService::setActiveSocket(const std::string &socket) {
+  std::lock_guard<std::mutex> lock(socketMutex);
+  activeSocket_ = socket;
+}
+
+std::string PlaybackService::getCurrentFilePath() const {
+  std::lock_guard<std::mutex> lock(socketMutex);
+  return currentFilePath_;
 }
 
 void PlaybackService::logWorkerLoop(std::stop_token stopToken) {
@@ -324,18 +387,188 @@ void PlaybackService::logWorkerLoop(std::stop_token stopToken) {
                       << msg->prefix << "] " << msg->text;
         logFileStream.flush();
       }
+    } else if (event->event_id == MPV_EVENT_FILE_LOADED) {
+      std::cerr << "[PlaybackService] MPV_EVENT_FILE_LOADED" << std::endl;
+      {
+        std::lock_guard<std::mutex> lock(mpvMutex);
+        dumpTrackList();
+        mpv_set_property_string(mpv, "sid", "auto");
+        cache.erase("sid");
+      }
     }
   }
 }
 
-bool PlaybackService::setSubtitleTrack(int streamIndex) {
-  if (!mpv || !isPlaying)
-    return false;
-  std::lock_guard<std::mutex> lock(mpvMutex);
-  int64_t sid = streamIndex;
-  int result = mpv_set_property(mpv, "sid", MPV_FORMAT_INT64, &sid);
-  if (result >= 0) {
-    cache.erase("sid");
+void PlaybackService::dumpTrackList() {
+  if (!mpv) {
+    std::cerr << "[dumpTrackList] mpv is null" << std::endl;
+    return;
   }
-  return result >= 0;
+  mpv_node node;
+  int ret = mpv_get_property(mpv, "track-list", MPV_FORMAT_NODE, &node);
+  std::cerr << "[dumpTrackList] mpv_get_property ret=" << ret << std::endl;
+  if (ret < 0)
+    return;
+  if (node.format != MPV_FORMAT_NODE_ARRAY) {
+    std::cerr << "[dumpTrackList] unexpected format: " << node.format
+              << std::endl;
+    mpv_free_node_contents(&node);
+    return;
+  }
+  std::cerr << "[dumpTrackList] num tracks=" << node.u.list->num << std::endl;
+  for (int i = 0; i < node.u.list->num; ++i) {
+    mpv_node *item = &node.u.list->values[i];
+    if (item->format != MPV_FORMAT_NODE_MAP) {
+      continue;
+    }
+    std::string type, lang, title, codec, external;
+    int id = -1;
+    bool selected = false;
+    for (int j = 0; j < item->u.list->num; ++j) {
+      std::string key = item->u.list->keys[j];
+      mpv_node *val = &item->u.list->values[j];
+      if (key == "type" && val->format == MPV_FORMAT_STRING)
+        type = val->u.string;
+      if (key == "id" && val->format == MPV_FORMAT_INT64)
+        id = static_cast<int>(val->u.int64);
+      if (key == "lang" && val->format == MPV_FORMAT_STRING)
+        lang = val->u.string;
+      if (key == "title" && val->format == MPV_FORMAT_STRING)
+        title = val->u.string;
+      if (key == "codec" && val->format == MPV_FORMAT_STRING)
+        codec = val->u.string;
+      if (key == "external" && val->format == MPV_FORMAT_FLAG)
+        external = val->u.flag ? "yes" : "no";
+      if (key == "selected" && val->format == MPV_FORMAT_FLAG)
+        selected = val->u.flag;
+    }
+    std::cerr << "[dumpTrackList]   [" << i << "] type=" << type << " id=" << id
+              << " codec=" << codec << " lang=" << lang << " title='" << title
+              << "' external=" << external << " selected=" << selected
+              << std::endl;
+  }
+  mpv_free_node_contents(&node);
+}
+
+std::optional<PlaybackService::TrackInfo>
+PlaybackService::getTrackById(int id) {
+  if (!mpv)
+    return std::nullopt;
+  mpv_node node;
+  if (mpv_get_property(mpv, "track-list", MPV_FORMAT_NODE, &node) < 0) {
+    return std::nullopt;
+  }
+  std::optional<TrackInfo> result;
+  if (node.format == MPV_FORMAT_NODE_ARRAY) {
+    for (int i = 0; i < node.u.list->num && !result; ++i) {
+      mpv_node *item = &node.u.list->values[i];
+      if (item->format != MPV_FORMAT_NODE_MAP)
+        continue;
+      TrackInfo t;
+      for (int j = 0; j < item->u.list->num; ++j) {
+        std::string key = item->u.list->keys[j];
+        mpv_node *val = &item->u.list->values[j];
+        if (key == "id" && val->format == MPV_FORMAT_INT64)
+          t.id = static_cast<int>(val->u.int64);
+        else if (key == "type" && val->format == MPV_FORMAT_STRING)
+          t.type = val->u.string;
+        else if (key == "codec" && val->format == MPV_FORMAT_STRING)
+          t.codec = val->u.string;
+        else if (key == "lang" && val->format == MPV_FORMAT_STRING)
+          t.lang = val->u.string;
+        else if (key == "title" && val->format == MPV_FORMAT_STRING)
+          t.title = val->u.string;
+        else if (key == "selected" && val->format == MPV_FORMAT_FLAG)
+          t.selected = val->u.flag;
+      }
+      if (t.id == id) {
+        result = t;
+      }
+    }
+  }
+  mpv_free_node_contents(&node);
+  return result;
+}
+
+std::expected<std::vector<PlaybackService::TrackInfo>, std::string>
+PlaybackService::getSubtitleTracksFromMpv() {
+  std::vector<TrackInfo> result;
+  if (!mpv) {
+    return std::unexpected("mpv not initialized");
+  }
+  mpv_node node;
+  if (mpv_get_property(mpv, "track-list", MPV_FORMAT_NODE, &node) < 0) {
+    return std::unexpected("track-list unavailable");
+  }
+  if (node.format == MPV_FORMAT_NODE_ARRAY) {
+    for (int i = 0; i < node.u.list->num; ++i) {
+      mpv_node *item = &node.u.list->values[i];
+      if (item->format != MPV_FORMAT_NODE_MAP)
+        continue;
+      TrackInfo t;
+      for (int j = 0; j < item->u.list->num; ++j) {
+        std::string key = item->u.list->keys[j];
+        mpv_node *val = &item->u.list->values[j];
+        if (key == "id" && val->format == MPV_FORMAT_INT64)
+          t.id = static_cast<int>(val->u.int64);
+        else if (key == "type" && val->format == MPV_FORMAT_STRING)
+          t.type = val->u.string;
+        else if (key == "codec" && val->format == MPV_FORMAT_STRING)
+          t.codec = val->u.string;
+        else if (key == "lang" && val->format == MPV_FORMAT_STRING)
+          t.lang = val->u.string;
+        else if (key == "title" && val->format == MPV_FORMAT_STRING)
+          t.title = val->u.string;
+        else if (key == "selected" && val->format == MPV_FORMAT_FLAG)
+          t.selected = val->u.flag;
+      }
+      if (t.type == "sub") {
+        result.push_back(std::move(t));
+      }
+    }
+  }
+  mpv_free_node_contents(&node);
+  return result;
+}
+
+std::optional<PlaybackService::TrackInfo>
+PlaybackService::getTrackById(int id, const std::string &type) {
+  if (!mpv)
+    return std::nullopt;
+  mpv_node node;
+  if (mpv_get_property(mpv, "track-list", MPV_FORMAT_NODE, &node) < 0) {
+    return std::nullopt;
+  }
+  std::optional<TrackInfo> result;
+  if (node.format == MPV_FORMAT_NODE_ARRAY) {
+    for (int i = 0; i < node.u.list->num && !result; ++i) {
+      mpv_node *item = &node.u.list->values[i];
+      if (item->format != MPV_FORMAT_NODE_MAP)
+        continue;
+      TrackInfo t;
+      for (int j = 0; j < item->u.list->num; ++j) {
+        std::string key = item->u.list->keys[j];
+        mpv_node *val = &item->u.list->values[j];
+        if (key == "id" && val->format == MPV_FORMAT_INT64)
+          t.id = static_cast<int>(val->u.int64);
+        else if (key == "type" && val->format == MPV_FORMAT_STRING)
+          t.type = val->u.string;
+        else if (key == "codec" && val->format == MPV_FORMAT_STRING)
+          t.codec = val->u.string;
+        else if (key == "lang" && val->format == MPV_FORMAT_STRING)
+          t.lang = val->u.string;
+        else if (key == "title" && val->format == MPV_FORMAT_STRING)
+          t.title = val->u.string;
+        else if (key == "selected" && val->format == MPV_FORMAT_FLAG)
+          t.selected = val->u.flag;
+      }
+      if (t.id != id)
+        continue;
+      if (!type.empty() && t.type != type)
+        continue;
+      result = t;
+    }
+  }
+  mpv_free_node_contents(&node);
+  return result;
 }

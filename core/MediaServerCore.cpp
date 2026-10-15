@@ -9,6 +9,7 @@
 #include "controllers/playlists/PlaylistController.h"
 #include "controllers/power/PowerController.h"
 #include "controllers/system/MonitorController.h"
+#include "controllers/video/SubtitleController.h"
 #include "controllers/video/VideoController.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
@@ -17,6 +18,7 @@
 #include "repositories/PlaylistRepository.h"
 #include "services/music/MetadataCache.h"
 #include "services/video/FileSystemService.h"
+#include "services/video/SubtitleService.h"
 #include <filesystem>
 #include <future>
 #include <iostream>
@@ -161,6 +163,10 @@ bool MediaServerCore::initializeControllers() {
   videoController = std::make_unique<VideoController>(
       *app, std::make_shared<Profiler>(*profiler));
   videoController->register_routes();
+  auto subtitleService = std::make_shared<SubtitleService>();
+  subtitleController =
+      std::make_unique<SubtitleController>(*app, subtitleService);
+  subtitleController->register_routes();
   powerController = std::make_unique<PowerController>(*app);
   powerController->register_routes();
   albumArtController =

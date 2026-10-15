@@ -22,6 +22,7 @@ class AlbumManagementController;
 class MusicMetadataController;
 class MusicPlaybackController;
 class MonitorController;
+class SubtitleController;
 
 class MediaServerCore {
 public:
@@ -61,6 +62,7 @@ private:
   std::unique_ptr<MusicMetadataController> metadataController;
   std::unique_ptr<MusicPlaybackController> playbackController;
   std::unique_ptr<MonitorController> monitorController;
+  std::unique_ptr<SubtitleController> subtitleController;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
 };

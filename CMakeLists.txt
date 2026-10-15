@@ -168,7 +168,10 @@ target_link_libraries(MonitorController PowerService ${commonLibs})
 
 target_link_libraries(MediaServerCore
     PRIVATE
+    SubtitleService
+    SubtitleController
     MusicLibraryController
+    SubtitleTrackInfo
     MusicScanController
     MusicMetadataController
     MusicPlaybackController

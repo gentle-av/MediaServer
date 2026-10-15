@@ -23,11 +23,7 @@ private:
   handleGetCurrentSubtitleTrack(const StringHttpRequest &req);
   StringHttpResponse handleDisableSubtitles(const StringHttpRequest &req);
 
-  std::string getQueryParam(const StringHttpRequest &req,
-                            const std::string &key,
-                            const std::string &defaultValue = "") const;
   nlohmann::json parseJsonBody(const StringHttpRequest &req) const;
 
   std::shared_ptr<SubtitleService> subtitleService;
-  static std::string activeSocket;
 };

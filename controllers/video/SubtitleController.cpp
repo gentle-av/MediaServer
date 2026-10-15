@@ -1,7 +1,5 @@
 #include "SubtitleController.h"
 
-std::string SubtitleController::activeSocket = "";
-
 SubtitleController::SubtitleController(
     App &app, std::shared_ptr<SubtitleService> subtitleService)
     : RestController<App>(app), subtitleService(subtitleService) {}
@@ -29,14 +27,7 @@ StringHttpResponse
 SubtitleController::handleGetSubtitleTracks(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string filePath = this->getQueryParam(req, "path");
-    if (filePath.empty()) {
-      res.setStatus(400);
-      res.setJsonContent(
-          this->error_response(400, "Missing 'path' parameter").dump());
-      return res;
-    }
-    auto result = subtitleService->getSubtitleTracks(filePath);
+    auto result = subtitleService->getSubtitleTracks();
     if (!result.has_value()) {
       res.setStatus(400);
       res.setJsonContent(this->error_response(400, result.error()).dump());
@@ -78,7 +69,7 @@ SubtitleController::handleSetSubtitleTrack(const StringHttpRequest &req) {
       return res;
     }
     int streamIndex = json["streamIndex"].get<int>();
-    auto result = subtitleService->setSubtitleTrack(activeSocket, streamIndex);
+    auto result = subtitleService->setSubtitleTrack(streamIndex);
     if (!result.has_value()) {
       res.setStatus(500);
       res.setJsonContent(this->error_response(500, result.error()).dump());
@@ -101,15 +92,7 @@ StringHttpResponse SubtitleController::handleGetCurrentSubtitleTrack(
     const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::string filePath = this->getQueryParam(req, "path");
-    if (filePath.empty()) {
-      res.setStatus(400);
-      res.setJsonContent(
-          this->error_response(400, "Missing 'path' parameter").dump());
-      return res;
-    }
-    auto result =
-        subtitleService->getCurrentSubtitleTrack(activeSocket, filePath);
+    auto result = subtitleService->getCurrentSubtitleTrack();
     if (!result.has_value()) {
       res.setStatus(500);
       res.setJsonContent(this->error_response(500, result.error()).dump());
@@ -142,7 +125,7 @@ StringHttpResponse
 SubtitleController::handleDisableSubtitles(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    auto result = subtitleService->disableSubtitles(activeSocket);
+    auto result = subtitleService->disableSubtitles();
     if (!result.has_value()) {
       res.setStatus(500);
       res.setJsonContent(this->error_response(500, result.error()).dump());
@@ -158,14 +141,6 @@ SubtitleController::handleDisableSubtitles(const StringHttpRequest &req) {
     res.setJsonContent(this->error_response(500, e.what()).dump());
   }
   return res;
-}
-
-std::string
-SubtitleController::getQueryParam(const StringHttpRequest &req,
-                                  const std::string &key,
-                                  const std::string &defaultValue) const {
-  auto value = req.getQuery(key);
-  return value.empty() ? defaultValue : value;
 }
 
 nlohmann::json
