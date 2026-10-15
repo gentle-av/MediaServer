@@ -147,6 +147,8 @@ target_link_libraries(PlaylistManager
     ${commonLibs}
 )
 
+add_library(SubtitleTrackInfo SHARED ./models/SubtitleTrackInfo.cpp)
+
 target_link_libraries(Profiler ${commonLibs})
 target_link_libraries(MusicScanController MusicRepository PlaylistRepository ${commonLibs})
 target_link_libraries(MusicLibraryController MusicRepository ${commonLibs})
