@@ -215,8 +215,8 @@ install(TARGETS MediaServer RUNTIME DESTINATION bin/)
 install(TARGETS
     EventBus TagEditor MetadataExtractor MusicDatabase MkvAudioTrackInfo
     MusicRepository Playlist PlaylistDatabase PlaylistRepository FileSystemService
-    PlaybackService AlsaMixer VideoControlHandler PlaylistManager Profiler
-    MpvIpcClient AudioPlaybackService AudioOutputService
+    PlaybackService AlsaMixer VideoControlHandler PlaylistManager Profiler SubtitleTrackInfo
+    MpvIpcClient AudioPlaybackService AudioOutputService SubtitleService SubtitleController
     MusicScanController MusicLibraryController MusicMetadataController MusicPlaybackController
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MonitorController MediaServerCore WpVolumeControl

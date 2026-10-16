@@ -68,6 +68,7 @@ void PlaybackService::setVideoOptions() {
   mpv_set_option_string(mpv, "gpu-context", "wayland");
   mpv_set_option_string(mpv, "fullscreen", "yes");
   mpv_set_option_string(mpv, "keep-open", "yes");
+  mpv_set_option_string(mpv, "sid", "no");
 }
 
 void PlaybackService::configureMpv(PlaybackMode mode) {
@@ -392,7 +393,7 @@ void PlaybackService::logWorkerLoop(std::stop_token stopToken) {
       {
         std::lock_guard<std::mutex> lock(mpvMutex);
         dumpTrackList();
-        mpv_set_property_string(mpv, "sid", "auto");
+        mpv_set_property_string(mpv, "sid", "no");
         cache.erase("sid");
       }
     }
