@@ -61,11 +61,10 @@ void PlaybackService::setAudioOptions() {
 }
 
 void PlaybackService::setVideoOptions() {
-  std::cout << "VIDEO PLAYING!!!!\n";
   mpv_set_option_string(mpv, "slang", "rus,ru,eng,en");
   mpv_set_option_string(mpv, "vo", "gpu");
   mpv_set_option_string(mpv, "gpu-api", "opengl");
-  mpv_set_option_string(mpv, "gpu-context", "wayland");
+  mpv_set_option_string(mpv, "gpu-context", "auto");
   mpv_set_option_string(mpv, "fullscreen", "yes");
   mpv_set_option_string(mpv, "keep-open", "yes");
   mpv_set_option_string(mpv, "sid", "no");
@@ -114,40 +113,50 @@ void PlaybackService::openVideo(const std::string &path,
                                 std::string &activeSocket, bool &success,
                                 PlaybackMode mode) {
   std::lock_guard<std::mutex> lock(mpvMutex);
+  success = false;
   if (mpv && currentMode != mode) {
     mpv_terminate_destroy(mpv);
     mpv = nullptr;
+    isPlaying = false;
   }
   if (!mpv) {
     configureMpv(mode);
   }
   if (!mpv) {
-    success = false;
+    std::cerr << "[openVideo] mpv is null after configureMpv, mode="
+              << (mode == PlaybackMode::AudioOnly ? "audio" : "video")
+              << std::endl;
     return;
   }
   if (isPlaying) {
-    const char *cmd[] = {"stop", nullptr};
-    mpv_command(mpv, cmd);
+    const char *stopCmd[] = {"stop", nullptr};
+    mpv_command(mpv, stopCmd);
+    isPlaying = false;
   }
   const char *cmd[] = {"loadfile", path.c_str(), nullptr};
-  int result = mpv_command(mpv, path.c_str() ? cmd : nullptr);
-  success = (result >= 0);
-  if (success) {
-    isPlaying = true;
-    activeSocket = "libmpv-internal";
-    {
-      std::lock_guard<std::mutex> socketLock(socketMutex);
-      activeSocket_ = activeSocket;
-      currentFilePath_ = path;
-    }
-    int pause = 0;
-    mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
-    if (mode == PlaybackMode::Video) {
-      int fullscreen = 1;
-      mpv_set_property(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
-    }
-    cache.clear();
+  int result = mpv_command(mpv, cmd);
+  if (result < 0) {
+    std::cerr << "[openVideo] mpv_command failed result=" << result
+              << " error=" << mpv_error_string(result) << " path=" << path
+              << std::endl;
+    success = false;
+    return;
   }
+  isPlaying = true;
+  activeSocket = "libmpv-internal";
+  {
+    std::lock_guard<std::mutex> socketLock(socketMutex);
+    activeSocket_ = activeSocket;
+    currentFilePath_ = path;
+  }
+  int pause = 0;
+  mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &pause);
+  if (mode == PlaybackMode::Video) {
+    int fullscreen = 1;
+    mpv_set_property(mpv, "fullscreen", MPV_FORMAT_FLAG, &fullscreen);
+  }
+  cache.clear();
+  success = true;
 }
 
 void PlaybackService::closeVideo(std::string &activeSocket) {

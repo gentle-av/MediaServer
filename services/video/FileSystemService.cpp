@@ -137,8 +137,35 @@ std::string FileSystemService::getIconForFile(const std::string &ext) {
 }
 
 bool FileSystemService::isPathAllowed(const std::string &path) {
+  if (path.empty()) {
+    return false;
+  }
+  std::error_code ec;
+  std::string canonicalPath = fs::weakly_canonical(path, ec).string();
+  if (ec) {
+    canonicalPath = path;
+  }
   for (const auto &allowedPath : allowedPaths) {
-    if (path.find(allowedPath) == 0) {
+    if (allowedPath.empty()) {
+      continue;
+    }
+    std::string canonicalAllowed =
+        fs::weakly_canonical(allowedPath, ec).string();
+    if (ec) {
+      canonicalAllowed = allowedPath;
+    }
+    if (canonicalPath.size() < canonicalAllowed.size()) {
+      continue;
+    }
+    if (canonicalPath.compare(0, canonicalAllowed.size(), canonicalAllowed) !=
+        0) {
+      continue;
+    }
+    if (canonicalPath.size() == canonicalAllowed.size()) {
+      return true;
+    }
+    char nextChar = canonicalPath[canonicalAllowed.size()];
+    if (nextChar == '/' || canonicalAllowed.back() == '/') {
       return true;
     }
   }

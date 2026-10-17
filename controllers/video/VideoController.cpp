@@ -227,7 +227,7 @@ VideoController::handleOpenVideo(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     auto json = parseJsonBody(req);
-    if (json.is_null() || !json.contains("path")) {
+    if (json.is_null() || !json.contains("path") || !json["path"].is_string()) {
       nlohmann::json response;
       response["success"] = false;
       response["error"] = "No path provided";
@@ -236,11 +236,21 @@ VideoController::handleOpenVideo(const StringHttpRequest &req) {
       return res;
     }
     std::string path = json["path"].get<std::string>();
-    Json::Value jsonResponse = VideoControlHandler::getInstance().handleOpen(
-        path, activeSocket, false);
+    if (path.empty()) {
+      nlohmann::json response;
+      response["success"] = false;
+      response["error"] = "Empty path provided";
+      res.setJsonContent(response.dump());
+      res.setStatus(400);
+      return res;
+    }
+    std::string socket = activeSocket;
+    Json::Value jsonResponse =
+        VideoControlHandler::getInstance().handleOpen(path, socket, false);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
     if (response.value("success", false)) {
-      PlaybackService::getInstance().setActiveSocket(activeSocket);
+      activeSocket = socket;
+      PlaybackService::getInstance().setActiveSocket(socket);
     }
     res.setJsonContent(response.dump());
     res.setStatus(200);
@@ -264,7 +274,7 @@ VideoController::handleOpenAudio(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
     auto json = parseJsonBody(req);
-    if (json.is_null() || !json.contains("path")) {
+    if (json.is_null() || !json.contains("path") || !json["path"].is_string()) {
       nlohmann::json response;
       response["success"] = false;
       response["error"] = "No path provided";
@@ -273,11 +283,21 @@ VideoController::handleOpenAudio(const StringHttpRequest &req) {
       return res;
     }
     std::string path = json["path"].get<std::string>();
+    if (path.empty()) {
+      nlohmann::json response;
+      response["success"] = false;
+      response["error"] = "Empty path provided";
+      res.setJsonContent(response.dump());
+      res.setStatus(400);
+      return res;
+    }
+    std::string socket = activeSocket;
     Json::Value jsonResponse =
-        VideoControlHandler::getInstance().handleOpen(path, activeSocket, true);
+        VideoControlHandler::getInstance().handleOpen(path, socket, true);
     nlohmann::json response = jsonValueToNlohmann(jsonResponse);
     if (response.value("success", false)) {
-      PlaybackService::getInstance().setActiveSocket(activeSocket);
+      activeSocket = socket;
+      PlaybackService::getInstance().setActiveSocket(socket);
     }
     res.setJsonContent(response.dump());
     res.setStatus(200);

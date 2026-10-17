@@ -30,16 +30,19 @@ Json::Value VideoControlHandler::handleOpen(const std::string &path,
     return response;
   }
   std::lock_guard<std::mutex> lock(videoMutex);
-  if (isOpening) {
+  if (isOpening.exchange(true)) {
     response["success"] = false;
     response["error"] = "Video opening already in progress";
     return response;
   }
-  isOpening = true;
+  struct OpeningGuard {
+    std::atomic<bool> &flag;
+    explicit OpeningGuard(std::atomic<bool> &f) : flag(f) {}
+    ~OpeningGuard() { flag = false; }
+  } guard(isOpening);
   bool success = false;
   PlaybackMode mode = audioOnly ? PlaybackMode::AudioOnly : PlaybackMode::Video;
   playbackService.openVideo(path, activeSocket, success, mode);
-  isOpening = false;
   response["success"] = success;
   response["socket"] = activeSocket;
   response["message"] = success
