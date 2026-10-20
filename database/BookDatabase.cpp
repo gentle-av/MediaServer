@@ -253,3 +253,21 @@ bool BookDatabase::removeBookmark(int bookmarkId) {
   }
   return false;
 }
+
+std::vector<std::string> BookDatabase::getAllBookPaths() {
+  std::lock_guard<std::mutex> lock(pImpl->databaseMutex);
+  std::vector<std::string> paths;
+  const char *sql = "SELECT file_path FROM books";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(pImpl->getDb(), sql, -1, &stmt, nullptr) ==
+      SQLITE_OK) {
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *path =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      if (path)
+        paths.push_back(path);
+    }
+    sqlite3_finalize(stmt);
+  }
+  return paths;
+}

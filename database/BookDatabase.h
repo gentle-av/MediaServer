@@ -23,6 +23,7 @@ public:
   bool saveBookmark(const Bookmark &bookmark);
   std::vector<Bookmark> getBookmarks(const std::string &bookPath);
   bool removeBookmark(int bookmarkId);
+  std::vector<std::string> getAllBookPaths();
 
 private:
   class Impl;
