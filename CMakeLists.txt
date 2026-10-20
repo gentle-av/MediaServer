@@ -93,6 +93,11 @@ add_library(BookService SHARED services/books/BookService.cpp)
 add_library(BookController SHARED controllers/books/BookController.cpp)
 add_library(BookmarkController SHARED controllers/books/BookmarkController.cpp)
 
+target_link_libraries(BookDatabase ${commonLibs})
+target_link_libraries(BookService BookDatabase ${commonLibs})
+target_link_libraries(BookController BookService ${commonLibs})
+target_link_libraries(BookmarkController BookService ${commonLibs})
+
 add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
     services/music/MetadataCache.cpp
@@ -207,6 +212,11 @@ target_link_libraries(MediaServerCore
     AlbumArtController
     AlbumManagementController
     MonitorController
+    BookDatabase
+    BookService
+    BookController
+    BookmarkController
+    Fb2MetadataExtractor
     ${commonLibs}
 )
 

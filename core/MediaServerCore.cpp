@@ -1,6 +1,8 @@
 #include "core/MediaServerCore.h"
 #include "controllers/albums/AlbumArtController.h"
 #include "controllers/albums/AlbumManagementController.h"
+#include "controllers/books/BookController.h"
+#include "controllers/books/BookmarkController.h"
 #include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicMetadataController.h"
 #include "controllers/music/MusicPlaybackController.h"
@@ -11,11 +13,13 @@
 #include "controllers/system/MonitorController.h"
 #include "controllers/video/SubtitleController.h"
 #include "controllers/video/VideoController.h"
+#include "database/BookDatabase.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
 #include "middlewares/CorsMiddleware.h"
 #include "repositories/MusicRepository.h"
 #include "repositories/PlaylistRepository.h"
+#include "services/books/BookService.h"
 #include "services/music/MetadataCache.h"
 #include "services/video/FileSystemService.h"
 #include "services/video/SubtitleService.h"
@@ -38,9 +42,8 @@ bool MediaServerCore::run() {
     return false;
   }
   profiler->printStartupInfo();
-  std::cout << "\nMedia Server running on http://localhost:" << config.port
-            << std::endl;
-  std::cout << "Press Ctrl+C to stop the server\n" << std::endl;
+  std::cout << "\nMedia Server running on http:" << '\n';
+  std::cout << "Press Ctrl+C to stop the server\n" << '\n';
   app->printEndpoints();
   runMainLoop();
   return true;
@@ -55,7 +58,7 @@ void MediaServerCore::shutdown() {
   if (app) {
     app->stop();
   }
-  std::cout << "Media Server stopped successfully" << std::endl;
+  std::cout << "Media Server stopped successfully" << '\n';
 }
 
 bool MediaServerCore::initialize() {
@@ -63,7 +66,7 @@ bool MediaServerCore::initialize() {
     std::filesystem::create_directory(config.databasePath);
   }
   if (!initializeDatabases()) {
-    std::cerr << "Failed to initialize databases" << std::endl;
+    std::cerr << "Failed to initialize databases" << '\n';
     return false;
   }
   if (!initializeRepositories())
@@ -81,10 +84,10 @@ bool MediaServerCore::initialize() {
 
 bool MediaServerCore::initializeCors() {
   if (!app) {
-    std::cerr << "App not initialized" << std::endl;
+    std::cerr << "App not initialized" << '\n';
     return false;
   }
-  std::cout << "✅ CORS middleware enabled" << std::endl;
+  std::cout << "✅ CORS middleware enabled" << '\n';
   app->useMiddleware([](StringHttpRequest &req,
                         StringHttpResponse &resp) -> bool {
     return CorsMiddleware<StringHttpRequest, StringHttpResponse>::process(req,
@@ -96,13 +99,18 @@ bool MediaServerCore::initializeCors() {
 bool MediaServerCore::initializeDatabases() {
   musicDb = std::make_shared<MusicDatabase>(config.databasePath + "/music.db");
   if (!musicDb->init()) {
-    std::cerr << "Failed to initialize music database" << std::endl;
+    std::cerr << "Failed to initialize music database" << '\n';
     return false;
   }
   playlistDb =
       std::make_shared<PlaylistDatabase>(config.databasePath + "/playlists.db");
   if (!playlistDb->init()) {
-    std::cerr << "Failed to initialize playlist database" << std::endl;
+    std::cerr << "Failed to initialize playlist database" << '\n';
+    return false;
+  }
+  bookDb = std::make_shared<BookDatabase>(config.databasePath + "/books.db");
+  if (!bookDb->init()) {
+    std::cerr << "Failed to initialize book database" << '\n';
     return false;
   }
   return true;
@@ -178,12 +186,16 @@ bool MediaServerCore::initializeControllers() {
   monitorController = std::make_unique<MonitorController>(
       *app, std::make_shared<Profiler>(*profiler));
   monitorController->register_routes();
+  bookController = std::make_unique<BookController>(*app, bookService);
+  bookController->register_routes();
+  bookmarkController = std::make_unique<BookmarkController>(*app, bookService);
+  bookmarkController->register_routes();
   return true;
 }
 
 bool MediaServerCore::startServer() {
   if (!app->start()) {
-    std::cerr << "Failed to start server: " << app->getLastError() << std::endl;
+    std::cerr << "Failed to start server: " << app->getLastError() << '\n';
     return false;
   }
   return true;
