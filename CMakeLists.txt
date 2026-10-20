@@ -88,6 +88,8 @@ add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
 add_library(WpVolumeControl SHARED services/system/WpVolumeControl.cpp)
 
 add_library(BookDatabase SHARED database/BookDatabase.cpp)
+add_library(Fb2MetadataExtractor SHARED services/books/Fb2MetadataExtractor.cpp)
+add_library(BookService SHARED services/books/BookService.cpp)
 
 add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
