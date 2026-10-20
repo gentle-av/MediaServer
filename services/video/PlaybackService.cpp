@@ -240,13 +240,13 @@ bool PlaybackService::seek(const std::string &activeSocket, double seekTime,
                            std::string &response) {
   if (!mpv || !isPlaying)
     return false;
-  if (std::isnan(seekTime) || std::isinf(seekTime) || seekTime < 0) {
+  if (std::isnan(seekTime) || std::isinf(seekTime)) {
     response = "{\"error\":\"invalid seek time\"}";
     return false;
   }
   std::lock_guard<std::mutex> lock(mpvMutex);
   std::string seekTimeStr = std::to_string(seekTime);
-  const char *cmd[] = {"seek", seekTimeStr.c_str(), "absolute", nullptr};
+  const char *cmd[] = {"seek", seekTimeStr.c_str(), "relative", nullptr};
   int result = mpv_command(mpv, cmd);
   response =
       result >= 0 ? "{\"data\":\"success\"}" : "{\"error\":\"seek failed\"}";
@@ -452,7 +452,7 @@ void PlaybackService::dumpTrackList() {
       if (key == "selected" && val->format == MPV_FORMAT_FLAG)
         selected = val->u.flag;
     }
-    std::cerr << "[dumpTrackList]   [" << i << "] type=" << type << " id=" << id
+    std::cerr << "[dumpTrackList] [" << i << "] type=" << type << " id=" << id
               << " codec=" << codec << " lang=" << lang << " title='" << title
               << "' external=" << external << " selected=" << selected
               << std::endl;

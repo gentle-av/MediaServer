@@ -1,6 +1,6 @@
 [Unit]
-Description=MediaServer - Multimedia Streaming Service
-After=network.target sound.target graphical-session.target
+After=graphical-session.target network.target sound.target
+Wants=graphical-session.target
 
 [Service]
 Type=simple

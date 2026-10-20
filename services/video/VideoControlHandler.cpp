@@ -115,7 +115,7 @@ Json::Value VideoControlHandler::handleSeek(double seekTime,
     response["error"] = "MPV process is dead";
     return response;
   }
-  if (std::isnan(seekTime) || std::isinf(seekTime) || seekTime < 0) {
+  if (std::isnan(seekTime) || std::isinf(seekTime)) {
     response["success"] = false;
     response["error"] = "Invalid seek time";
     return response;
