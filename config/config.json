@@ -13,7 +13,8 @@
       },
       "content": {
         "music_directory": "/mnt/media/music",
-        "video_directory": "/mnt/video"
+        "video_directory": "/mnt/video",
+        "book_directory": "/mnt/media/books/"
       },
       "listeners": [
         {
@@ -36,7 +37,8 @@
       },
       "content": {
         "music_directory": "/mnt/media/music",
-        "video_directory": "/mnt/video"
+        "video_directory": "/mnt/video",
+        "book_directory": "/mnt/media/books/"
       },
       "listeners": [
         {
