@@ -91,6 +91,7 @@ add_library(BookDatabase SHARED database/BookDatabase.cpp)
 add_library(Fb2MetadataExtractor SHARED services/books/Fb2MetadataExtractor.cpp)
 add_library(BookService SHARED services/books/BookService.cpp)
 add_library(BookController SHARED controllers/books/BookController.cpp)
+add_library(BookmarkController SHARED controllers/books/BookmarkController.cpp)
 
 add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
