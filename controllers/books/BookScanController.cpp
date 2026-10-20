@@ -14,6 +14,14 @@ void BookScanController::register_all_routes() {
                     res.setStatus(result.value("success", false) ? 200 : 409);
                     return res;
                   });
+  this->app_.post("/api/books/scan/stop",
+                  [this](const StringHttpRequest &req) -> StringHttpResponse {
+                    StringHttpResponse res;
+                    nlohmann::json result = handleStopScan(req);
+                    res.setJsonContent(result.dump());
+                    res.setStatus(200);
+                    return res;
+                  });
   this->app_.get("/api/books/scan/status",
                  [this](const StringHttpRequest &req) -> StringHttpResponse {
                    StringHttpResponse res;
@@ -30,6 +38,17 @@ void BookScanController::register_all_routes() {
                     res.setStatus(200);
                     return res;
                   });
+}
+
+nlohmann::json
+BookScanController::handleStopScan(const StringHttpRequest &req) {
+  if (!bookRepository.isScanning()) {
+    return this->error_response(400, "No scan in progress");
+  }
+  bookRepository.cancelScan();
+  nlohmann::json resp = this->success_response("Scan cancellation requested");
+  resp["scanning"] = false;
+  return resp;
 }
 
 nlohmann::json

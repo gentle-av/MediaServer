@@ -3,6 +3,7 @@
 #include "../services/books/Fb2MetadataExtractor.h"
 #include <algorithm>
 #include <filesystem>
+#include <iostream>
 #include <unordered_set>
 
 namespace fs = std::filesystem;
@@ -23,11 +24,16 @@ std::vector<Book> BookRepository::getAllBooks() {
   lock.unlock();
   refreshAllBooksCache();
   std::shared_lock readLock(mutex);
+  std::cout << "[BookRepository::getAllBooks] there is "
+            << allBooksCache.data.get()->size()
+            << " books in allBooksCache array\n";
   return *allBooksCache.data;
 }
 
 void BookRepository::refreshAllBooksCache() const {
   auto books = db->getAllBooks();
+  std::cout << "[BookRepository::refreshBooksCache] books size is "
+            << books.size() << '\n';
   std::unique_lock lock(mutex);
   allBooksCache.data =
       std::make_shared<const std::vector<Book>>(std::move(books));
@@ -127,30 +133,36 @@ bool BookRepository::doScanBooksDirectory(
         allFiles.push_back(entry.path().string());
       }
     }
-
     auto existingPaths = db->getAllBookPaths();
     std::unordered_set<std::string> existingSet(existingPaths.begin(),
                                                 existingPaths.end());
     std::unordered_set<std::string> foundSet;
-
     int total = static_cast<int>(allFiles.size());
     int processed = 0;
-
+    std::vector<Book> batch;
+    constexpr int BATCH_SIZE = 50;
     for (const auto &path : allFiles) {
       if (stopToken.stop_requested())
         return false;
       foundSet.insert(path);
       if (existingSet.find(path) == existingSet.end()) {
         Book book;
-        if (Fb2MetadataExtractor::extractMetadata(path, book)) {
-          db->addBook(book);
+        if (Fb2MetadataExtractor::extractFull(path, book)) {
+          batch.push_back(std::move(book));
+          if (batch.size() >= BATCH_SIZE) {
+            db->addBooksBatch(batch);
+            batch.clear();
+          }
         }
       }
       processed++;
       if (progressCallback)
         progressCallback(total, processed);
     }
-
+    if (!batch.empty()) {
+      db->addBooksBatch(batch);
+      batch.clear();
+    }
     std::vector<std::string> removedPaths;
     for (const auto &path : existingSet) {
       if (stopToken.stop_requested())
@@ -161,12 +173,10 @@ bool BookRepository::doScanBooksDirectory(
         }
       }
     }
-
     {
       std::unique_lock lock(mutex);
       invalidateAllLocked();
     }
-
     for (const auto &path : removedPaths) {
       eventBus.publish("book_removed", path);
     }

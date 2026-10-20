@@ -18,6 +18,7 @@ public:
   bool saveBookmark(const Bookmark &bookmark);
   std::vector<Bookmark> getBookmarks(const std::string &bookPath);
   bool removeBookmark(int id);
+  bool hasBookCover(const std::string &filePath);
 
 private:
   std::shared_ptr<BookDatabase> db;

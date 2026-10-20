@@ -21,6 +21,7 @@
 #include "repositories/BookRepository.h"
 #include "repositories/MusicRepository.h"
 #include "repositories/PlaylistRepository.h"
+#include "services/books/BookService.h"
 #include "services/music/MetadataCache.h"
 #include "services/video/FileSystemService.h"
 #include "services/video/SubtitleService.h"
@@ -126,6 +127,7 @@ bool MediaServerCore::initializeRepositories() {
 
 bool MediaServerCore::initializeServices() {
   cache = std::make_shared<MetadataCache>(500);
+  bookService = std::make_shared<BookService>(bookDb);
   auto &fsService = FileSystemService::getInstance();
   std::vector<std::string> allowedPaths;
   allowedPaths.push_back(config.videoDirectory);

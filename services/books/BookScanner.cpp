@@ -45,7 +45,7 @@ bool BookScanner::shouldProcessFile(const std::string &path,
 
 void BookScanner::processFile(const std::string &path, bool addToDb) {
   Book book;
-  if (Fb2MetadataExtractor::extractMetadata(path, book)) {
+  if (Fb2MetadataExtractor::extractFull(path, book)) {
     if (addToDb && db.addBook(book)) {
       status.addedFiles++;
     }

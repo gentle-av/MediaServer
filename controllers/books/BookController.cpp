@@ -1,4 +1,5 @@
 #include "BookController.h"
+#include <iostream>
 
 BookController::BookController(App &app, std::shared_ptr<BookService> service)
     : RestController<App>(app), bookService(std::move(service)) {}
@@ -21,26 +22,39 @@ void BookController::register_all_routes() {
 StringHttpResponse
 BookController::handleGetBooks(const StringHttpRequest &req) {
   StringHttpResponse res;
-  auto books = bookService->getAllBooks();
-  nlohmann::json arr = nlohmann::json::array();
-  for (const auto &b : books) {
-    nlohmann::json j;
-    j["id"] = b.id;
-    j["path"] = b.filePath;
-    j["title"] = b.title;
-    j["author"] = b.author;
-    j["genre"] = b.genre;
-    j["lang"] = b.language;
-    j["sequence"] = b.sequence;
-    j["seq_number"] = b.sequenceNumber;
-    j["has_cover"] = !b.coverData.empty();
-    arr.push_back(j);
+  try {
+    auto books = bookService->getAllBooks();
+    std::cout << "[BookController::handleGetBooks] books size is "
+              << books.size() << std::endl;
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto &b : books) {
+      nlohmann::json j;
+      j["id"] = b.id;
+      j["path"] = b.filePath;
+      j["title"] = b.title;
+      j["author"] = b.author;
+      j["genre"] = b.genre;
+      j["lang"] = b.language;
+      j["sequence"] = b.sequence;
+      j["seq_number"] = b.sequenceNumber;
+      j["has_cover"] = bookService->hasBookCover(b.filePath);
+      arr.push_back(j);
+    }
+    nlohmann::json resp;
+    resp["success"] = true;
+    resp["books"] = arr;
+    std::string body =
+        resp.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+    std::cout << "[BookController::handleGetBooks] JSON dump OK, size="
+              << body.size() << std::endl;
+    res.setJsonContent(body);
+    res.setStatus(200);
+  } catch (const std::exception &e) {
+    std::cerr << "[BookController::handleGetBooks] EXCEPTION: " << e.what()
+              << std::endl;
+    res.setStatus(500);
+    res.setJsonContent(this->error_response(500, e.what()).dump());
   }
-  nlohmann::json resp;
-  resp["success"] = true;
-  resp["books"] = arr;
-  res.setJsonContent(resp.dump());
-  res.setStatus(200);
   return res;
 }
 

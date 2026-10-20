@@ -19,6 +19,8 @@ public:
   std::vector<Book> getAllBooks();
   Book getBookByPath(const std::string &filePath);
   std::vector<char> getBookCover(const std::string &filePath);
+  bool addBooksBatch(const std::vector<Book> &books);
+  bool hasBookCover(const std::string &filePath);
 
   bool saveBookmark(const Bookmark &bookmark);
   std::vector<Bookmark> getBookmarks(const std::string &bookPath);

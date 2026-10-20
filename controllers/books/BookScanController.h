@@ -24,4 +24,5 @@ private:
   nlohmann::json handleStartScan(const StringHttpRequest &req);
   nlohmann::json handleScanStatus(const StringHttpRequest &req);
   nlohmann::json handleRemoveMissing(const StringHttpRequest &req);
+  nlohmann::json handleStopScan(const StringHttpRequest &req);
 };

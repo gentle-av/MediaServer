@@ -1,4 +1,5 @@
 #include "BookDatabase.h"
+#include <iostream>
 #include <mutex>
 #include <sqlite3.h>
 
@@ -270,4 +271,68 @@ std::vector<std::string> BookDatabase::getAllBookPaths() {
     sqlite3_finalize(stmt);
   }
   return paths;
+}
+
+bool BookDatabase::addBooksBatch(const std::vector<Book> &books) {
+  std::lock_guard<std::mutex> lock(pImpl->databaseMutex);
+  char *err = nullptr;
+  if (sqlite3_exec(pImpl->getDb(), "BEGIN TRANSACTION", nullptr, nullptr,
+                   &err) != SQLITE_OK) {
+    sqlite3_free(err);
+    return false;
+  }
+  const char *sql = "INSERT OR REPLACE INTO books (file_path, title, author, "
+                    "genre, lang, sequence, seq_number, cover_data, "
+                    "cover_mime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  sqlite3_stmt *stmt;
+  if (sqlite3_prepare_v2(pImpl->getDb(), sql, -1, &stmt, nullptr) !=
+      SQLITE_OK) {
+    sqlite3_exec(pImpl->getDb(), "ROLLBACK", nullptr, nullptr, nullptr);
+    return false;
+  }
+  bool success = true;
+  for (const auto &book : books) {
+    sqlite3_reset(stmt);
+    sqlite3_bind_text(stmt, 1, book.filePath.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, book.title.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, book.author.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, book.genre.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, book.language.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, book.sequence.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 7, book.sequenceNumber);
+    if (!book.coverData.empty()) {
+      sqlite3_bind_blob(stmt, 8, book.coverData.data(), book.coverData.size(),
+                        SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 9, book.coverMime.c_str(), -1, SQLITE_TRANSIENT);
+    } else {
+      sqlite3_bind_null(stmt, 8);
+      sqlite3_bind_null(stmt, 9);
+    }
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+      success = false;
+      break;
+    }
+  }
+  sqlite3_finalize(stmt);
+  if (success) {
+    sqlite3_exec(pImpl->getDb(), "COMMIT", nullptr, nullptr, nullptr);
+  } else {
+    sqlite3_exec(pImpl->getDb(), "ROLLBACK", nullptr, nullptr, nullptr);
+  }
+  return success;
+}
+
+bool BookDatabase::hasBookCover(const std::string &filePath) {
+  std::lock_guard<std::mutex> lock(pImpl->databaseMutex);
+  const char *sql = "SELECT 1 FROM books WHERE file_path = ? AND cover_data IS "
+                    "NOT NULL AND LENGTH(cover_data) > 0";
+  sqlite3_stmt *stmt;
+  bool found = false;
+  if (sqlite3_prepare_v2(pImpl->getDb(), sql, -1, &stmt, nullptr) ==
+      SQLITE_OK) {
+    sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
+    found = (sqlite3_step(stmt) == SQLITE_ROW);
+    sqlite3_finalize(stmt);
+  }
+  return found;
 }
