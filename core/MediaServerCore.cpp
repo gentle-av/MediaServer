@@ -2,6 +2,7 @@
 #include "controllers/albums/AlbumArtController.h"
 #include "controllers/albums/AlbumManagementController.h"
 #include "controllers/books/BookController.h"
+#include "controllers/books/BookScanController.h"
 #include "controllers/books/BookmarkController.h"
 #include "controllers/music/MusicLibraryController.h"
 #include "controllers/music/MusicMetadataController.h"
@@ -17,9 +18,9 @@
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
 #include "middlewares/CorsMiddleware.h"
+#include "repositories/BookRepository.h"
 #include "repositories/MusicRepository.h"
 #include "repositories/PlaylistRepository.h"
-#include "services/books/BookService.h"
 #include "services/music/MetadataCache.h"
 #include "services/video/FileSystemService.h"
 #include "services/video/SubtitleService.h"
@@ -119,6 +120,7 @@ bool MediaServerCore::initializeDatabases() {
 bool MediaServerCore::initializeRepositories() {
   musicRepo = std::make_shared<MusicRepository>(musicDb);
   playlistRepo = std::make_shared<PlaylistRepository>(playlistDb, musicRepo);
+  bookRepo = std::make_shared<BookRepository>(bookDb);
   return true;
 }
 
@@ -190,6 +192,9 @@ bool MediaServerCore::initializeControllers() {
   bookController->register_routes();
   bookmarkController = std::make_unique<BookmarkController>(*app, bookService);
   bookmarkController->register_routes();
+  bookScanController = std::make_unique<BookScanController>(
+      *app, *bookRepo, config.booksDirectory);
+  bookScanController->register_routes();
   return true;
 }
 

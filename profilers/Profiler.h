@@ -22,6 +22,7 @@ struct ProfileConfig {
   std::string htmlPath;
   std::string databasePath;
   std::string videoDirectory;
+  std::string booksDirectory;
 };
 
 class Profiler {
@@ -36,13 +37,12 @@ public:
   std::string getDatabasePath() const { return config.databasePath; }
   std::string getMusicDirectory() const { return config.musicDirectory; }
   std::string getVideoDirectory() const { return config.videoDirectory; }
+  std::string getBooksDirectory() const { return config.booksDirectory; }
   int getPort() const { return config.port; }
-
   void printStartupInfo() const;
 
 private:
   ProfileConfig config;
-
   void initializeConfiguration();
   void parseCommandLine(int argc, char *argv[]);
   void loadConfigurationFromFile();
@@ -58,11 +58,9 @@ private:
                             fs::path &foundPath);
   void validateIndexFile();
   void logSearchPaths(const std::vector<fs::path> &paths) const;
-
   fs::path findConfigFile() const;
   std::vector<fs::path> getIndexSearchPaths() const;
   std::vector<fs::path> getConfigSearchPaths() const;
-
   size_t parseBodySize(const std::string &sizeStr) const;
   void parseHeaderString(
       const std::string &headerStr,

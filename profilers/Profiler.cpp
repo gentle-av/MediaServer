@@ -23,11 +23,12 @@ void Profiler::setDefaultConfigValues() {
   config.logLevel = "DEBUG";
   config.logPath = "./logs";
   config.uploadPath = "./uploads";
-  config.musicDirectory = "./music";
+  config.musicDirectory = "/mnt/media/music";
   config.databasePath = "./media.db";
   config.htmlPath = "./views";
   config.documentRoot = "./views";
   config.videoDirectory = "/mnt/video";
+  config.booksDirectory = "/mnt/media/books";
 }
 
 void Profiler::parseCommandLine(int argc, char *argv[]) {
@@ -56,6 +57,8 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
     } else if (arg == "--help" || arg == "-h") {
       printHelp(argv[0]);
       exit(0);
+    } else if (arg == "--books-dir" && i + 1 < argc) {
+      config.booksDirectory = argv[++i];
     }
   }
 }
@@ -63,34 +66,33 @@ void Profiler::parseCommandLine(int argc, char *argv[]) {
 void Profiler::printHelp(const char *programName) const {
   std::cout << "Usage: " << programName << " [OPTIONS]\n"
             << "Options:\n"
-            << "  -p, --profile PROFILE  Use profile (test/production)\n"
-            << "  -t, --test            Test mode\n"
-            << "  --production, --prod  Production mode\n"
-            << "  --port PORT           Override web port\n"
-            << "  --address ADDR        Override address\n"
-            << "  --music-dir DIR       Override music directory\n"
-            << "  --db-path PATH        Override database path\n"
-            << "  --help, -h            Show help\n";
+            << " -p, --profile PROFILE Use profile (test/production)\n"
+            << " -t, --test Test mode\n"
+            << " --production, --prod Production mode\n"
+            << " --port PORT Override web port\n"
+            << " --address ADDR Override address\n"
+            << " --music-dir DIR Override music directory\n"
+            << " --db-path PATH Override database path\n"
+            << " --help, -h Show help\n";
 }
 
 void Profiler::loadConfigurationFromFile() {
   fs::path configPath = findConfigFile();
   if (configPath.empty()) {
-    std::cout << "No configuration file found, using defaults" << std::endl;
+    std::cout << "No configuration file found, using defaults" << '\n';
     return;
   }
-  std::cout << "Loading config from: \"" << configPath << "\"" << std::endl;
+  std::cout << "Loading config from: \"" << configPath << "\"" << '\n';
   std::ifstream file(configPath);
   if (!file.is_open()) {
-    std::cerr << "Warning: Could not open config file: " << configPath
-              << std::endl;
+    std::cerr << "Warning: Could not open config file: " << configPath << '\n';
     return;
   }
   try {
     nlohmann::json fullConfig = nlohmann::json::parse(file);
     parseConfigJson(fullConfig);
   } catch (const std::exception &e) {
-    std::cerr << "Error parsing config: " << e.what() << std::endl;
+    std::cerr << "Error parsing config: " << e.what() << '\n';
   }
 }
 
@@ -103,7 +105,7 @@ bool Profiler::loadConfigFromFile(const fs::path &configPath) {
     parseConfigJson(fullConfig);
     return true;
   } catch (const std::exception &e) {
-    std::cerr << "Error parsing config: " << e.what() << std::endl;
+    std::cerr << "Error parsing config: " << e.what() << '\n';
     return false;
   }
 }
@@ -113,10 +115,10 @@ void Profiler::parseConfigJson(const nlohmann::json &fullConfig) {
   if (fullConfig.contains("profiles") &&
       fullConfig["profiles"].contains(config.name)) {
     profileConfig = fullConfig["profiles"][config.name];
-    std::cout << "Loaded profile: " << config.name << std::endl;
+    std::cout << "Loaded profile: " << config.name << '\n';
   } else {
     profileConfig = fullConfig;
-    std::cout << "Using root config (no profile section)" << std::endl;
+    std::cout << "Using root config (no profile section)" << '\n';
   }
   extractConfigValues(profileConfig);
 }
@@ -151,6 +153,9 @@ void Profiler::extractConfigValues(const nlohmann::json &profileConfig) {
     if (content.contains("video_directory")) {
       config.videoDirectory = content["video_directory"].get<std::string>();
     }
+    if (content.contains("book_directory")) {
+      config.booksDirectory = content["book_directory"].get<std::string>();
+    }
   }
   if (profileConfig.contains("listeners") &&
       !profileConfig["listeners"].empty()) {
@@ -164,13 +169,12 @@ void Profiler::extractConfigValues(const nlohmann::json &profileConfig) {
 void Profiler::validateDocumentRoot() {
   if (config.htmlPath.empty()) {
     std::cerr << "ERROR: 'document_root' not found in config.json for profile '"
-              << config.name << "'" << std::endl;
+              << config.name << "'" << '\n';
     throw std::runtime_error(
         "Missing required 'document_root' in configuration");
   }
   if (!fs::exists(config.htmlPath)) {
-    std::cerr << "ERROR: HTML path does not exist: " << config.htmlPath
-              << std::endl;
+    std::cerr << "ERROR: HTML path does not exist: " << config.htmlPath << '\n';
     throw std::runtime_error("HTML path does not exist: " + config.htmlPath);
   }
 }
@@ -185,7 +189,9 @@ void Profiler::applyConfigDefaults() {
   config.uploadPath =
       config.isTest ? "./uploads" : "/var/lib/media-explorer/uploads";
   config.documentRoot = config.htmlPath;
-  config.videoDirectory = config.isTest ? "./videos" : "/mnt/video";
+  config.videoDirectory = "/mnt/video";
+  config.musicDirectory = "/mnt/media/music";
+  config.booksDirectory = "/mnt/media/books";
 }
 
 void Profiler::findIndexFile() {
@@ -203,13 +209,13 @@ void Profiler::findIndexFile() {
   }
   config.indexPath = foundPath.string();
   validateIndexFile();
-  std::cout << "Found index.html at: " << config.indexPath << std::endl;
+  std::cout << "Found index.html at: " << config.indexPath << '\n';
 }
 
 bool Profiler::findIndexFileInPaths(const std::vector<fs::path> &paths,
                                     fs::path &foundPath) {
   for (const auto &path : paths) {
-    std::cout << "Checking: " << path << std::endl;
+    std::cout << "Checking: " << path << '\n';
     if (fs::exists(path)) {
       foundPath = path;
       return true;
@@ -227,10 +233,10 @@ void Profiler::validateIndexFile() {
 }
 
 void Profiler::logSearchPaths(const std::vector<fs::path> &paths) const {
-  std::cerr << "Error: Could not find index.html" << std::endl;
-  std::cerr << "Searched in:" << std::endl;
+  std::cerr << "Error: Could not find index.html" << '\n';
+  std::cerr << "Searched in:" << '\n';
   for (const auto &path : paths) {
-    std::cerr << "  " << path << std::endl;
+    std::cerr << " " << path << '\n';
   }
 }
 
@@ -309,26 +315,27 @@ void Profiler::parseHeaderString(
 }
 
 void Profiler::printStartupInfo() const {
-  std::cout << "==========================================" << std::endl;
-  std::cout << "Media Explorer Web Server (Drogon)" << std::endl;
-  std::cout << "Version: 1.0.0" << std::endl;
+  std::cout << "==========================================" << '\n';
+  std::cout << "Media Explorer Web Server (Drogon)" << '\n';
+  std::cout << "Version: 1.0.0" << '\n';
   std::cout << "Profile: " << config.name;
   if (config.isTest)
     std::cout << " (TEST MODE)";
-  std::cout << std::endl;
-  std::cout << "HTML Path: " << config.htmlPath << std::endl;
-  std::cout << "Address: " << config.address << std::endl;
-  std::cout << "Document Root: " << config.documentRoot << std::endl;
-  std::cout << "Index File: " << config.indexPath << std::endl;
-  std::cout << "Upload Path: " << config.uploadPath << std::endl;
-  std::cout << "Log Path: " << config.logPath << std::endl;
-  std::cout << "Log Level: " << config.logLevel << std::endl;
-  std::cout << "Threads: " << config.threads << std::endl;
-  std::cout << "Database Path: " << config.databasePath << std::endl;
-  std::cout << "Music Directory: " << config.musicDirectory << std::endl;
-  std::cout << "Video Directory: " << config.videoDirectory << std::endl;
-  std::cout << "==========================================" << std::endl;
-  std::cout << "Web interface: http://" << config.address << ":" << config.port
-            << "/" << std::endl;
-  std::cout << "Press Ctrl+C to stop" << std::endl;
+  std::cout << '\n';
+  std::cout << "HTML Path: " << config.htmlPath << '\n';
+  std::cout << "Address: " << config.address << '\n';
+  std::cout << "Document Root: " << config.documentRoot << '\n';
+  std::cout << "Index File: " << config.indexPath << '\n';
+  std::cout << "Upload Path: " << config.uploadPath << '\n';
+  std::cout << "Log Path: " << config.logPath << '\n';
+  std::cout << "Log Level: " << config.logLevel << '\n';
+  std::cout << "Threads: " << config.threads << '\n';
+  std::cout << "Database Path: " << config.databasePath << '\n';
+  std::cout << "Music Directory: " << config.musicDirectory << '\n';
+  std::cout << "Video Directory: " << config.videoDirectory << '\n';
+  std::cout << "Books Directory: " << config.booksDirectory << '\n';
+  std::cout << "==========================================" << '\n';
+  std::cout << "Web interface: http:"
+            << "/" << '\n';
+  std::cout << "Press Ctrl+C to stop" << '\n';
 }

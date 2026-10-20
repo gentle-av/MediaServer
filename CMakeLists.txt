@@ -91,6 +91,7 @@ add_library(BookDatabase SHARED database/BookDatabase.cpp)
 add_library(Fb2MetadataExtractor SHARED services/books/Fb2MetadataExtractor.cpp)
 add_library(BookService SHARED services/books/BookService.cpp)
 add_library(BookController SHARED controllers/books/BookController.cpp)
+add_library(BookScanController SHARED controllers/books/BookScanController.cpp)
 add_library(BookScanner SHARED services/books/BookScanner.cpp)
 add_library(BookRepository SHARED repositories/BookRepository.cpp)
 add_library(BookmarkController SHARED controllers/books/BookmarkController.cpp)
@@ -98,7 +99,10 @@ add_library(BookmarkController SHARED controllers/books/BookmarkController.cpp)
 target_link_libraries(BookDatabase ${commonLibs})
 target_link_libraries(BookService BookDatabase ${commonLibs})
 target_link_libraries(BookController BookService ${commonLibs})
-target_link_libraries(BookmarkController BookService ${commonLibs})
+target_link_libraries(BookScanController BookRepository ${commonLibs})
+target_link_libraries(BookScanner BookDatabase Fb2MetadataExtractor ${commonLibs})
+target_link_libraries(BookRepository BookDatabase EventBus ${commonLibs})
+target_link_libraries(BookScanController BookRepository ${commonLibs})
 
 add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
@@ -219,6 +223,9 @@ target_link_libraries(MediaServerCore
     BookController
     BookmarkController
     Fb2MetadataExtractor
+    BookScanner
+    BookRepository
+    BookScanController
     ${commonLibs}
 )
 
@@ -238,6 +245,8 @@ install(TARGETS
     MusicScanController MusicLibraryController MusicMetadataController MusicPlaybackController
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MonitorController MediaServerCore WpVolumeControl
+    Fb2MetadataExtractor BookmarkController BookController BookService BookDatabase
+    BookScanner BookRepository BookScanController
     LIBRARY DESTINATION lib/media-explorer/
 )
 
