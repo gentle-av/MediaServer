@@ -87,6 +87,8 @@ add_library(Profiler SHARED profilers/Profiler.cpp)
 add_library(AlsaMixer SHARED services/system/AlsaMixer.cpp)
 add_library(WpVolumeControl SHARED services/system/WpVolumeControl.cpp)
 
+add_library(BookDatabase SHARED database/BookDatabase.cpp)
+
 add_library(MetadataExtractor SHARED
     services/music/MetadataExtractor.cpp
     services/music/MetadataCache.cpp
