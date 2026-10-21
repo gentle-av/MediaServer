@@ -132,6 +132,7 @@ add_library(AlbumArtController SHARED controllers/albums/AlbumArtController.cpp)
 add_library(AlbumManagementController SHARED controllers/albums/AlbumManagementController.cpp)
 add_library(MonitorController SHARED controllers/system/MonitorController.cpp)
 add_library(SubtitleController SHARED controllers/video/SubtitleController.cpp)
+add_library(AuthorInfoController SHARED controllers/books/AuthorInfoController.cpp)
 add_library(MediaServerCore SHARED core/MediaServerCore.cpp)
 
 target_link_libraries(MusicRepository
