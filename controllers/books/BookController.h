@@ -21,5 +21,10 @@ private:
   StringHttpResponse handleDeleteBook(const StringHttpRequest &req);
   StringHttpResponse handleGetCover(const StringHttpRequest &req);
   StringHttpResponse handleGetAuthors(const StringHttpRequest &req);
-StringHttpResponse handleGetBooksByAuthor(const StringHttpRequest &req);
+  StringHttpResponse handleGetBooksByAuthor(const StringHttpRequest &req);
+  StringHttpResponse handleListBooks(const StringHttpRequest &req);
+  StringHttpResponse handleGetBookContent(const StringHttpRequest &req);
+  StringHttpResponse handleGetBookMeta(const StringHttpRequest &req);
+  StringHttpResponse handleSaveProgress(const StringHttpRequest &req);
+  StringHttpResponse handleGetProgress(const StringHttpRequest &req);
 };
