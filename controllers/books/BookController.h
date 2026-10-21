@@ -20,4 +20,6 @@ private:
   StringHttpResponse handleAddBook(const StringHttpRequest &req);
   StringHttpResponse handleDeleteBook(const StringHttpRequest &req);
   StringHttpResponse handleGetCover(const StringHttpRequest &req);
+  StringHttpResponse handleGetAuthors(const StringHttpRequest &req);
+StringHttpResponse handleGetBooksByAuthor(const StringHttpRequest &req);
 };

@@ -1,5 +1,6 @@
 #include "BookController.h"
 #include <iostream>
+#include <map>
 
 BookController::BookController(App &app, std::shared_ptr<BookService> service)
     : RestController<App>(app), bookService(std::move(service)) {}
@@ -16,6 +17,12 @@ void BookController::register_all_routes() {
   });
   app_.get("/api/books/cover", [this](const StringHttpRequest &req) {
     return handleGetCover(req);
+  });
+  app_.get("/api/books/authors", [this](const StringHttpRequest &req) {
+    return handleGetAuthors(req);
+  });
+  app_.get("/api/books/by-author", [this](const StringHttpRequest &req) {
+    return handleGetBooksByAuthor(req);
   });
 }
 
@@ -106,6 +113,86 @@ BookController::handleGetCover(const StringHttpRequest &req) {
     res.setHeader("Content-Type", mime);
     res.setBodyContent(std::string(cover.data(), cover.size()));
     res.setStatus(200);
+  }
+  return res;
+}
+
+StringHttpResponse
+BookController::handleGetAuthors(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  try {
+    auto books = bookService->getAllBooks();
+    std::map<std::string, int> authorCounts;
+    for (const auto &b : books) {
+      std::string author = b.author;
+      if (author.empty()) {
+        author = "Unknown";
+      }
+      authorCounts[author]++;
+    }
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto &[author, count] : authorCounts) {
+      nlohmann::json j;
+      j["author"] = author;
+      j["count"] = count;
+      arr.push_back(j);
+    }
+    nlohmann::json resp;
+    resp["success"] = true;
+    resp["authors"] = arr;
+    resp["count"] = static_cast<int>(arr.size());
+    res.setJsonContent(
+        resp.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+    res.setStatus(200);
+  } catch (const std::exception &e) {
+    res.setStatus(500);
+    res.setJsonContent(this->error_response(500, e.what()).dump());
+  }
+  return res;
+}
+
+StringHttpResponse
+BookController::handleGetBooksByAuthor(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  try {
+    std::string author = req.getQuery("author");
+    if (author.empty()) {
+      res.setStatus(400);
+      res.setJsonContent(
+          this->error_response(400, "Missing query parameter: author").dump());
+      return res;
+    }
+    std::string normalizedAuthor = (author == "Unknown") ? "" : author;
+    auto books = bookService->getAllBooks();
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto &b : books) {
+      std::string bookAuthor = b.author.empty() ? "Unknown" : b.author;
+      if (bookAuthor != author && b.author != normalizedAuthor) {
+        continue;
+      }
+      nlohmann::json j;
+      j["id"] = b.id;
+      j["path"] = b.filePath;
+      j["title"] = b.title;
+      j["author"] = bookAuthor;
+      j["genre"] = b.genre;
+      j["lang"] = b.language;
+      j["sequence"] = b.sequence;
+      j["seq_number"] = b.sequenceNumber;
+      j["has_cover"] = bookService->hasBookCover(b.filePath);
+      arr.push_back(j);
+    }
+    nlohmann::json resp;
+    resp["success"] = true;
+    resp["author"] = author;
+    resp["books"] = arr;
+    resp["count"] = static_cast<int>(arr.size());
+    res.setJsonContent(
+        resp.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+    res.setStatus(200);
+  } catch (const std::exception &e) {
+    res.setStatus(500);
+    res.setJsonContent(this->error_response(500, e.what()).dump());
   }
   return res;
 }
