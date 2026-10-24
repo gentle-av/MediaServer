@@ -11,8 +11,7 @@ set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local" CACHE PATH "Install path" FORCE)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
 set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
-set(HTML_SERVER_ROOT "$ENV{HOME}/code/projects/cpp/HtmlServer")
-
+find_package(HtmlServer REQUIRED)
 find_package(TagLib REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -23,17 +22,6 @@ pkg_check_modules(LIBCURL REQUIRED libcurl)
 pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
-add_subdirectory(
-    ${HTML_SERVER_ROOT}
-    ${CMAKE_BINARY_DIR}/HtmlServer
-)
-
-add_library(HtmlServer::AppCore ALIAS AppCore)
-add_library(HtmlServer::AuthCore ALIAS AuthCore)
-add_library(HtmlServer::FileServerCore ALIAS FileServerCore)
-add_library(HtmlServer::JsonCore ALIAS JsonCore)
-add_library(HtmlServer::Core ALIAS Core)
-
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${SQLITE3_INCLUDE_DIRS}
@@ -42,18 +30,7 @@ include_directories(
     ${LIBCURL_INCLUDE_DIRS}
     ${DBUS_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
-    ${HTML_SERVER_ROOT}/include
-    ${HTML_SERVER_ROOT}/include/app
-    ${HTML_SERVER_ROOT}/include/auth
-    ${HTML_SERVER_ROOT}/include/concepts
-    ${HTML_SERVER_ROOT}/include/controllers
-    ${HTML_SERVER_ROOT}/include/core
-    ${HTML_SERVER_ROOT}/include/fs
-    ${HTML_SERVER_ROOT}/include/interfaces
-    ${HTML_SERVER_ROOT}/include/serializer
-    ${HTML_SERVER_ROOT}/include/session
-    ${HTML_SERVER_ROOT}/include/templates
-    ${HTML_SERVER_ROOT}/include/web
+    ${HtmlServer_INCLUDE_DIRS}
 )
 
 set(commonLibs
@@ -64,11 +41,11 @@ set(commonLibs
     ${DBUS_LIBRARIES}
     ${JSONCPP_LIBRARIES}
     ${OPENSSL_LIBRARIES}
-    HtmlServer::AppCore
-    HtmlServer::AuthCore
-    HtmlServer::FileServerCore
-    HtmlServer::JsonCore
-    HtmlServer::Core
+    AppCore
+    AuthCore
+    FileServerCore
+    JsonCore
+    Core
     asound
     pthread
     dl
@@ -186,6 +163,7 @@ target_link_libraries(MonitorController PowerService ${commonLibs})
 
 target_link_libraries(MediaServerCore
     PRIVATE
+    AuthorInfoController
     SubtitleService
     SubtitleController
     MusicLibraryController
@@ -247,7 +225,7 @@ install(TARGETS
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MonitorController MediaServerCore WpVolumeControl
     Fb2MetadataExtractor BookmarkController BookController BookService BookDatabase
-    BookScanner BookRepository BookScanController
+    BookScanner BookRepository BookScanController AuthorInfoController
     LIBRARY DESTINATION lib/media-explorer/
 )
 
@@ -261,19 +239,16 @@ endforeach()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config/config.json ${CMAKE_CURRENT_BINARY_DIR}/config.json COPYONLY)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json DESTINATION share/media-explorer/)
-
 add_custom_command(
     TARGET MediaServer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory $ENV{HOME}/.local/share/media-explorer/
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
-        $ENV{HOME}/.local/share/media-explorer/config.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
+    $ENV{HOME}/.local/share/media-explorer/config.json
 )
-
 add_custom_command(
-    TARGET MediaServer POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
-        ${CMAKE_CURRENT_BINARY_DIR}/config.json
+TARGET MediaServer POST_BUILD
+COMMAND ${CMAKE_COMMAND} -E copy_if_different
+${CMAKE_CURRENT_SOURCE_DIR}/config/config.json
+${CMAKE_CURRENT_BINARY_DIR}/config.json
 )
-

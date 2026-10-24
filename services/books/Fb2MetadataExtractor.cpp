@@ -158,8 +158,34 @@ bool Fb2MetadataExtractor::extractFull(const std::string &filePath,
   size_t bodyPos = utf8Xml.find("<body>");
   std::string titleInfo =
       (bodyPos != std::string::npos) ? utf8Xml.substr(0, bodyPos) : utf8Xml;
+
   book.title = extractTagContent(titleInfo, "book-title");
   book.author = extractTagContent(titleInfo, "author");
+
+  std::regex uuidRegex(R"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
+  book.author = std::regex_replace(book.author, uuidRegex, "");
+
+  std::regex urlRegex(R"(https?://[^\s]+|www\.[^\s]+)");
+  book.author = std::regex_replace(book.author, urlRegex, "");
+
+  size_t unknownPos = book.author.find("Неизвестный автор");
+  if (unknownPos != std::string::npos && book.author.length() > 17) {
+    book.author = book.author.substr(0, unknownPos);
+  }
+
+  std::regex extraSpaces(R"(\s+)");
+  book.author = std::regex_replace(book.author, extraSpaces, " ");
+  if (!book.author.empty() && book.author.front() == ' ') {
+    book.author = book.author.substr(1);
+  }
+  if (!book.author.empty() && book.author.back() == ' ') {
+    book.author.pop_back();
+  }
+
+  if (book.author.empty()) {
+    book.author = "Unknown";
+  }
+
   book.genre = extractTagContent(titleInfo, "genre");
   book.language = extractTagContent(titleInfo, "lang");
   std::regex seqRegex(

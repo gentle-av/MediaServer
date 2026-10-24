@@ -5,8 +5,65 @@
 #include <filesystem>
 #include <iostream>
 #include <unordered_set>
+#include <unordered_map>
+#include <sstream>
+#include <set>
 
 namespace fs = std::filesystem;
+
+namespace {
+
+std::set<std::string> getAuthorTokens(const std::string& name) {
+    std::set<std::string> tokens;
+    std::string clean = name;
+
+    for (char& c : clean) {
+        if (c == '.' || c == ',' || c == '-') {
+            c = ' ';
+        } else {
+            c = std::tolower(static_cast<unsigned char>(c));
+        }
+    }
+
+    std::stringstream ss(clean);
+    std::string token;
+    while (ss >> token) {
+
+        if (token.length() > 1 || (token == "ле" || token == "ли")) {
+
+            if (token == "чарлз") token = "чарльз";
+            if (token == "иэн") token = "иан";
+            tokens.insert(token);
+        }
+    }
+    return tokens;
+}
+
+bool isSameAuthor(const std::string& a, const std::string& b) {
+    auto tokensA = getAuthorTokens(a);
+    auto tokensB = getAuthorTokens(b);
+
+    if (tokensA.empty() || tokensB.empty()) return false;
+
+    bool aContainsB = true;
+    for (const auto& t : tokensB) {
+        if (tokensA.find(t) == tokensA.end()) {
+            aContainsB = false;
+            break;
+        }
+    }
+
+    bool bContainsA = true;
+    for (const auto& t : tokensA) {
+        if (tokensB.find(t) == tokensB.end()) {
+            bContainsA = false;
+            break;
+        }
+    }
+
+    return aContainsB || bContainsA;
+}
+}
 
 BookRepository::BookRepository(std::shared_ptr<BookDatabase> db)
     : db(std::move(db)) {}
@@ -22,11 +79,43 @@ std::vector<Book> BookRepository::getAllBooks() {
     return *allBooksCache.data;
   }
   lock.unlock();
-  refreshAllBooksCache();
-  std::shared_lock readLock(mutex);
+  auto books = db->getAllBooks();
+  std::unordered_map<std::string, std::string> canonicalAuthors;
+  for (const auto& book : books) {
+    if (book.author.empty() || book.author == "Unknown") continue;
+    bool foundMatch = false;
+    for (auto& [existingAuthor, canonicalName] : canonicalAuthors) {
+      if (isSameAuthor(book.author, existingAuthor)) {
+        foundMatch = true;
+        if (book.author.length() > canonicalName.length()) {
+          canonicalName = book.author;
+        }
+        canonicalAuthors[book.author] = canonicalName;
+        break;
+      }
+    }
+    if (!foundMatch) {
+      canonicalAuthors[book.author] = book.author;
+    }
+  }
+  for (auto& book : books) {
+    if (canonicalAuthors.contains(book.author)) {
+      std::string finalAuthor = canonicalAuthors[book.author];
+      for (const auto& [raw, canonical] : canonicalAuthors) {
+        if (isSameAuthor(finalAuthor, raw) && canonical.length() > finalAuthor.length()) {
+          finalAuthor = canonical;
+        }
+      }
+      book.author = finalAuthor;
+    }
+  }
+  std::unique_lock writeLock(mutex);
+  allBooksCache.data =
+      std::make_shared<const std::vector<Book>>(std::move(books));
+  allBooksCache.timestamp = std::chrono::steady_clock::now();
   std::cout << "[BookRepository::getAllBooks] there is "
             << allBooksCache.data.get()->size()
-            << " books in allBooksCache array\n";
+            << " books in allBooksCache array (authors analyzed and normalized)\n";
   return *allBooksCache.data;
 }
 
@@ -148,6 +237,11 @@ bool BookRepository::doScanBooksDirectory(
       if (existingSet.find(path) == existingSet.end()) {
         Book book;
         if (Fb2MetadataExtractor::extractFull(path, book)) {
+
+          if (book.author == "Артур Кларк" || book.author == "Артур Кларк Чарлз") {
+            book.author = "Артур Чарльз Кларк";
+          }
+
           batch.push_back(std::move(book));
           if (batch.size() >= BATCH_SIZE) {
             db->addBooksBatch(batch);

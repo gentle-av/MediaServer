@@ -29,6 +29,7 @@ class BookController;
 class BookmarkController;
 class BookRepository;
 class BookScanController;
+class AuthorInfoController;
 
 class MediaServerCore {
 public:
@@ -75,6 +76,7 @@ private:
   std::unique_ptr<BookmarkController> bookmarkController;
   std::shared_ptr<BookRepository> bookRepo;
   std::unique_ptr<BookScanController> bookScanController;
+  std::unique_ptr<AuthorInfoController> authorInfoController;
   std::atomic<bool> running{true};
   std::jthread mainLoopThread;
 };

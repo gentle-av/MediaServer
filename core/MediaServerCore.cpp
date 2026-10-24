@@ -14,6 +14,7 @@
 #include "controllers/system/MonitorController.h"
 #include "controllers/video/SubtitleController.h"
 #include "controllers/video/VideoController.h"
+#include "controllers/books/AuthorInfoController.h"
 #include "database/BookDatabase.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
@@ -26,7 +27,6 @@
 #include "services/video/FileSystemService.h"
 #include "services/video/SubtitleService.h"
 #include <filesystem>
-#include <future>
 #include <iostream>
 
 MediaServerCore::MediaServerCore(int argc, char *argv[])
@@ -110,6 +110,7 @@ bool MediaServerCore::initializeDatabases() {
     std::cerr << "Failed to initialize playlist database" << '\n';
     return false;
   }
+  std::cout << "Books database path: " << config.databasePath + "/books.db" << '\n';
   bookDb = std::make_shared<BookDatabase>(config.databasePath + "/books.db");
   if (!bookDb->init()) {
     std::cerr << "Failed to initialize book database" << '\n';
@@ -197,6 +198,17 @@ bool MediaServerCore::initializeControllers() {
   bookScanController = std::make_unique<BookScanController>(
       *app, *bookRepo, config.booksDirectory);
   bookScanController->register_routes();
+  std::string authorMetaPath;
+  const char *envMeta = std::getenv("BOOKS_AUTHOR_META");
+  if (envMeta && *envMeta) {
+    authorMetaPath = envMeta;
+  } else {
+    authorMetaPath = config.databasePath + "/author-metadata.json";
+  }
+  authorInfoController = std::make_unique<AuthorInfoController>(
+      *app, bookService, authorMetaPath);
+  authorInfoController->register_routes();
+  return true;
   return true;
 }
 
