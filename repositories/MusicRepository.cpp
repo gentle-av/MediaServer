@@ -133,9 +133,6 @@ MusicRepository::loadAllTracksFromDB() const {
   auto tracks = std::make_shared<std::vector<MusicMetadata>>();
   tracks->reserve(paths.size());
   for (const auto &path : paths) {
-    if (!fs::exists(path)) {
-      continue;
-    }
     MusicMetadata meta;
     if (db->getMetadata(path, meta)) {
       tracks->push_back(meta);

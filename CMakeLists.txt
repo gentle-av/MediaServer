@@ -226,7 +226,7 @@ install(TARGETS
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MonitorController MediaServerCore WpVolumeControl
     Fb2MetadataExtractor BookmarkController BookController BookService BookDatabase
-    BookScanner BookRepository BookScanController AuthorInfoController
+    BookScanner BookRepository BookScanController AuthorInfoController BookContentService
     LIBRARY DESTINATION lib/media-explorer/
 )
 

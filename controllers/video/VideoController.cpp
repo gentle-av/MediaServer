@@ -374,7 +374,7 @@ VideoController::handleGetPlaybackStatus(const StringHttpRequest &req) {
       auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                          now - statusCache.timestamp)
                          .count();
-      if (statusCache.isValid && elapsed < 200) {
+      if (statusCache.isValid && elapsed < 500) {
         res.setJsonContent(statusCache.data.dump());
         statusRequestInProgress = false;
         res.setStatus(200);
