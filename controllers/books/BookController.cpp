@@ -1,9 +1,55 @@
 #include "BookController.h"
+#include "../../services/books/BookContentService.h"
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
+
+StringHttpResponse
+BookController::handleGetBookContent(const StringHttpRequest &req) {
+  StringHttpResponse res;
+  try {
+    std::locale::global(std::locale("ru_RU.UTF-8"));
+    auto json = nlohmann::json::parse(req.getBodyString());
+    std::string path = json.value("path", "");
+    if (path.empty() || !std::filesystem::exists(path)) {
+      nlohmann::json resp;
+      resp["success"] = false;
+      resp["error"] = "File not found";
+      res.setJsonContent(resp.dump());
+      res.setStatus(404);
+      return res;
+    }
+    BookContentService contentExtractor;
+    auto bookData = contentExtractor.getContent(path);
+    if (!bookData.has_value() || bookData->sections.empty()) {
+      nlohmann::json resp;
+      resp["success"] = false;
+      resp["error"] = "Failed to parse book chapters";
+      res.setJsonContent(resp.dump());
+      res.setStatus(422);
+      return res;
+    }
+    std::string fullHtmlContent = "";
+    for (const auto &section : bookData->sections) {
+      fullHtmlContent += section.html;
+    }
+    nlohmann::json resp;
+    resp["success"] = true;
+    resp["content"] = fullHtmlContent;
+    res.setJsonContent(
+        resp.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+    res.setStatus(200);
+  } catch (const std::exception &e) {
+    std::cerr << "❌ [BookController] Exception: " << e.what() << std::endl;
+    nlohmann::json resp;
+    resp["success"] = false;
+    resp["error"] = e.what();
+    res.setJsonContent(resp.dump());
+    res.setStatus(500);
+  }
+  return res;
+}
 
 BookController::BookController(App &app, std::shared_ptr<BookService> service)
     : RestController<App>(app), bookService(std::move(service)) {}
@@ -76,8 +122,7 @@ BookController::handleListBooks(const StringHttpRequest &req) {
       item["path"] = entry.path().string();
       bool isDir = entry.is_directory();
       item["isDirectory"] = isDir;
-      std::string ext =
-          std::filesystem::path(name).extension().string();
+      std::string ext = std::filesystem::path(name).extension().string();
       std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
       bool isBook = !isDir && (ext == ".fb2" || ext == ".epub" ||
                                ext == ".pdf" || ext == ".txt");
@@ -113,38 +158,6 @@ BookController::handleListBooks(const StringHttpRequest &req) {
 }
 
 StringHttpResponse
-BookController::handleGetBookContent(const StringHttpRequest &req) {
-  StringHttpResponse res;
-  try {
-    auto json = nlohmann::json::parse(req.getBodyString());
-    std::string path = json.value("path", "");
-    if (path.empty() || !std::filesystem::exists(path)) {
-      nlohmann::json resp;
-      resp["success"] = false;
-      resp["error"] = "File not found";
-      res.setJsonContent(resp.dump());
-      res.setStatus(404);
-      return res;
-    }
-    std::ifstream file(path, std::ios::binary);
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    nlohmann::json resp;
-    resp["success"] = true;
-    resp["content"] = buffer.str();
-    res.setJsonContent(resp.dump());
-    res.setStatus(200);
-  } catch (const std::exception &e) {
-    nlohmann::json resp;
-    resp["success"] = false;
-    resp["error"] = e.what();
-    res.setJsonContent(resp.dump());
-    res.setStatus(500);
-  }
-  return res;
-}
-
-StringHttpResponse
 BookController::handleGetBookMeta(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
@@ -159,8 +172,7 @@ BookController::handleGetBookMeta(const StringHttpRequest &req) {
       return res;
     }
     nlohmann::json data;
-    data["format"] =
-        std::filesystem::path(path).extension().string();
+    data["format"] = std::filesystem::path(path).extension().string();
     nlohmann::json resp;
     resp["success"] = true;
     resp["data"] = data;
@@ -261,19 +273,19 @@ BookController::handleGetBooks(const StringHttpRequest &req) {
       j["id"] = b.id;
       j["path"] = b.filePath;
       j["title"] = b.title;
-      j["author"] = b.author;
       j["genre"] = b.genre;
       j["lang"] = b.language;
       j["sequence"] = b.sequence;
       j["seq_number"] = b.sequenceNumber;
       j["has_cover"] = bookService->hasBookCover(b.filePath);
+      j["author"] = "";
       arr.push_back(j);
     }
     nlohmann::json resp;
     resp["success"] = true;
     resp["books"] = arr;
-    res.setJsonContent(resp.dump(-1, ' ', false,
-                                nlohmann::json::error_handler_t::replace));
+    res.setJsonContent(
+        resp.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
     res.setStatus(200);
   } catch (const std::exception &e) {
     res.setStatus(500);

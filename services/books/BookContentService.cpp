@@ -138,7 +138,7 @@ std::string extractTagContent(const std::string &xml,
   }
   return "";
 }
-}
+} // namespace
 
 std::optional<BookContent>
 BookContentService::getContent(const std::string &filePath) {
@@ -394,23 +394,38 @@ std::string BookContentService::fb2SectionToHtml(const std::string &xml) {
   if (contentEnd == std::string::npos)
     contentEnd = xml.size();
   std::string content = xml.substr(contentStart, contentEnd - contentStart);
-  std::regex titleRegex(R"(<title[^>]*>([\s\S]*?)</title>)", std::regex::icase);
-  content = std::regex_replace(
-      content, titleRegex, [](const std::smatch &m) -> std::string {
-        std::string inner = m.str(1);
-        std::regex pRegex(R"(<p[^>]*>([\s\S]*?)</p>)", std::regex::icase);
-        std::string titleText;
-        std::sregex_iterator it(inner.begin(), inner.end(), pRegex);
-        std::sregex_iterator end;
-        for (; it != end; ++it) {
-          if (!titleText.empty())
-            titleText += " ";
-          titleText += (*it)[1].str();
-        }
-        std::regex innerTags("<[^>]+>");
-        titleText = std::regex_replace(titleText, innerTags, "");
-        return "<h2>" + titleText + "</h2>";
-      });
+
+  // --- <title>...</title> -> <h2>...</h2> (без лямбды в regex_replace) ---
+  {
+    std::regex titleRegex(R"(<title[^>]*>([\s\S]*?)</title>)",
+                          std::regex::icase);
+    std::string replaced;
+    replaced.reserve(content.size());
+    std::sregex_iterator it(content.begin(), content.end(), titleRegex);
+    std::sregex_iterator end;
+    size_t lastPos = 0;
+    for (; it != end; ++it) {
+      const std::smatch &m = *it;
+      replaced.append(content, lastPos, m.position() - lastPos);
+      std::string inner = m.str(1);
+      std::regex pRegex(R"(<p[^>]*>([\s\S]*?)</p>)", std::regex::icase);
+      std::string titleText;
+      std::sregex_iterator pit(inner.begin(), inner.end(), pRegex);
+      std::sregex_iterator pend;
+      for (; pit != pend; ++pit) {
+        if (!titleText.empty())
+          titleText += " ";
+        titleText += (*pit)[1].str();
+      }
+      std::regex innerTags("<[^>]+>");
+      titleText = std::regex_replace(titleText, innerTags, "");
+      replaced += "<h2>" + titleText + "</h2>";
+      lastPos = m.position() + m.length();
+    }
+    replaced.append(content, lastPos, std::string::npos);
+    content = std::move(replaced);
+  }
+
   std::regex emptyLineRegex(R"(<empty-line\s*/?>)", std::regex::icase);
   content = std::regex_replace(content, emptyLineRegex, "<br/>");
   std::regex citeOpenRegex(R"(<cite[^>]*>)", std::regex::icase);
@@ -433,15 +448,25 @@ std::string BookContentService::fb2SectionToHtml(const std::string &xml) {
   std::regex emphasisCloseRegex(R"(</emphasis>)", std::regex::icase);
   content = std::regex_replace(content, emphasisOpenRegex, "<em>");
   content = std::regex_replace(content, emphasisCloseRegex, "</em>");
-  std::regex linkRegex(
-      R"(<a[^>]*l:href="([^"]*)"[^> ] * > ([\s\S] * ?) < / a >) ",
-      std::regex::icase);
-  content = std::regex_replace(
-      content, linkRegex, [](const std::smatch &m) -> std::string {
-        std::string href = m.str(1);
-        std::string text = m.str(2);
-        return "<a href=\"" + href + "\">" + text + "</a>";
-      });
+  {
+    std::regex linkRegex(R"(<a[^>]*l:href=\"([^\"]*)\"[^>]*>([\s\S]*?)</a>)",
+                         std::regex::icase);
+    std::string replaced;
+    replaced.reserve(content.size());
+    std::sregex_iterator it(content.begin(), content.end(), linkRegex);
+    std::sregex_iterator end;
+    size_t lastPos = 0;
+    for (; it != end; ++it) {
+      const std::smatch &m = *it;
+      replaced.append(content, lastPos, m.position() - lastPos);
+      std::string href = m.str(1);
+      std::string text = m.str(2);
+      replaced += "<a href=\"" + href + "\">" + text + "</a>";
+      lastPos = m.position() + m.length();
+    }
+    replaced.append(content, lastPos, std::string::npos);
+    content = std::move(replaced);
+  }
   std::regex subtitleOpenRegex(R"(<subtitle[^>]*>)", std::regex::icase);
   std::regex subtitleCloseRegex(R"(</subtitle>)", std::regex::icase);
   content = std::regex_replace(content, subtitleOpenRegex, "<h3>");

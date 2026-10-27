@@ -1,6 +1,7 @@
 #include "core/MediaServerCore.h"
 #include "controllers/albums/AlbumArtController.h"
 #include "controllers/albums/AlbumManagementController.h"
+#include "controllers/books/AuthorInfoController.h"
 #include "controllers/books/BookController.h"
 #include "controllers/books/BookScanController.h"
 #include "controllers/books/BookmarkController.h"
@@ -14,7 +15,6 @@
 #include "controllers/system/MonitorController.h"
 #include "controllers/video/SubtitleController.h"
 #include "controllers/video/VideoController.h"
-#include "controllers/books/AuthorInfoController.h"
 #include "database/BookDatabase.h"
 #include "database/MusicDatabase.h"
 #include "database/PlaylistDatabase.h"
@@ -26,8 +26,6 @@
 #include "services/music/MetadataCache.h"
 #include "services/video/FileSystemService.h"
 #include "services/video/SubtitleService.h"
-#include <filesystem>
-#include <iostream>
 
 MediaServerCore::MediaServerCore(int argc, char *argv[])
     : profiler(std::make_unique<Profiler>(argc, argv)) {
@@ -110,7 +108,8 @@ bool MediaServerCore::initializeDatabases() {
     std::cerr << "Failed to initialize playlist database" << '\n';
     return false;
   }
-  std::cout << "Books database path: " << config.databasePath + "/books.db" << '\n';
+  std::cout << "Books database path: " << config.databasePath + "/books.db"
+            << '\n';
   bookDb = std::make_shared<BookDatabase>(config.databasePath + "/books.db");
   if (!bookDb->init()) {
     std::cerr << "Failed to initialize book database" << '\n';
@@ -205,8 +204,8 @@ bool MediaServerCore::initializeControllers() {
   } else {
     authorMetaPath = config.databasePath + "/author-metadata.json";
   }
-  authorInfoController = std::make_unique<AuthorInfoController>(
-      *app, bookService, authorMetaPath);
+  authorInfoController =
+      std::make_unique<AuthorInfoController>(*app, bookService, authorMetaPath);
   authorInfoController->register_routes();
   return true;
   return true;

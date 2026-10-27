@@ -1,188 +1,314 @@
 [
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DEventBus_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/EventBus.dir/events/EventBus.cpp.o -c /home/avr/code/projects/cpp/MediaServer/events/EventBus.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/events/EventBus.cpp",
+  "command": "/usr/bin/c++ -DEventBus_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/EventBus.dir/events/EventBus.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/events/EventBus.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/events/EventBus.cpp",
   "output": "CMakeFiles/EventBus.dir/events/EventBus.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DTagEditor_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/TagEditor.dir/tagger/TagEditor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/tagger/TagEditor.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/tagger/TagEditor.cpp",
+  "command": "/usr/bin/c++ -DTagEditor_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/TagEditor.dir/tagger/TagEditor.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/tagger/TagEditor.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/tagger/TagEditor.cpp",
   "output": "CMakeFiles/TagEditor.dir/tagger/TagEditor.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MetadataExtractor.dir/services/music/MetadataExtractor.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MetadataExtractor.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MetadataExtractor.cpp",
-  "output": "CMakeFiles/MetadataExtractor.dir/services/music/MetadataExtractor.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MetadataExtractor.dir/services/music/MetadataCache.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/MetadataCache.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/MetadataCache.cpp",
-  "output": "CMakeFiles/MetadataExtractor.dir/services/music/MetadataCache.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMusicDatabase_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicDatabase.dir/database/MusicDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/MusicDatabase.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/database/MusicDatabase.cpp",
+  "command": "/usr/bin/c++ -DMusicDatabase_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicDatabase.dir/database/MusicDatabase.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/database/MusicDatabase.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/database/MusicDatabase.cpp",
   "output": "CMakeFiles/MusicDatabase.dir/database/MusicDatabase.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMkvAudioTrackInfo_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MkvAudioTrackInfo.dir/models/MkvAudioTrackInfo.cpp.o -c /home/avr/code/projects/cpp/MediaServer/models/MkvAudioTrackInfo.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/models/MkvAudioTrackInfo.cpp",
+  "command": "/usr/bin/c++ -DMkvAudioTrackInfo_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MkvAudioTrackInfo.dir/models/MkvAudioTrackInfo.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/models/MkvAudioTrackInfo.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/models/MkvAudioTrackInfo.cpp",
   "output": "CMakeFiles/MkvAudioTrackInfo.dir/models/MkvAudioTrackInfo.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMusicRepository_EXPORTS -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicRepository.dir/repositories/MusicRepository.cpp.o -c /home/avr/code/projects/cpp/MediaServer/repositories/MusicRepository.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/repositories/MusicRepository.cpp",
-  "output": "CMakeFiles/MusicRepository.dir/repositories/MusicRepository.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaylist_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Playlist.dir/models/Playlist.cpp.o -c /home/avr/code/projects/cpp/MediaServer/models/Playlist.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/models/Playlist.cpp",
+  "command": "/usr/bin/c++ -DPlaylist_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Playlist.dir/models/Playlist.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/models/Playlist.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/models/Playlist.cpp",
   "output": "CMakeFiles/Playlist.dir/models/Playlist.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaylistDatabase_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistDatabase.dir/database/PlaylistDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/PlaylistDatabase.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/database/PlaylistDatabase.cpp",
+  "command": "/usr/bin/c++ -DPlaylistDatabase_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistDatabase.dir/database/PlaylistDatabase.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/database/PlaylistDatabase.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/database/PlaylistDatabase.cpp",
   "output": "CMakeFiles/PlaylistDatabase.dir/database/PlaylistDatabase.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DImageDatabase_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/ImageDatabase.dir/database/ImageDatabase.cpp.o -c /home/avr/code/projects/cpp/MediaServer/database/ImageDatabase.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/database/ImageDatabase.cpp",
-  "output": "CMakeFiles/ImageDatabase.dir/database/ImageDatabase.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaylistRepository_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistRepository.dir/repositories/PlaylistRepository.cpp.o -c /home/avr/code/projects/cpp/MediaServer/repositories/PlaylistRepository.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/repositories/PlaylistRepository.cpp",
-  "output": "CMakeFiles/PlaylistRepository.dir/repositories/PlaylistRepository.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DFileSystemService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/FileSystemService.dir/services/video/FileSystemService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/FileSystemService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/FileSystemService.cpp",
-  "output": "CMakeFiles/FileSystemService.dir/services/video/FileSystemService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DFileSystemService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/FileSystemService.dir/services/video/TrashHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/TrashHandler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/TrashHandler.cpp",
-  "output": "CMakeFiles/FileSystemService.dir/services/video/TrashHandler.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/video/PlaybackService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/PlaybackService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/PlaybackService.cpp",
-  "output": "CMakeFiles/PlaybackService.dir/services/video/PlaybackService.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/video/PlaybackStatus.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/PlaybackStatus.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/PlaybackStatus.cpp",
-  "output": "CMakeFiles/PlaybackService.dir/services/video/PlaybackStatus.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/player/AutoAdvanceTracker.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/AutoAdvanceTracker.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/AutoAdvanceTracker.cpp",
-  "output": "CMakeFiles/PlaybackService.dir/services/player/AutoAdvanceTracker.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DAlsaMixer_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AlsaMixer.dir/services/system/AlsaMixer.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/system/AlsaMixer.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/system/AlsaMixer.cpp",
-  "output": "CMakeFiles/AlsaMixer.dir/services/system/AlsaMixer.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DVideoControlHandler_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoControlHandler.dir/services/video/VideoControlHandler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/VideoControlHandler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/VideoControlHandler.cpp",
-  "output": "CMakeFiles/VideoControlHandler.dir/services/video/VideoControlHandler.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaylistManager_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistManager.dir/services/music/PlaylistManager.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/music/PlaylistManager.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/music/PlaylistManager.cpp",
-  "output": "CMakeFiles/PlaylistManager.dir/services/music/PlaylistManager.cpp.o"
-},
-{
-  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DProfiler_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Profiler.dir/profilers/Profiler.cpp.o -c /home/avr/code/projects/cpp/MediaServer/profilers/Profiler.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/profilers/Profiler.cpp",
+  "command": "/usr/bin/c++ -DProfiler_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Profiler.dir/profilers/Profiler.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/profilers/Profiler.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/profilers/Profiler.cpp",
   "output": "CMakeFiles/Profiler.dir/profilers/Profiler.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMusicScanController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicScanController.dir/controllers/music/MusicScanController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicScanController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicScanController.cpp",
+  "command": "/usr/bin/c++ -DAlsaMixer_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AlsaMixer.dir/services/system/AlsaMixer.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/system/AlsaMixer.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/system/AlsaMixer.cpp",
+  "output": "CMakeFiles/AlsaMixer.dir/services/system/AlsaMixer.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DWpVolumeControl_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/WpVolumeControl.dir/services/system/WpVolumeControl.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/system/WpVolumeControl.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/system/WpVolumeControl.cpp",
+  "output": "CMakeFiles/WpVolumeControl.dir/services/system/WpVolumeControl.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookDatabase_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookDatabase.dir/database/BookDatabase.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/database/BookDatabase.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/database/BookDatabase.cpp",
+  "output": "CMakeFiles/BookDatabase.dir/database/BookDatabase.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DFb2MetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/Fb2MetadataExtractor.dir/services/books/Fb2MetadataExtractor.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/books/Fb2MetadataExtractor.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/books/Fb2MetadataExtractor.cpp",
+  "output": "CMakeFiles/Fb2MetadataExtractor.dir/services/books/Fb2MetadataExtractor.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookService.dir/services/books/BookService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/books/BookService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/books/BookService.cpp",
+  "output": "CMakeFiles/BookService.dir/services/books/BookService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookController.dir/controllers/books/BookController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/books/BookController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/books/BookController.cpp",
+  "output": "CMakeFiles/BookController.dir/controllers/books/BookController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookRepository_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookRepository.dir/repositories/BookRepository.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/repositories/BookRepository.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/repositories/BookRepository.cpp",
+  "output": "CMakeFiles/BookRepository.dir/repositories/BookRepository.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookScanController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookScanController.dir/controllers/books/BookScanController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/books/BookScanController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/books/BookScanController.cpp",
+  "output": "CMakeFiles/BookScanController.dir/controllers/books/BookScanController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookScanner_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookScanner.dir/services/books/BookScanner.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/books/BookScanner.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/books/BookScanner.cpp",
+  "output": "CMakeFiles/BookScanner.dir/services/books/BookScanner.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DBookmarkController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/BookmarkController.dir/controllers/books/BookmarkController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/books/BookmarkController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/books/BookmarkController.cpp",
+  "output": "CMakeFiles/BookmarkController.dir/controllers/books/BookmarkController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MetadataExtractor.dir/services/music/MetadataExtractor.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/music/MetadataExtractor.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/music/MetadataExtractor.cpp",
+  "output": "CMakeFiles/MetadataExtractor.dir/services/music/MetadataExtractor.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMetadataExtractor_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MetadataExtractor.dir/services/music/MetadataCache.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/music/MetadataCache.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/music/MetadataCache.cpp",
+  "output": "CMakeFiles/MetadataExtractor.dir/services/music/MetadataCache.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMpvIpcClient_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MpvIpcClient.dir/services/player/MpvIpcClient.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/player/MpvIpcClient.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/player/MpvIpcClient.cpp",
+  "output": "CMakeFiles/MpvIpcClient.dir/services/player/MpvIpcClient.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DAudioPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AudioPlaybackService.dir/services/player/AudioPlaybackService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/player/AudioPlaybackService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/player/AudioPlaybackService.cpp",
+  "output": "CMakeFiles/AudioPlaybackService.dir/services/player/AudioPlaybackService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DAudioOutputService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AudioOutputService.dir/services/player/AudioOutputService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/player/AudioOutputService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/player/AudioOutputService.cpp",
+  "output": "CMakeFiles/AudioOutputService.dir/services/player/AudioOutputService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMusicRepository_EXPORTS -DTAGLIB_STATIC -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicRepository.dir/repositories/MusicRepository.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/repositories/MusicRepository.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/repositories/MusicRepository.cpp",
+  "output": "CMakeFiles/MusicRepository.dir/repositories/MusicRepository.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylistRepository_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistRepository.dir/repositories/PlaylistRepository.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/repositories/PlaylistRepository.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/repositories/PlaylistRepository.cpp",
+  "output": "CMakeFiles/PlaylistRepository.dir/repositories/PlaylistRepository.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DFileSystemService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/FileSystemService.dir/services/video/FileSystemService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/FileSystemService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/FileSystemService.cpp",
+  "output": "CMakeFiles/FileSystemService.dir/services/video/FileSystemService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DFileSystemService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/FileSystemService.dir/services/video/TrashHandler.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/TrashHandler.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/TrashHandler.cpp",
+  "output": "CMakeFiles/FileSystemService.dir/services/video/TrashHandler.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/video/PlaybackService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/PlaybackService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/PlaybackService.cpp",
+  "output": "CMakeFiles/PlaybackService.dir/services/video/PlaybackService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/video/PlaybackStatus.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/PlaybackStatus.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/PlaybackStatus.cpp",
+  "output": "CMakeFiles/PlaybackService.dir/services/video/PlaybackStatus.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaybackService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaybackService.dir/services/player/AutoAdvanceTracker.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/player/AutoAdvanceTracker.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/player/AutoAdvanceTracker.cpp",
+  "output": "CMakeFiles/PlaybackService.dir/services/player/AutoAdvanceTracker.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DVideoControlHandler_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoControlHandler.dir/services/video/VideoControlHandler.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/VideoControlHandler.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/VideoControlHandler.cpp",
+  "output": "CMakeFiles/VideoControlHandler.dir/services/video/VideoControlHandler.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPlaylistManager_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistManager.dir/services/music/PlaylistManager.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/music/PlaylistManager.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/music/PlaylistManager.cpp",
+  "output": "CMakeFiles/PlaylistManager.dir/services/music/PlaylistManager.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPowerService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PowerService.dir/services/system/PowerService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/system/PowerService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/system/PowerService.cpp",
+  "output": "CMakeFiles/PowerService.dir/services/system/PowerService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DPowerService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PowerService.dir/services/system/MonitorService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/system/MonitorService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/system/MonitorService.cpp",
+  "output": "CMakeFiles/PowerService.dir/services/system/MonitorService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMusicScanController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicScanController.dir/controllers/music/MusicScanController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicScanController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicScanController.cpp",
   "output": "CMakeFiles/MusicScanController.dir/controllers/music/MusicScanController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMusicLibraryController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicLibraryController.dir/controllers/music/MusicLibraryController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/music/MusicLibraryController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/music/MusicLibraryController.cpp",
+  "command": "/usr/bin/c++ -DMusicLibraryController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicLibraryController.dir/controllers/music/MusicLibraryController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicLibraryController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicLibraryController.cpp",
   "output": "CMakeFiles/MusicLibraryController.dir/controllers/music/MusicLibraryController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlaylistController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistController.dir/controllers/playlists/PlaylistController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/playlists/PlaylistController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/playlists/PlaylistController.cpp",
-  "output": "CMakeFiles/PlaylistController.dir/controllers/playlists/PlaylistController.cpp.o"
+  "command": "/usr/bin/c++ -DMusicMetadataController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicMetadataController.dir/controllers/music/MusicMetadataController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicMetadataController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicMetadataController.cpp",
+  "output": "CMakeFiles/MusicMetadataController.dir/controllers/music/MusicMetadataController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlayerController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlayerController.dir/controllers/player/PlayerController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/player/PlayerController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/player/PlayerController.cpp",
+  "command": "/usr/bin/c++ -DPlayerController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlayerController.dir/controllers/player/PlayerController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/player/PlayerController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/player/PlayerController.cpp",
   "output": "CMakeFiles/PlayerController.dir/controllers/player/PlayerController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DPlayerController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlayerController.dir/services/player/AudioOutputSwitcher.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/player/AudioOutputSwitcher.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/player/AudioOutputSwitcher.cpp",
+  "command": "/usr/bin/c++ -DPlayerController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlayerController.dir/services/player/AudioOutputSwitcher.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/player/AudioOutputSwitcher.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/player/AudioOutputSwitcher.cpp",
   "output": "CMakeFiles/PlayerController.dir/services/player/AudioOutputSwitcher.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DVideoThumbnailer_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -isystem /usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoThumbnailer.dir/services/video/VideoThumbnailer.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/VideoThumbnailer.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/VideoThumbnailer.cpp",
-  "output": "CMakeFiles/VideoThumbnailer.dir/services/video/VideoThumbnailer.cpp.o"
+  "command": "/usr/bin/c++ -DMusicPlaybackController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MusicPlaybackController.dir/controllers/music/MusicPlaybackController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicPlaybackController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/music/MusicPlaybackController.cpp",
+  "output": "CMakeFiles/MusicPlaybackController.dir/controllers/music/MusicPlaybackController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DVideoController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/opencv5 -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoController.dir/controllers/video/VideoController.cpp.o -c /home/avr/code/projects/cpp/MediaServer/controllers/video/VideoController.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/controllers/video/VideoController.cpp",
+  "command": "/usr/bin/c++ -DPlaylistController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PlaylistController.dir/controllers/playlists/PlaylistController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/playlists/PlaylistController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/playlists/PlaylistController.cpp",
+  "output": "CMakeFiles/PlaylistController.dir/controllers/playlists/PlaylistController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DVideoController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoController.dir/controllers/video/VideoController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/video/VideoController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/video/VideoController.cpp",
   "output": "CMakeFiles/VideoController.dir/controllers/video/VideoController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DVideoController_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/opencv5 -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoController.dir/services/video/StaticFileService.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/StaticFileService.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/StaticFileService.cpp",
+  "command": "/usr/bin/c++ -DVideoController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/VideoController.dir/services/video/StaticFileService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/StaticFileService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/StaticFileService.cpp",
   "output": "CMakeFiles/VideoController.dir/services/video/StaticFileService.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DDirectoryWatcher_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/DirectoryWatcher.dir/services/video/DirectoryWatcher.cpp.o -c /home/avr/code/projects/cpp/MediaServer/services/video/DirectoryWatcher.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/services/video/DirectoryWatcher.cpp",
-  "output": "CMakeFiles/DirectoryWatcher.dir/services/video/DirectoryWatcher.cpp.o"
+  "command": "/usr/bin/c++ -DPowerController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/PowerController.dir/controllers/power/PowerController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/power/PowerController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/power/PowerController.cpp",
+  "output": "CMakeFiles/PowerController.dir/controllers/power/PowerController.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++ -DMediaServerCore_EXPORTS -I/home/avr/code/projects/cpp/MediaServer/. -I/home/avr/code/projects/cpp/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/opencv5 -isystem /usr/include/taglib -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MediaServerCore.dir/core/MediaServerCore.cpp.o -c /home/avr/code/projects/cpp/MediaServer/core/MediaServerCore.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/core/MediaServerCore.cpp",
+  "command": "/usr/bin/c++ -DAlbumArtController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AlbumArtController.dir/controllers/albums/AlbumArtController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/albums/AlbumArtController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/albums/AlbumArtController.cpp",
+  "output": "CMakeFiles/AlbumArtController.dir/controllers/albums/AlbumArtController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DAlbumManagementController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AlbumManagementController.dir/controllers/albums/AlbumManagementController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/albums/AlbumManagementController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/albums/AlbumManagementController.cpp",
+  "output": "CMakeFiles/AlbumManagementController.dir/controllers/albums/AlbumManagementController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMonitorController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MonitorController.dir/controllers/system/MonitorController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/system/MonitorController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/system/MonitorController.cpp",
+  "output": "CMakeFiles/MonitorController.dir/controllers/system/MonitorController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DSubtitleController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/SubtitleController.dir/controllers/video/SubtitleController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/video/SubtitleController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/video/SubtitleController.cpp",
+  "output": "CMakeFiles/SubtitleController.dir/controllers/video/SubtitleController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DAuthorInfoController_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/AuthorInfoController.dir/controllers/books/AuthorInfoController.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/controllers/books/AuthorInfoController.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/controllers/books/AuthorInfoController.cpp",
+  "output": "CMakeFiles/AuthorInfoController.dir/controllers/books/AuthorInfoController.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DSubtitleTrackInfo_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/SubtitleTrackInfo.dir/models/SubtitleTrackInfo.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/models/SubtitleTrackInfo.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/models/SubtitleTrackInfo.cpp",
+  "output": "CMakeFiles/SubtitleTrackInfo.dir/models/SubtitleTrackInfo.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DSubtitleService_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/SubtitleService.dir/services/video/SubtitleService.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/services/video/SubtitleService.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/services/video/SubtitleService.cpp",
+  "output": "CMakeFiles/SubtitleService.dir/services/video/SubtitleService.cpp.o"
+},
+{
+  "directory": "/home/avr/code/projects/cpp/build/MediaServer",
+  "command": "/usr/bin/c++ -DMediaServerCore_EXPORTS -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -isystem /usr/include/taglib  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIC -o CMakeFiles/MediaServerCore.dir/core/MediaServerCore.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/core/MediaServerCore.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/core/MediaServerCore.cpp",
   "output": "CMakeFiles/MediaServerCore.dir/core/MediaServerCore.cpp.o"
 },
 {
   "directory": "/home/avr/code/projects/cpp/build/MediaServer",
-  "command": "/usr/bin/c++  -I/home/avr/code/projects/cpp/MediaServer/. -I/usr/include/opencv5 -O2 -DNDEBUG -std=gnu++23 -fPIE -o CMakeFiles/MediaServer.dir/main.cpp.o -c /home/avr/code/projects/cpp/MediaServer/main.cpp",
-  "file": "/home/avr/code/projects/cpp/MediaServer/main.cpp",
+  "command": "/usr/bin/c++  -I/home/avr/code/projects/cpp/source/MediaServer -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include  -fsanitize=address -fno-omit-frame-pointer -O2 -DNDEBUG -std=gnu++23 -fPIE -o CMakeFiles/MediaServer.dir/main.cpp.o -c /home/avr/code/projects/cpp/source/MediaServer/main.cpp",
+  "file": "/home/avr/code/projects/cpp/source/MediaServer/main.cpp",
   "output": "CMakeFiles/MediaServer.dir/main.cpp.o"
 }
 ]
