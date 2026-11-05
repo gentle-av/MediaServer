@@ -22,17 +22,14 @@ public:
 private:
   AlsaMixer();
   ~AlsaMixer();
-
   AlsaMixer(const AlsaMixer &) = delete;
   AlsaMixer &operator=(const AlsaMixer &) = delete;
-
   bool executeAmixer(const std::string &command, std::string &output);
   int parseVolumeFromOutput(const std::string &output);
   void detectCurrentOutput();
   void detectCurrentOutputUnlocked();
   bool init();
   bool runAmixerRaw(const std::string &command, std::string &output);
-
   std::recursive_mutex mutex;
   std::string controlName;
   int currentVolume;

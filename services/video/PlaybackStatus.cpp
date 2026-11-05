@@ -65,6 +65,9 @@ Json::Value PlaybackStatus::getStatus(const std::string &activeSocket) {
       }
     }
   }
+  std::string aidResponse;
+  playbackService.getProperty(activeSocket, "aid", aidResponse);
+  double audioTrackIndex = parsePropertyValue(aidResponse, "aid");
   response["success"] = true;
   response["playing"] = true;
   response["paused"] = isPaused;
@@ -72,6 +75,8 @@ Json::Value PlaybackStatus::getStatus(const std::string &activeSocket) {
   response["duration"] = duration;
   response["progress"] = duration > 0 ? (currentTime / duration * 100) : 0;
   response["currentFile"] = currentFile;
+  response["audioTrackIndex"] = static_cast<int>(audioTrackIndex);
+
   return response;
 }
 
