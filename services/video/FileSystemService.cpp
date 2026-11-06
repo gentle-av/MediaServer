@@ -13,58 +13,34 @@ FileSystemService &FileSystemService::getInstance() {
   return instance;
 }
 
-static bool executeCommand(const std::vector<std::string> &args) {
-  if (args.empty())
-    return false;
-  std::vector<char *> argv;
-  for (const auto &arg : args) {
-    argv.push_back(const_cast<char *>(arg.c_str()));
-  }
-  argv.push_back(nullptr);
-  pid_t pid = fork();
-  if (pid == -1)
-    return false;
-  if (pid == 0) {
-    execvp(argv[0], argv.data());
-    _exit(127);
-  }
-  int status;
-  waitpid(pid, &status, 0);
-  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
-
 Json::Value FileSystemService::listDirectory(const std::string &path) {
-  std::cout << "[DEBUG] listDirectory called with path: " << path << std::endl;
   Json::Value result;
   std::vector<Json::Value> items;
   if (!fs::exists(path) || !fs::is_directory(path)) {
-    std::cout << "[DEBUG] Path does not exist or is not a directory: " << path
-              << std::endl;
     result["success"] = false;
     result["error"] = "Directory not found: " + path;
     return result;
   }
-  std::cout << "[DEBUG] Iterating directory: " << path << std::endl;
   for (const auto &entry : fs::directory_iterator(path)) {
     Json::Value item;
     std::string name = entry.path().filename().string();
+
     if (!name.empty() && name[0] == '.') {
       continue;
     }
-    item["name"] = entry.path().filename().string();
+    bool isDir = entry.is_directory();
+    item["name"] = name;
     item["path"] = entry.path().string();
-    item["isDirectory"] = entry.is_directory();
-    std::cout << "[DEBUG] Found in " << path << ": " << item["name"].asString()
-              << std::endl;
-    if (entry.is_regular_file()) {
-      item["size"] = formatFileSize(entry.file_size());
-      std::string ext = entry.path().extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-      item["isVideo"] = isVideoFile(ext);
-      item["icon"] = getIconForFile(ext);
-    } else {
+    item["isDirectory"] = isDir;
+    if (isDir) {
       item["icon"] = "folder";
       item["isVideo"] = false;
+    } else {
+      std::string ext = entry.path().extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+      item["isVideo"] = isVideoFile(ext);
+      item["icon"] = getIconForFile(ext);
     }
     items.push_back(item);
   }
@@ -83,9 +59,27 @@ Json::Value FileSystemService::listDirectory(const std::string &path) {
   result["items"] = itemsArray;
   result["success"] = true;
   result["path"] = path;
-  std::cout << "[DEBUG] Returning result for path: " << path << " with "
-            << items.size() << " items" << std::endl;
   return result;
+}
+
+static bool executeCommand(const std::vector<std::string> &args) {
+  if (args.empty())
+    return false;
+  std::vector<char *> argv;
+  for (const auto &arg : args) {
+    argv.push_back(const_cast<char *>(arg.c_str()));
+  }
+  argv.push_back(nullptr);
+  pid_t pid = fork();
+  if (pid == -1)
+    return false;
+  if (pid == 0) {
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  int status;
+  waitpid(pid, &status, 0);
+  return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 bool FileSystemService::moveToTrash(const std::string &path) {
