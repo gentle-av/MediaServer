@@ -73,6 +73,7 @@ add_library(BookScanner SHARED services/books/BookScanner.cpp)
 add_library(BookRepository SHARED repositories/BookRepository.cpp)
 add_library(BookmarkController SHARED controllers/books/BookmarkController.cpp)
 add_library(BookContentService SHARED services/books/BookContentService.cpp)
+add_library(Fb2Parser SHARED services/books/Fb2Parser.cpp)
 
 target_link_libraries(BookDatabase ${commonLibs})
 target_link_libraries(BookService BookDatabase ${commonLibs})
@@ -226,7 +227,7 @@ install(TARGETS
     PlaylistController PlayerController VideoController PowerService PowerController
     AlbumArtController AlbumManagementController MonitorController MediaServerCore WpVolumeControl
     Fb2MetadataExtractor BookmarkController BookController BookService BookDatabase
-    BookScanner BookRepository BookScanController AuthorInfoController BookContentService
+    BookScanner BookRepository BookScanController AuthorInfoController BookContentService Fb2Parser
     LIBRARY DESTINATION lib/media-explorer/
 )
 
