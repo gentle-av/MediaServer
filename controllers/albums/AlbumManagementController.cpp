@@ -1,7 +1,6 @@
 #include "AlbumManagementController.h"
 #include "../../services/video/FileSystemService.h"
 #include <filesystem>
-
 namespace fs = std::filesystem;
 
 StringHttpResponse
@@ -60,37 +59,25 @@ AlbumManagementController::handleDeleteAlbum(const StringHttpRequest &req) {
       }
     }
     std::string artistPath = fs::path(folderPath).parent_path().string();
-    bool purgeArtist = false;
-    int artistDeleted = 0;
-    if (!artistPath.empty() && fs::exists(artistPath)) {
-      auto remainingAlbums = db->getAlbumsRaw(targetArtist);
-      bool hasAlbums = false;
-      for (const auto &[album, artist, year] : remainingAlbums) {
-        if (artist == targetArtist) {
-          hasAlbums = true;
-          break;
-        }
-      }
-      if (!hasAlbums) {
-        bool hasFiles = false;
-        try {
-          for (const auto &entry :
-               fs::recursive_directory_iterator(artistPath)) {
-            if (fs::is_regular_file(entry.path())) {
-              hasFiles = true;
-              break;
-            }
+    bool artistFolderDeleted = false;
+    if (!artistPath.empty() && fs::exists(artistPath) &&
+        fs::is_directory(artistPath)) {
+      bool artistHasFilesOnDisk = false;
+      try {
+        for (const auto &entry : fs::recursive_directory_iterator(artistPath)) {
+          if (fs::is_regular_file(entry.path())) {
+            artistHasFilesOnDisk = true;
+            break;
           }
-        } catch (...) {
         }
-        if (!hasFiles) {
-          purgeArtist = true;
-        }
+      } catch (...) {
       }
-    }
-    if (purgeArtist && fs::exists(artistPath)) {
-      if (fsService.moveToTrash(artistPath)) {
-        artistDeleted = 1;
+      bool artistHasFilesInDb =
+          musicRepository.countFilesInFolder(artistPath) > 0;
+      if (!artistHasFilesOnDisk && !artistHasFilesInDb) {
+        if (fsService.moveToTrash(artistPath)) {
+          artistFolderDeleted = true;
+        }
       }
     }
     musicRepository.waitForPendingReload();
@@ -101,8 +88,8 @@ AlbumManagementController::handleDeleteAlbum(const StringHttpRequest &req) {
     responseData["album"] = targetAlbum;
     responseData["artist"] = targetArtist;
     responseData["albumFolder"] = folderPath;
-    responseData["artistFolderDeleted"] = (artistDeleted == 1);
-    if (purgeArtist) {
+    responseData["artistFolderDeleted"] = artistFolderDeleted;
+    if (artistFolderDeleted) {
       responseData["artistFolder"] = artistPath;
     }
     response.setStatus(200);
