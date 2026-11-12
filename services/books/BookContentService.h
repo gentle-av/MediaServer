@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 struct BookSection {
@@ -29,8 +30,7 @@ struct BookContent {
 
 class BookContentService {
 public:
-  BookContentService() = default;
-  ~BookContentService() = default;
+  static BookContentService &getInstance();
   std::optional<BookContent> getContent(const std::string &filePath);
   std::optional<BookSection> getSection(const std::string &filePath,
                                         int sectionIndex);
@@ -44,16 +44,17 @@ public:
   void invalidateAllCache();
   size_t getCacheSize() const;
   void setMaxCacheSize(size_t maxSize);
+
 private:
+  BookContentService() = default;
+  ~BookContentService() = default;
+  BookContentService(const BookContentService &) = delete;
+  BookContentService &operator=(const BookContentService &) = delete;
   std::shared_ptr<BookContent> parseFb2(const std::string &filePath);
-  std::string fb2SectionToHtml(const std::string &xml);
-  std::string ensureUtf8(const std::string &xml);
-  std::string extractSectionTitle(const std::string &sectionXml);
-  std::string stripHtmlTags(const std::string &html);
+  std::shared_ptr<BookContent> getOrLoad(const std::string &filePath);
+  void evictIfNeeded();
   std::unordered_map<std::string, std::shared_ptr<BookContent>> cache;
   std::vector<std::string> cacheOrder;
   mutable std::mutex cacheMutex;
   size_t maxCacheSize = 20;
-  std::shared_ptr<BookContent> getOrLoad(const std::string &filePath);
-  void evictIfNeeded();
 };

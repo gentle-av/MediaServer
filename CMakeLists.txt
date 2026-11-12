@@ -75,6 +75,7 @@ add_library(BookmarkController SHARED controllers/books/BookmarkController.cpp)
 add_library(BookContentService SHARED services/books/BookContentService.cpp)
 add_library(Fb2Parser SHARED services/books/Fb2Parser.cpp)
 
+target_link_libraries(BookContentService Fb2Parser)
 target_link_libraries(BookDatabase ${commonLibs})
 target_link_libraries(BookService BookDatabase ${commonLibs})
 target_link_libraries(BookController BookService BookContentService ${commonLibs})

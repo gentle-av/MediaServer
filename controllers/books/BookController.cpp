@@ -1,7 +1,6 @@
 #include "BookController.h"
 #include "../../services/books/BookContentService.h"
 #include <filesystem>
-#include <iostream>
 #include <map>
 #include <sstream>
 
@@ -9,7 +8,6 @@ StringHttpResponse
 BookController::handleGetBookContent(const StringHttpRequest &req) {
   StringHttpResponse res;
   try {
-    std::locale::global(std::locale("ru_RU.UTF-8"));
     auto json = nlohmann::json::parse(req.getBodyString());
     std::string path = json.value("path", "");
     if (path.empty() || !std::filesystem::exists(path)) {
@@ -20,8 +18,8 @@ BookController::handleGetBookContent(const StringHttpRequest &req) {
       res.setStatus(404);
       return res;
     }
-    BookContentService contentExtractor;
-    auto bookData = contentExtractor.getContent(path);
+    auto &contentService = BookContentService::getInstance();
+    auto bookData = contentService.getContent(path);
     if (!bookData.has_value() || bookData->sections.empty()) {
       nlohmann::json resp;
       resp["success"] = false;
@@ -30,18 +28,20 @@ BookController::handleGetBookContent(const StringHttpRequest &req) {
       res.setStatus(422);
       return res;
     }
-    std::string fullHtmlContent = "";
-    for (const auto &section : bookData->sections) {
+    size_t totalSize = 0;
+    for (const auto &section : bookData->sections)
+      totalSize += section.html.size();
+    std::string fullHtmlContent;
+    fullHtmlContent.reserve(totalSize);
+    for (const auto &section : bookData->sections)
       fullHtmlContent += section.html;
-    }
     nlohmann::json resp;
     resp["success"] = true;
-    resp["content"] = fullHtmlContent;
+    resp["content"] = std::move(fullHtmlContent);
     res.setJsonContent(
         resp.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
     res.setStatus(200);
   } catch (const std::exception &e) {
-    std::cerr << "❌ [BookController] Exception: " << e.what() << std::endl;
     nlohmann::json resp;
     resp["success"] = false;
     resp["error"] = e.what();
@@ -319,6 +319,7 @@ BookController::handleDeleteBook(const StringHttpRequest &req) {
   StringHttpResponse res;
   std::string path = req.getQuery("path");
   if (bookService->removeBook(path)) {
+    BookContentService::getInstance().invalidateCache(path);
     res.setJsonContent(this->success_response("Book removed").dump());
     res.setStatus(200);
   } else {
