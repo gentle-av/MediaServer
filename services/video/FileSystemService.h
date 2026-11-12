@@ -17,6 +17,7 @@ public:
   bool fileExists(const std::string &path);
   bool isDirectory(const std::string &path);
   void setAllowedPaths(const std::vector<std::string> &paths);
+  bool removeEmptyParentDirectory(const std::string &filePath);
 
 private:
   FileSystemService() = default;

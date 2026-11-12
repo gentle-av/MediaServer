@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
-
 namespace fs = std::filesystem;
 
 FileSystemService &FileSystemService::getInstance() {
@@ -24,7 +23,6 @@ Json::Value FileSystemService::listDirectory(const std::string &path) {
   for (const auto &entry : fs::directory_iterator(path)) {
     Json::Value item;
     std::string name = entry.path().filename().string();
-
     if (!name.empty() && name[0] == '.') {
       continue;
     }
@@ -38,7 +36,6 @@ Json::Value FileSystemService::listDirectory(const std::string &path) {
     } else {
       std::string ext = entry.path().extension().string();
       std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
       item["isVideo"] = isVideoFile(ext);
       item["icon"] = getIconForFile(ext);
     }
@@ -176,4 +173,20 @@ bool FileSystemService::fileExists(const std::string &path) {
 
 bool FileSystemService::isDirectory(const std::string &path) {
   return fs::is_directory(path);
+}
+
+bool FileSystemService::removeEmptyParentDirectory(
+    const std::string &filePath) {
+  try {
+    fs::path parent = fs::path(filePath).parent_path();
+    if (parent.empty() || !fs::exists(parent) || !fs::is_directory(parent))
+      return false;
+    if (fs::is_empty(parent)) {
+      std::vector<std::string> cmd = {"kioclient5", "move", parent.string(),
+                                      "trash:/"};
+      return executeCommand(cmd);
+    }
+  } catch (...) {
+  }
+  return false;
 }
