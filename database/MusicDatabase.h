@@ -35,6 +35,7 @@ public:
   getAlbumsRaw(const std::string &artistFilter = "");
   std::string getFilePathByAlbumRaw(const std::string &albumName,
                                     const std::string &artistName = "");
+  int countFilesInFolder(const std::string &folderPath);
 
 private:
   class Impl;

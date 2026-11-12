@@ -11,7 +11,6 @@ public:
     if (db)
       sqlite3_close(db);
   }
-
   bool init() {
     if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) {
       return false;
@@ -20,24 +19,24 @@ public:
     char *errorText = nullptr;
     sqlite3_exec(db, encodingQuery, nullptr, nullptr, &errorText);
     const char *tableStructureQuery = R"(
-            CREATE TABLE IF NOT EXISTS music_files (
-                file_path TEXT PRIMARY KEY,
-                title TEXT,
-                artist TEXT,
-                album TEXT,
-                duration INTEGER,
-                track INTEGER,
-                year INTEGER,
-                genre TEXT,
-                last_scan TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS album_art (
-                file_path TEXT PRIMARY KEY,
-                art_data BLOB,
-                mime_type TEXT,
-                FOREIGN KEY(file_path) REFERENCES music_files(file_path) ON DELETE CASCADE
-            );
-        )";
+    CREATE TABLE IF NOT EXISTS music_files (
+    file_path TEXT PRIMARY KEY,
+    title TEXT,
+    artist TEXT,
+    album TEXT,
+    duration INTEGER,
+    track INTEGER,
+    year INTEGER,
+    genre TEXT,
+    last_scan TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS album_art (
+    file_path TEXT PRIMARY KEY,
+    art_data BLOB,
+    mime_type TEXT,
+    FOREIGN KEY(file_path) REFERENCES music_files(file_path) ON DELETE CASCADE
+    );
+    )";
     if (sqlite3_exec(db, tableStructureQuery, nullptr, nullptr, &errorText) !=
         SQLITE_OK) {
       sqlite3_free(errorText);
@@ -45,7 +44,6 @@ public:
     }
     return true;
   }
-
   sqlite3 *getDb() { return db; }
 
 private:
@@ -55,7 +53,6 @@ private:
 
 MusicDatabase::MusicDatabase(const std::string &dbPath)
     : pImpl(std::make_unique<Impl>(dbPath)) {}
-
 MusicDatabase::~MusicDatabase() = default;
 
 bool MusicDatabase::init() { return pImpl->init(); }
@@ -439,4 +436,23 @@ std::vector<std::string> MusicDatabase::getArtistsRaw() {
     sqlite3_finalize(statementHandle);
   }
   return artists;
+}
+
+int MusicDatabase::countFilesInFolder(const std::string &folderPath) {
+  std::lock_guard<std::mutex> lock(pImpl->databaseMutex);
+  const char *sqlQuery =
+      "SELECT COUNT(*) FROM music_files WHERE file_path LIKE ?";
+  sqlite3_stmt *statementHandle;
+  int count = 0;
+  if (sqlite3_prepare_v2(pImpl->getDb(), sqlQuery, -1, &statementHandle,
+                         nullptr) == SQLITE_OK) {
+    std::string pattern = folderPath + "/%";
+    sqlite3_bind_text(statementHandle, 1, pattern.c_str(), -1,
+                      SQLITE_TRANSIENT);
+    if (sqlite3_step(statementHandle) == SQLITE_ROW) {
+      count = sqlite3_column_int(statementHandle, 0);
+    }
+    sqlite3_finalize(statementHandle);
+  }
+  return count;
 }
