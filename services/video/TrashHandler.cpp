@@ -35,6 +35,8 @@ Json::Value TrashHandler::handleMoveToTrash(const std::string &path) {
   if (result) {
     response["success"] = true;
     response["message"] = "File moved to trash";
+    bool parentRemoved = fsService.removeEmptyParentDirectory(path);
+    response["parentRemoved"] = parentRemoved;
   } else {
     response["success"] = false;
     response["error"] = "Failed to move file to trash";
