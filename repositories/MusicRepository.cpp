@@ -2,7 +2,6 @@
 #include "../services/music/MetadataExtractor.h"
 #include <filesystem>
 #include <unordered_set>
-
 namespace fs = std::filesystem;
 
 MusicRepository::MusicRepository(std::shared_ptr<MusicDatabase> db)
@@ -360,4 +359,8 @@ void MusicRepository::waitForPendingReload() {
   refreshAllTracksCache();
   refreshArtistsCache();
   refreshAlbumsCache("");
+}
+
+int MusicRepository::countFilesInFolder(const std::string &folderPath) const {
+  return db->countFilesInFolder(folderPath);
 }
